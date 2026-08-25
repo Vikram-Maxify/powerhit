@@ -162,13 +162,6 @@ bidSchema.methods.checkWin = function(winningNumber) {
     case 'jodi':
       return winningNumStr === bidNumStr;
       
-    // case 'panna':
-    //   return winningNumStr === bidNumStr;
-      
-    // case 'half-sangam':
-    //   // Check if either 1-digit or 3-digit matches
-    //   return winningNumStr === bidNumStr || 
-    //          winningNumStr.slice(-1) === bidNumStr.slice(-1);
              
     case 'full-sangam':
       // Check last 2 digits
