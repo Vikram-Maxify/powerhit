@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { adminLogin, clearError } from "../redux/adminAuthSlice";
+import {
+  adminLogin,
+  clearError,
+} from "../redux/adminAuthSlice";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
@@ -11,7 +14,10 @@ const Login = () => {
     loading,
     error,
     isAuthenticated,
-  } = useSelector((state) => state.adminAuth);
+    admin,
+  } = useSelector(
+    (state) => state.adminAuth
+  );
 
   const [form, setForm] = useState({
     mobile: "",
@@ -31,11 +37,29 @@ const Login = () => {
     dispatch(adminLogin(form));
   };
 
+  // ==========================================
+  // ONLY ADMIN CAN REDIRECT
+  // ==========================================
+
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/admin/dashboard");
+    if (
+      isAuthenticated &&
+      admin?.role === "admin"
+    ) {
+      navigate(
+        "/admin/dashboard",
+        { replace: true }
+      );
     }
-  }, [isAuthenticated, navigate]);
+  }, [
+    isAuthenticated,
+    admin,
+    navigate,
+  ]);
+
+  // ==========================================
+  // CLEAR ERROR ON UNMOUNT
+  // ==========================================
 
   useEffect(() => {
     return () => {
@@ -87,7 +111,9 @@ const Login = () => {
               : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading
+            ? "Logging in..."
+            : "Login"}
         </button>
       </form>
 

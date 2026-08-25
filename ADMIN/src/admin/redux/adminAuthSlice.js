@@ -1,13 +1,25 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { api } from "./api";
 
-// ================= ADMIN LOGIN =================
+// ======================================================
+// ADMIN LOGIN
+// ======================================================
 
 export const adminLogin = createAsyncThunk(
   "adminAuth/login",
   async (credentials, { rejectWithValue }) => {
     try {
       const { data } = await api.post("/auth/login", credentials);
+
+      // ============================================
+      // ROLE CHECK
+      // ============================================
+      if (data?.user?.role !== "admin") {
+        return rejectWithValue(
+          "Access denied. Only admin users can login."
+        );
+      }
+
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -17,23 +29,40 @@ export const adminLogin = createAsyncThunk(
   }
 );
 
-// ================= ADMIN PROFILE =================
+// ======================================================
+// GET ADMIN PROFILE
+// ======================================================
 
 export const getAdminProfile = createAsyncThunk(
   "adminAuth/profile",
   async (_, { rejectWithValue }) => {
     try {
       const { data } = await api.get("/auth/profile");
+
+      // ============================================
+      // ROLE CHECK
+      // ============================================
+      const adminUser = data?.user || data;
+
+      if (adminUser?.role !== "admin") {
+        return rejectWithValue(
+          "Access denied. Admin access required."
+        );
+      }
+
       return data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to load profile"
+        error.response?.data?.message ||
+          "Failed to load profile"
       );
     }
   }
 );
 
-// ================= UPDATE PROFILE =================
+// ======================================================
+// UPDATE ADMIN PROFILE
+// ======================================================
 
 export const updateAdminProfile = createAsyncThunk(
   "adminAuth/updateProfile",
@@ -48,13 +77,15 @@ export const updateAdminProfile = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message ||
-        "Profile update failed"
+          "Profile update failed"
       );
     }
   }
 );
 
-// ================= CHANGE PASSWORD =================
+// ======================================================
+// CHANGE ADMIN PASSWORD
+// ======================================================
 
 export const changeAdminPassword = createAsyncThunk(
   "adminAuth/changePassword",
@@ -69,34 +100,44 @@ export const changeAdminPassword = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message ||
-        "Password change failed"
+          "Password change failed"
       );
     }
   }
 );
 
-// ================= GET ALL USERS =================
+// ======================================================
+// GET ALL USERS
+// ======================================================
 
 export const getAllUsers = createAsyncThunk(
   "adminAuth/getAllUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await api.get("/auth/admin/users"); // apna route likho
+      const { data } = await api.get(
+        "/auth/admin/users"
+      );
 
       return data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to fetch users"
+        error.response?.data?.message ||
+          "Failed to fetch users"
       );
     }
   }
 );
 
-// ================= UPDATE USER STATUS =================
+// ======================================================
+// UPDATE USER STATUS
+// ======================================================
 
 export const updateUserStatus = createAsyncThunk(
   "adminAuth/updateUserStatus",
-  async ({ userId, status }, { rejectWithValue }) => {
+  async (
+    { userId, status },
+    { rejectWithValue }
+  ) => {
     try {
       const { data } = await api.put(
         `/auth/admin/users/${userId}/status`,
@@ -111,30 +152,37 @@ export const updateUserStatus = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message ||
-        "Failed to update user status"
+          "Failed to update user status"
       );
     }
   }
 );
 
-// ================= LOGOUT =================
+// ======================================================
+// LOGOUT
+// ======================================================
 
 export const adminLogout = createAsyncThunk(
   "adminAuth/logout",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await api.post("/auth/logout");
+      const { data } = await api.post(
+        "/auth/logout"
+      );
+
       return data;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message ||
-        "Logout failed"
+          "Logout failed"
       );
     }
   }
 );
 
-// ================= INITIAL STATE =================
+// ======================================================
+// INITIAL STATE
+// ======================================================
 
 const initialState = {
   loading: false,
@@ -142,21 +190,28 @@ const initialState = {
   error: null,
   message: "",
 
+  // Logged-in admin/user
   admin: null,
 
-  users: [],      // ADD
-  userCount: 0,   // ADD
+  // Users
+  users: [],
+  userCount: 0,
 
+  // Token
   token: localStorage.getItem("adminToken") || null,
 
-  isAuthenticated: !!localStorage.getItem("adminToken"),
+  // Authentication
+  isAuthenticated:
+    !!localStorage.getItem("adminToken"),
 
+  // Profile
   profileLoaded: false,
-
   isProfileLoading: false,
 };
 
-// ================= SLICE =================
+// ======================================================
+// SLICE
+// ======================================================
 
 const adminAuthSlice = createSlice({
   name: "adminAuth",
@@ -164,18 +219,34 @@ const adminAuthSlice = createSlice({
   initialState,
 
   reducers: {
+    // --------------------------------------------
+    // CLEAR ERROR
+    // --------------------------------------------
+
     clearError: (state) => {
       state.error = null;
     },
+
+    // --------------------------------------------
+    // CLEAR MESSAGE
+    // --------------------------------------------
 
     clearMessage: (state) => {
       state.message = "";
       state.success = false;
     },
 
+    // --------------------------------------------
+    // RESET PROFILE LOADED
+    // --------------------------------------------
+
     resetProfileLoaded: (state) => {
       state.profileLoaded = false;
     },
+
+    // --------------------------------------------
+    // RESET ADMIN STATE
+    // --------------------------------------------
 
     resetAdminState: (state) => {
       state.loading = false;
@@ -200,248 +271,415 @@ const adminAuthSlice = createSlice({
   extraReducers: (builder) => {
     builder
 
-      // ================= LOGIN =================
+      // ==================================================
+      // ADMIN LOGIN
+      // ==================================================
 
-      .addCase(adminLogin.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = false;
-      })
+      .addCase(
+        adminLogin.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+          state.success = false;
+          state.message = "";
+        }
+      )
 
-      .addCase(adminLogin.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
+      .addCase(
+        adminLogin.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.success = true;
 
-        state.admin = action.payload.user;
+          // Save admin user
+          state.admin =
+            action.payload.user;
 
-        state.token = action.payload.token;
+          // Save token
+          state.token =
+            action.payload.token;
 
-        state.message = action.payload.message;
+          state.message =
+            action.payload.message || "";
 
-        state.isAuthenticated = true;
+          state.isAuthenticated = true;
 
-        state.profileLoaded = true;
+          state.profileLoaded = true;
 
-        state.isProfileLoading = false;
+          state.isProfileLoading = false;
 
-        localStorage.setItem(
-          "adminToken",
-          action.payload.token
-        );
-      })
+          // Save token
+          localStorage.setItem(
+            "adminToken",
+            action.payload.token
+          );
+        }
+      )
 
-      .addCase(adminLogin.rejected, (state, action) => {
-        state.loading = false;
-        state.success = false;
-        state.error = action.payload;
-      })
+      .addCase(
+        adminLogin.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.success = false;
 
-      // ================= GET PROFILE =================
+          state.error =
+            action.payload ||
+            "Login failed";
 
-      .addCase(getAdminProfile.pending, (state) => {
-        state.loading = true;
+          // ==========================================
+          // IMPORTANT
+          // Non-admin login ke case me sab clear
+          // ==========================================
 
-        state.isProfileLoading = true;
+          state.admin = null;
+          state.token = null;
+          state.isAuthenticated = false;
+          state.profileLoaded = false;
 
-        state.error = null;
-      })
+          localStorage.removeItem(
+            "adminToken"
+          );
+        }
+      )
 
-      .addCase(getAdminProfile.fulfilled, (state, action) => {
-        state.loading = false;
+      // ==================================================
+      // GET ADMIN PROFILE
+      // ==================================================
 
-        state.isProfileLoading = false;
+      .addCase(
+        getAdminProfile.pending,
+        (state) => {
+          state.loading = true;
+          state.isProfileLoading = true;
+          state.error = null;
+        }
+      )
 
-        state.admin = action.payload;
+      .addCase(
+        getAdminProfile.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.isProfileLoading = false;
 
-        state.profileLoaded = true;
+          const adminUser =
+            action.payload?.user ||
+            action.payload;
 
-        state.error = null;
-      })
+          // ==========================================
+          // ROLE CHECK
+          // ==========================================
 
-      .addCase(getAdminProfile.rejected, (state, action) => {
-        state.loading = false;
+          if (
+            adminUser?.role !== "admin"
+          ) {
+            state.admin = null;
+            state.token = null;
+            state.isAuthenticated = false;
+            state.profileLoaded = true;
 
-        state.isProfileLoading = false;
+            localStorage.removeItem(
+              "adminToken"
+            );
 
-        state.error = action.payload.user;
+            state.error =
+              "Access denied. Admin access required.";
 
-        state.profileLoaded = true;
+            return;
+          }
 
-        const errorMessage =
-          action.payload?.toLowerCase() || "";
+          state.admin = adminUser;
 
-        if (
-          errorMessage.includes("unauthorized") ||
-          errorMessage.includes("token") ||
-          errorMessage.includes("invalid")
-        ) {
+          state.profileLoaded = true;
+
+          state.isAuthenticated = true;
+
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        getAdminProfile.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.isProfileLoading = false;
+
+          state.error =
+            action.payload ||
+            "Failed to load profile";
+
+          state.profileLoaded = true;
+
+          const errorMessage = String(
+            action.payload || ""
+          ).toLowerCase();
+
+          if (
+            errorMessage.includes(
+              "unauthorized"
+            ) ||
+            errorMessage.includes(
+              "token"
+            ) ||
+            errorMessage.includes(
+              "invalid"
+            ) ||
+            errorMessage.includes(
+              "access denied"
+            ) ||
+            errorMessage.includes(
+              "admin access"
+            )
+          ) {
+            state.admin = null;
+            state.token = null;
+            state.isAuthenticated = false;
+
+            localStorage.removeItem(
+              "adminToken"
+            );
+          }
+        }
+      )
+
+      // ==================================================
+      // GET ALL USERS
+      // ==================================================
+
+      .addCase(
+        getAllUsers.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        getAllUsers.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.success = true;
+
+          state.users =
+            action.payload?.users || [];
+
+          state.userCount =
+            action.payload?.count || 0;
+        }
+      )
+
+      .addCase(
+        getAllUsers.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.success = false;
+
+          state.error =
+            action.payload ||
+            "Failed to fetch users";
+        }
+      )
+
+      // ==================================================
+      // UPDATE PROFILE
+      // ==================================================
+
+      .addCase(
+        updateAdminProfile.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+          state.success = false;
+        }
+      )
+
+      .addCase(
+        updateAdminProfile.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.success = true;
+
+          state.admin =
+            action.payload?.admin ||
+            action.payload?.user ||
+            state.admin;
+
+          state.message =
+            action.payload?.message || "";
+
+          state.profileLoaded = true;
+
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        updateAdminProfile.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.success = false;
+
+          state.error =
+            action.payload ||
+            "Profile update failed";
+        }
+      )
+
+      // ==================================================
+      // CHANGE PASSWORD
+      // ==================================================
+
+      .addCase(
+        changeAdminPassword.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+          state.success = false;
+        }
+      )
+
+      .addCase(
+        changeAdminPassword.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.success = true;
+
+          state.message =
+            action.payload?.message || "";
+
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        changeAdminPassword.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.success = false;
+
+          state.error =
+            action.payload ||
+            "Password change failed";
+        }
+      )
+
+      // ==================================================
+      // UPDATE USER STATUS
+      // ==================================================
+
+      .addCase(
+        updateUserStatus.pending,
+        (state) => {
+          state.loading = true;
+          state.error = null;
+        }
+      )
+
+      .addCase(
+        updateUserStatus.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.success = true;
+
+          state.message =
+            action.payload?.message || "";
+
+          const index =
+            state.users.findIndex(
+              (user) =>
+                user._id ===
+                action.payload.userId
+            );
+
+          if (index !== -1) {
+            state.users[index].status =
+              action.payload.status;
+          }
+        }
+      )
+
+      .addCase(
+        updateUserStatus.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.success = false;
+
+          state.error =
+            action.payload ||
+            "Failed to update user status";
+        }
+      )
+
+      // ==================================================
+      // LOGOUT
+      // ==================================================
+
+      .addCase(
+        adminLogout.pending,
+        (state) => {
+          state.loading = true;
+        }
+      )
+
+      .addCase(
+        adminLogout.fulfilled,
+        (state, action) => {
+          state.loading = false;
+
           state.admin = null;
 
           state.token = null;
 
           state.isAuthenticated = false;
 
-          localStorage.removeItem("adminToken");
+          state.profileLoaded = false;
+
+          state.isProfileLoading = false;
+
+          state.success = true;
+
+          state.message =
+            action.payload?.message ||
+            "Logged out successfully";
+
+          localStorage.removeItem(
+            "adminToken"
+          );
         }
-      })
+      )
 
-      // ================= GET ALL USERS =================
+      .addCase(
+        adminLogout.rejected,
+        (state, action) => {
+          state.loading = false;
 
-      .addCase(getAllUsers.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+          state.error =
+            action.payload ||
+            "Logout failed";
 
-      .addCase(getAllUsers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
+          // Logout failed hone par bhi
+          // local frontend session clear karo
 
-        state.users = action.payload.users;
-        state.userCount = action.payload.count;
-      })
+          state.admin = null;
 
-      .addCase(getAllUsers.rejected, (state, action) => {
-        state.loading = false;
-        state.success = false;
-        state.error = action.payload;
-      })
+          state.token = null;
 
+          state.isAuthenticated = false;
 
+          state.profileLoaded = false;
 
-      // ================= UPDATE PROFILE =================
+          state.isProfileLoading = false;
 
-      .addCase(updateAdminProfile.pending, (state) => {
-        state.loading = true;
-
-        state.error = null;
-
-        state.success = false;
-      })
-
-      .addCase(updateAdminProfile.fulfilled, (state, action) => {
-        state.loading = false;
-
-        state.success = true;
-
-        state.admin = action.payload.admin;
-
-        state.message = action.payload.message;
-
-        state.profileLoaded = true;
-
-        state.error = null;
-      })
-
-      .addCase(updateAdminProfile.rejected, (state, action) => {
-        state.loading = false;
-
-        state.success = false;
-
-        state.error = action.payload;
-      })
-
-      // ================= CHANGE PASSWORD =================
-
-      .addCase(changeAdminPassword.pending, (state) => {
-        state.loading = true;
-
-        state.error = null;
-
-        state.success = false;
-      })
-
-      .addCase(changeAdminPassword.fulfilled, (state, action) => {
-        state.loading = false;
-
-        state.success = true;
-
-        state.message = action.payload.message;
-
-        state.error = null;
-      })
-
-      .addCase(changeAdminPassword.rejected, (state, action) => {
-        state.loading = false;
-
-        state.success = false;
-
-        state.error = action.payload;
-      })
-
-      // ================= UPDATE USER STATUS =================
-
-      .addCase(updateUserStatus.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-
-      .addCase(updateUserStatus.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
-        state.message = action.payload.message;
-
-        const index = state.users.findIndex(
-          (user) => user._id === action.payload.userId
-        );
-
-        if (index !== -1) {
-          state.users[index].status = action.payload.status;
+          localStorage.removeItem(
+            "adminToken"
+          );
         }
-      })
-
-      .addCase(updateUserStatus.rejected, (state, action) => {
-        state.loading = false;
-        state.success = false;
-        state.error = action.payload;
-      })
-
-      // ================= LOGOUT =================
-
-      .addCase(adminLogout.pending, (state) => {
-        state.loading = true;
-      })
-
-      .addCase(adminLogout.fulfilled, (state, action) => {
-        state.loading = false;
-
-        state.admin = null;
-
-        state.token = null;
-
-        state.isAuthenticated = false;
-
-        state.profileLoaded = false;
-
-        state.isProfileLoading = false;
-
-        state.success = true;
-
-        state.message = action.payload.message;
-
-        localStorage.removeItem("adminToken");
-      })
-
-      .addCase(adminLogout.rejected, (state, action) => {
-        state.loading = false;
-
-        state.error = action.payload;
-
-        state.admin = null;
-
-        state.token = null;
-
-        state.isAuthenticated = false;
-
-        state.profileLoaded = false;
-
-        state.isProfileLoading = false;
-
-        localStorage.removeItem("adminToken");
-      });
+      );
   },
 });
 
-// ================= EXPORT ACTIONS =================
+// ======================================================
+// EXPORT ACTIONS
+// ======================================================
 
 export const {
   clearError,
@@ -450,6 +688,8 @@ export const {
   resetAdminState,
 } = adminAuthSlice.actions;
 
-// ================= EXPORT REDUCER =================
+// ======================================================
+// EXPORT REDUCER
+// ======================================================
 
 export default adminAuthSlice.reducer;

@@ -1,11 +1,19 @@
 // src/components/ProtectedRoute.jsx
+
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, isReady, isLoading } = useAuth();
+  const {
+    isAuthenticated,
+    isReady,
+    isLoading,
+    user,
+  } = useAuth();
 
-  // Show loading state while checking authentication
+  // ========================================
+  // AUTH CHECK LOADING
+  // ========================================
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -14,21 +22,49 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  // Wait for profile to load before deciding
+  // ========================================
+  // WAIT FOR PROFILE
+  // ========================================
   if (!isReady) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="text-gray-600">Loading profile...</div>
+        <div className="text-gray-600">
+          Loading profile...
+        </div>
       </div>
     );
   }
 
-  // If not authenticated, redirect to login
+  // ========================================
+  // NOT AUTHENTICATED
+  // ========================================
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/admin/login"
+        replace
+      />
+    );
   }
 
-  // If authenticated and profile loaded, render children
+  // ========================================
+  // ADMIN IS NOT ALLOWED ON USER SIDE
+  // ========================================
+  if (
+    user?.role &&
+    String(user.role).trim().toLowerCase() === "admin"
+  ) {
+    return (
+      <Navigate
+        to="/admin/login"
+        replace
+      />
+    );
+  }
+
+  // ========================================
+  // USER AUTHENTICATED
+  // ========================================
   return children;
 };
 
