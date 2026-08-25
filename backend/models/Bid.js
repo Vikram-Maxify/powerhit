@@ -48,14 +48,6 @@ const bidSchema = new mongoose.Schema(
               // Jodi: 00-99
               return /^[0-9]{2}$/.test(str);
 
-            case "panna":
-              // Panna: 000-999
-              return /^[0-9]{3}$/.test(str);
-
-            case "half-sangam":
-              // Half-Sangam: 1-digit or 3-digit
-              return /^[0-9]{1}$/.test(str) || /^[0-9]{3}$/.test(str);
-
             case "full-sangam":
               // Full-Sangam: 2-digit number
               return /^[0-9]{2}$/.test(str);
