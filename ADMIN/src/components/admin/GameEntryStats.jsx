@@ -13,7 +13,27 @@ import {
   BarChart3
 } from 'lucide-react';
 
-const GameEntryStats = ({ stats, loading = false }) => {
+// Currency symbol mapping
+const getCurrencySymbol = (country) => {
+  const symbols = {
+    'india': '₹',
+    'us': '$',
+    'usa': '$',
+    'uk': '£',
+    'europe': '€',
+    'eu': '€',
+    'australia': 'A$',
+    'canada': 'C$',
+    'japan': '¥',
+    'china': '¥',
+    'default': '$'
+  };
+  return symbols[country?.toLowerCase()] || symbols.default;
+};
+
+const GameEntryStats = ({ stats, loading = false, country = 'us' }) => {
+  const currencySymbol = useMemo(() => getCurrencySymbol(country), [country]);
+
   // Memoized stat cards configuration with subtitles
   const statCards = useMemo(() => {
     const totalEntries = stats?.totalEntries || 0;
@@ -23,11 +43,11 @@ const GameEntryStats = ({ stats, loading = false }) => {
     return [
       {
         title: 'Total Revenue',
-        value: `$${totalRevenue?.toFixed(2) || '0.00'}`,
+        value: `${currencySymbol}${totalRevenue?.toFixed(2) || '0.00'}`,
         icon: DollarSign,
         bgColor: 'bg-green-100',
         textColor: 'text-green-600',
-        subtitle: totalEntries > 0 ? `$${(totalRevenue / totalEntries).toFixed(2)} avg per pool` : null,
+        subtitle: totalEntries > 0 ? `${currencySymbol}${(totalRevenue / totalEntries).toFixed(2)} avg per pool` : null,
       },
       {
         title: 'Total Pools',
@@ -39,7 +59,7 @@ const GameEntryStats = ({ stats, loading = false }) => {
       },
       {
         title: 'Average Price',
-        value: `$${stats?.averagePrice?.toFixed(2) || '0.00'}`,
+        value: `${currencySymbol}${stats?.averagePrice?.toFixed(2) || '0.00'}`,
         icon: TrendingUp,
         bgColor: 'bg-purple-100',
         textColor: 'text-purple-600',
@@ -86,7 +106,7 @@ const GameEntryStats = ({ stats, loading = false }) => {
         subtitle: null,
       },
     ];
-  }, [stats]);
+  }, [stats, currencySymbol]);
 
   // Loading state
   if (loading) {

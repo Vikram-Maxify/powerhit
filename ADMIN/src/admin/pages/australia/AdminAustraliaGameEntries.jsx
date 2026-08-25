@@ -41,6 +41,9 @@ const AdminAustraliaGameEntries = () => {
   const isInitialLoad = useRef(true);
   const isFetching = useRef(false);
 
+  // Country constant for Australia
+  const COUNTRY = 'australia';
+
   // Calculate unique players and stats from entries
   const calculatedStats = useMemo(() => {
     if (!entries || entries.length === 0) {
@@ -291,8 +294,12 @@ const AdminAustraliaGameEntries = () => {
           </button>
         </div>
 
-        {/* Statistics Cards - Use calculatedStats */}
-        <GameEntryStats stats={calculatedStats} loading={loading} />
+        {/* Statistics Cards - Pass country prop */}
+        <GameEntryStats 
+          stats={calculatedStats} 
+          loading={loading}
+          country={COUNTRY}
+        />
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
@@ -335,11 +342,12 @@ const AdminAustraliaGameEntries = () => {
             </div>
           </div>
 
-          {/* Filters */}
+          {/* Filters - Pass country prop */}
           <GameEntryFilters
             filters={filters}
             onFilterChange={handleFilterChange}
             onReset={handleResetFilters}
+            country={COUNTRY}
           />
         </div>
 
@@ -388,20 +396,24 @@ const AdminAustraliaGameEntries = () => {
           </div>
         )}
 
-        {/* Table */}
+        {/* Table - Pass country prop */}
         <GameEntryTable
           entries={entries}
           loading={loading}
           onViewEntry={handleViewEntry}
           pagination={pagination}
           onPageChange={handlePageChange}
+          country={COUNTRY}
         />
 
-        {/* Modal */}
+        {/* Modal - Pass country prop */}
         {showModal && selectedEntry && (
           <GameEntryModal
             entry={selectedEntry}
             onClose={handleCloseModal}
+            selectedPool={selectedEntry}
+            onResultAnnounced={handleRefresh}
+            country={COUNTRY}
           />
         )}
       </div>

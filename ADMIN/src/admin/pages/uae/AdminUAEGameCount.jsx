@@ -325,14 +325,14 @@ const AdminUAEGameCount = () => {
 
                                         <div className="relative group">
                                             <label className="text-sm font-medium text-slate-600 mb-1.5 block">
-                                                Price ($) *
+                                                Price (AED) *
                                             </label>
                                             <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">AED</span>
                                                 <input
                                                     type="number"
                                                     step="0.01"
-                                                    className="w-full pl-7 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 outline-none bg-white/50 backdrop-blur-sm"
+                                                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all duration-200 outline-none bg-white/50 backdrop-blur-sm"
                                                     placeholder="0.00"
                                                     value={form.price}
                                                     onChange={(e) => setForm({ ...form, price: e.target.value })}
@@ -559,7 +559,7 @@ const AdminUAEGameCount = () => {
                                                             </td>
                                                             <td className="px-6 py-4">
                                                                 <span className="inline-flex items-center px-3 py-1 bg-emerald-100 text-emerald-800 rounded-lg font-bold text-sm">
-                                                                    ${item.price?.toFixed(2) || "0.00"}
+                                                                    AED {item.price?.toFixed(2) || "0.00"}
                                                                 </span>
                                                             </td>
                                                             <td className="px-6 py-4 text-sm text-slate-600">

@@ -1,6 +1,6 @@
 // components/admin/GameEntryModal.jsx
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   X, User, Calendar, DollarSign, Ticket, Gamepad2, Hash, 
@@ -11,10 +11,30 @@ import {
 import { createPowerballResult } from '../../admin/redux/powerballResultSlice';
 import { toast } from 'react-hot-toast';
 
-const GameEntryModal = ({ entry, onClose, selectedPool, onResultAnnounced }) => {
+// Currency symbol mapping
+const getCurrencySymbol = (country) => {
+  const symbols = {
+    'india': '₹',
+    'us': '$',
+    'usa': '$',
+    'uk': '£',
+    'europe': '€',
+    'eu': '€',
+    'australia': 'A$',
+    'canada': 'C$',
+    'japan': '¥',
+    'china': '¥',
+    'default': '$'
+  };
+  return symbols[country?.toLowerCase()] || symbols.default;
+};
+
+const GameEntryModal = ({ entry, onClose, selectedPool, onResultAnnounced, country = 'us' }) => {
   const dispatch = useDispatch();
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [localError, setLocalError] = useState(null);
+  
+  const currencySymbol = useMemo(() => getCurrencySymbol(country), [country]);
   
   // Redux state
   const { loading, success, error } = useSelector(
@@ -64,19 +84,14 @@ const GameEntryModal = ({ entry, onClose, selectedPool, onResultAnnounced }) => 
     }
   }, []);
 
-  const formatCurrency = useCallback((amount, currency = 'USD') => {
+  const formatCurrency = useCallback((amount) => {
     if (!amount && amount !== 0) return 'N/A';
     try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currency,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(amount);
+      return `${currencySymbol}${amount.toFixed(2)}`;
     } catch (error) {
-      return `$${amount}`;
+      return `${currencySymbol}${amount}`;
     }
-  }, []);
+  }, [currencySymbol]);
 
   const formatShortId = useCallback((id) => {
     if (!id) return 'N/A';
@@ -196,11 +211,7 @@ const GameEntryModal = ({ entry, onClose, selectedPool, onResultAnnounced }) => 
       gamePoolId: poolId,
       numbers: winningNumbers,
       powerball: powerball,
-      country:
-        selectedPool?.country ||
-        selectedPool?.userCountry ||
-        entry?.country ||
-        "india",
+      country: selectedPool?.country || selectedPool?.userCountry || entry?.country || "india",
     };
 
     console.log('Announcing result with data:', resultData);
