@@ -1,7 +1,12 @@
 // src/App.jsx
 
 import { useDispatch, useSelector } from "react-redux";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import {
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 
 import { useEffect, useLayoutEffect } from "react";
 
@@ -56,7 +61,11 @@ import MatkaDashboard from "./Pages/user/Dashboard.jsx";
 import MatkaMarkets from "./Pages/user/Markets.jsx";
 import PlaceBid from "./Pages/user/PlaceBid.jsx";
 import MatkaResults from "./Pages/user/Results.jsx";
-import { getProfile } from "./redux/slices/authSlice.js";
+
+import {
+  getProfile,
+  logout,
+} from "./redux/slices/authSlice.js";
 
 // ========================================
 // Scroll To Top
@@ -67,6 +76,7 @@ function ScrollToTop() {
   useLayoutEffect(() => {
     window.scrollTo({
       top: 0,
+      left: 0,
       behavior: "smooth",
     });
   }, [pathname]);
@@ -75,33 +85,69 @@ function ScrollToTop() {
 }
 
 // ========================================
-// Country Redirect Component
+// Country Powerhit Redirect
+// /powerhit -> user's country
 // ========================================
 function CountryPowerhitRedirect() {
   const navigate = useNavigate();
 
   const { user } = useSelector((state) => state.auth);
 
-  const countryRoutes = {
-    IN: "india",
-    AU: "australia",
-    PK: "pakistan",
-    CA: "canada",
-    NP: "nepal",
-    UAE: "uae",
-  };
-
   useEffect(() => {
-    const userCountry = user?.country?.toUpperCase();
+    // ========================================
+    // ADMIN KO USER SIDE PAR ALLOW NAHI KARNA
+    // ========================================
+    if (user?.role?.toLowerCase() === "admin") {
+      return;
+    }
 
-    const countryPath = countryRoutes[userCountry];
+    // ========================================
+    // COUNTRY MAPPING
+    // FULL COUNTRY NAME USE HOGA
+    // ========================================
+    const countryRoutes = {
+      IN: "india",
+      INDIA: "india",
+
+      AU: "australia",
+      AUSTRALIA: "australia",
+
+      PK: "pakistan",
+      PAKISTAN: "pakistan",
+
+      CA: "canada",
+      CANADA: "canada",
+
+      NP: "nepal",
+      NEPAL: "nepal",
+
+      UAE: "uae",
+      AE: "uae",
+      UNITEDARABEMIRATES: "uae",
+    };
+
+    const rawCountry = user?.country;
+
+    if (!rawCountry) {
+      navigate("/india/powerhit", {
+        replace: true,
+      });
+
+      return;
+    }
+
+    const normalizedCountry = String(rawCountry)
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "");
+
+    const countryPath = countryRoutes[normalizedCountry];
 
     if (countryPath) {
       navigate(`/${countryPath}/powerhit`, {
         replace: true,
       });
     } else {
-      // Fallback
       navigate("/india/powerhit", {
         replace: true,
       });
@@ -116,15 +162,82 @@ function CountryPowerhitRedirect() {
 // ========================================
 function App() {
   const dispatch = useDispatch();
-  const { isAuthenticated, profileLoaded, isProfileLoading } = useSelector(
-    (state) => state.auth,
-  );
+  const navigate = useNavigate();
 
+  const {
+    isAuthenticated,
+    profileLoaded,
+    isProfileLoading,
+    user,
+  } = useSelector((state) => state.auth);
+
+  // ========================================
+  // GET USER PROFILE
+  // ========================================
   useEffect(() => {
-    if (isAuthenticated && !profileLoaded && !isProfileLoading) {
+    if (
+      isAuthenticated &&
+      !profileLoaded &&
+      !isProfileLoading
+    ) {
       dispatch(getProfile());
     }
-  }, [isAuthenticated, profileLoaded, isProfileLoading, dispatch]);
+  }, [
+    isAuthenticated,
+    profileLoaded,
+    isProfileLoading,
+    dispatch,
+  ]);
+
+  // ========================================
+  // ADMIN PROTECTION
+  //
+  // Agar user ka role admin hai:
+  // 1. Redux logout
+  // 2. adminToken remove
+  // 3. user token remove
+  // 4. storage clear
+  // 5. login page par redirect
+  // ========================================
+  useEffect(() => {
+    const role = user?.role
+      ? String(user.role).trim().toLowerCase()
+      : "";
+
+    if (role !== "admin") {
+      return;
+    }
+
+    // ========================================
+    // REMOVE ADMIN TOKEN
+    // ========================================
+    localStorage.removeItem("adminToken");
+    sessionStorage.removeItem("adminToken");
+
+    // ========================================
+    // REMOVE USER TOKEN
+    // ========================================
+    localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
+
+    // ========================================
+    // REMOVE STORED USER DATA
+    // ========================================
+    localStorage.removeItem("user");
+    sessionStorage.removeItem("user");
+
+    // ========================================
+    // REDUX LOGOUT
+    // ========================================
+    dispatch(logout());
+
+    // ========================================
+    // REDIRECT TO USER LOGIN
+    // ========================================
+    navigate("/login", {
+      replace: true,
+    });
+  }, [user, dispatch, navigate]);
 
   return (
     <>
@@ -133,19 +246,29 @@ function App() {
       <AppInitializer>
         <Navbar>
           <Routes>
+
             {/* ========================================
                 PUBLIC ROUTES
             ======================================== */}
 
-            <Route path="/" element={<Homme />} />
+            <Route
+              path="/"
+              element={<Homme />}
+            />
 
-            <Route path="/login" element={<Login />} />
+            <Route
+              path="/login"
+              element={<Login />}
+            />
 
-            <Route path="/register" element={<Register />} />
+            <Route
+              path="/register"
+              element={<Register />}
+            />
 
             {/* ========================================
                 POWERHIT DEFAULT REDIRECT
-                /powerhit → user's country
+                /powerhit -> user's country
             ======================================== */}
 
             <Route
@@ -156,6 +279,11 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* ========================================
+                POWERBALL RESULT
+            ======================================== */}
+
             <Route
               path="/powerball/result"
               element={
@@ -169,6 +297,7 @@ function App() {
                 COUNTRY-WISE POWERHIT
             ======================================== */}
 
+            {/* INDIA */}
             <Route
               path="/india/powerhit"
               element={
@@ -178,6 +307,7 @@ function App() {
               }
             />
 
+            {/* AUSTRALIA */}
             <Route
               path="/australia/powerhit"
               element={
@@ -187,6 +317,7 @@ function App() {
               }
             />
 
+            {/* PAKISTAN */}
             <Route
               path="/pakistan/powerhit"
               element={
@@ -196,6 +327,7 @@ function App() {
               }
             />
 
+            {/* CANADA */}
             <Route
               path="/canada/powerhit"
               element={
@@ -205,6 +337,7 @@ function App() {
               }
             />
 
+            {/* NEPAL */}
             <Route
               path="/nepal/powerhit"
               element={
@@ -214,6 +347,7 @@ function App() {
               }
             />
 
+            {/* UAE */}
             <Route
               path="/uae/powerhit"
               element={
@@ -227,7 +361,7 @@ function App() {
                 COUNTRY-WISE POWERHIT HISTORY
             ======================================== */}
 
-            {/* India */}
+            {/* INDIA */}
             <Route
               path="/india/powerhit/history"
               element={
@@ -236,6 +370,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/india/game-entry-result/:entryId"
               element={
@@ -245,7 +380,7 @@ function App() {
               }
             />
 
-            {/* Australia */}
+            {/* AUSTRALIA */}
             <Route
               path="/australia/powerhit/history"
               element={
@@ -254,6 +389,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/australia/game-entry-result/:entryId"
               element={
@@ -263,7 +399,7 @@ function App() {
               }
             />
 
-            {/* Pakistan */}
+            {/* PAKISTAN */}
             <Route
               path="/pakistan/powerhit/history"
               element={
@@ -272,6 +408,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/pakistan/game-entry-result/:entryId"
               element={
@@ -281,7 +418,7 @@ function App() {
               }
             />
 
-            {/* Canada */}
+            {/* CANADA */}
             <Route
               path="/canada/powerhit/history"
               element={
@@ -290,6 +427,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/canada/game-entry-result/:entryId"
               element={
@@ -299,7 +437,7 @@ function App() {
               }
             />
 
-            {/* Nepal */}
+            {/* NEPAL */}
             <Route
               path="/nepal/powerhit/history"
               element={
@@ -308,6 +446,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/nepal/game-entry-result/:entryId"
               element={
@@ -326,6 +465,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/uae/game-entry-result/:entryId"
               element={
@@ -336,7 +476,7 @@ function App() {
             />
 
             {/* ========================================
-                PUBLIC RESULT ROUTES
+                PUBLIC RESULT
             ======================================== */}
 
             <Route
@@ -347,6 +487,10 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* ========================================
+                CHART ANALYSIS
+            ======================================== */}
 
             <Route
               path="/chartanalysis"
@@ -544,7 +688,11 @@ function App() {
                 404 / MAINTENANCE
             ======================================== */}
 
-            <Route path="*" element={<Maintenance />} />
+            <Route
+              path="*"
+              element={<Maintenance />}
+            />
+
           </Routes>
         </Navbar>
       </AppInitializer>
