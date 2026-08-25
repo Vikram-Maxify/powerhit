@@ -70,8 +70,6 @@ const bidSchema = new mongoose.Schema(
           const gameTypeMap = {
             'single': 'single digit (0-9)',
             'jodi': '2-digit number (00-99)',
-            'panna': '3-digit number (000-999)',
-            'half-sangam': '1-digit or 3-digit number',
             'full-sangam': '2-digit number (00-99)',
             'last-digit': '2-digit number (00-99)',
             'first-digit': '2-digit number (00-99)'
@@ -147,9 +145,9 @@ bidSchema.pre('save', function(next) {
     this.number = String(this.number).trim().padStart(2, '0');
   }
   // Format number with leading zeros for 3-digit games
-  else if (this.gameType === 'panna') {
-    this.number = String(this.number).trim().padStart(3, '0');
-  }
+  // else if (this.gameType === 'panna') {
+  //   this.number = String(this.number).trim().padStart(3, '0');
+  // }
 });
 
 // Method to check if bid won
@@ -164,13 +162,13 @@ bidSchema.methods.checkWin = function(winningNumber) {
     case 'jodi':
       return winningNumStr === bidNumStr;
       
-    case 'panna':
-      return winningNumStr === bidNumStr;
+    // case 'panna':
+    //   return winningNumStr === bidNumStr;
       
-    case 'half-sangam':
-      // Check if either 1-digit or 3-digit matches
-      return winningNumStr === bidNumStr || 
-             winningNumStr.slice(-1) === bidNumStr.slice(-1);
+    // case 'half-sangam':
+    //   // Check if either 1-digit or 3-digit matches
+    //   return winningNumStr === bidNumStr || 
+    //          winningNumStr.slice(-1) === bidNumStr.slice(-1);
              
     case 'full-sangam':
       // Check last 2 digits
