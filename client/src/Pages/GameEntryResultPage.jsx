@@ -32,10 +32,10 @@ import {
 } from "../redux/slices/australia/gameEntrySlice";
 
 import {
-  deleteGameEntry as deleteCanadaGameEntry,
-  getMyGameEntries as getCanadaGameEntries,
-  resetGameEntryState as resetCanadaGameEntryState,
-} from "../redux/slices/canada/gameEntrySlice";
+  deleteGameEntry as deleteBangladeshGameEntry,
+  getMyGameEntries as getBangladeshGameEntries,
+  resetGameEntryState as resetBangladeshGameEntryState,
+} from "../redux/slices/bangladesh/gameEntrySlice";
 
 import {
   deleteGameEntry as deleteIndiaGameEntry,
@@ -69,7 +69,7 @@ const currencyConfig = {
   IN: { symbol: "₹", code: "INR", locale: "en-IN", name: "Indian Rupee" },
   AU: { symbol: "$", code: "AUD", locale: "en-AU", name: "Australian Dollar" },
   PK: { symbol: "Rs", code: "PKR", locale: "en-PK", name: "Pakistani Rupee" },
-  CA: { symbol: "$", code: "CAD", locale: "en-CA", name: "Canadian Dollar" },
+  BD: { symbol: "৳", code: "BDT", locale: "en-BD", name: "Bangladeshi Taka" },
   NP: { symbol: "रु", code: "NPR", locale: "ne-NP", name: "Nepalese Rupee" },
   UAE: { symbol: "د.إ", code: "AED", locale: "ar-AE", name: "UAE Dirham" },
 };
@@ -93,8 +93,8 @@ const countryAliases = {
   au: "australia",
   pakistan: "pakistan",
   pk: "pakistan",
-  canada: "canada",
-  ca: "canada",
+  bangladesh: "bangladesh",
+  bd: "bangladesh",
   nepal: "nepal",
   np: "nepal",
   uae: "uae",
@@ -127,13 +127,13 @@ const countryConfig = {
     countryCode: "PK",
     displayName: "Pakistan",
   },
-  canada: {
-    stateKey: "canadaGameEntry",
-    getGameEntries: getCanadaGameEntries,
-    deleteGameEntry: deleteCanadaGameEntry,
-    resetState: resetCanadaGameEntryState,
-    countryCode: "CA",
-    displayName: "Canada",
+  bangladesh: {
+    stateKey: "bangladeshGameEntry",
+    getGameEntries: getBangladeshGameEntries,
+    deleteGameEntry: deleteBangladeshGameEntry,
+    resetState: resetBangladeshGameEntryState,
+    countryCode: "BD",
+    displayName: "Bangladesh",
   },
   nepal: {
     stateKey: "nepalGameEntry",
@@ -161,7 +161,7 @@ const countries = [
   { name: "India", flag: "https://flagcdn.com/w80/in.png", code: "IN" },
   { name: "Australia", flag: "https://flagcdn.com/w80/au.png", code: "AU" },
   { name: "Pakistan", flag: "https://flagcdn.com/w80/pk.png", code: "PK" },
-  { name: "Canada", flag: "https://flagcdn.com/w80/ca.png", code: "CA" },
+  { name: "Bangladesh", flag: "https://flagcdn.com/w80/bd.png", code: "BD" },
   { name: "Nepal", flag: "https://flagcdn.com/w80/np.png", code: "NP" },
   { name: "Dubai", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
 ];
@@ -180,8 +180,8 @@ const getCountryCodeFromName = (countryName) => {
     au: "AU",
     pakistan: "PK",
     pk: "PK",
-    canada: "CA",
-    ca: "CA",
+    bangladesh: "BD",
+    bd: "BD",
     nepal: "NP",
     np: "NP",
     uae: "UAE",
@@ -282,7 +282,9 @@ const GameEntryResultPage = () => {
   const australiaGameEntryState = useSelector(
     (state) => state.australiaGameEntry,
   );
-  const canadaGameEntryState = useSelector((state) => state.canadaGameEntry);
+  const bangladeshGameEntryState = useSelector(
+    (state) => state.bangladeshGameEntry,
+  );
   const nepalGameEntryState = useSelector((state) => state.nepalGameEntry);
   const pakistanGameEntryState = useSelector(
     (state) => state.pakistanGameEntry,
@@ -297,8 +299,8 @@ const GameEntryResultPage = () => {
         return indiaGameEntryState;
       case "australiaGameEntry":
         return australiaGameEntryState;
-      case "canadaGameEntry":
-        return canadaGameEntryState;
+      case "bangladeshGameEntry":
+        return bangladeshGameEntryState;
       case "nepalGameEntry":
         return nepalGameEntryState;
       case "pakistanGameEntry":
@@ -452,7 +454,8 @@ const GameEntryResultPage = () => {
             Unsupported Country: {activeCountryName}
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            Supported countries: India, Australia, Pakistan, Canada, Nepal, UAE
+            Supported countries: India, Australia, Pakistan, Bangladesh, Nepal,
+            UAE
           </p>
         </div>
       );
