@@ -19,8 +19,8 @@ const HERO_IMAGE = "https://i.ibb.co/DffFKgD0/imagepng1.png";
 // Country data with flags (using emoji flags)
 const countries = [
   { code: "IN", name: "India", flag: "🇮🇳", dialCode: "+91" },
-  { code: "AE", name: "UAE", flag: "🇦🇪", dialCode: "+971" },
-  { code: "BD", name: "Bangladesh", flag: "🇧🇩", dialCode: "+880" },
+  { code: "UAE", name: "UAE", flag: "🇦🇪", dialCode: "+971" },
+  { code: "CA", name: "Canada", flag: "🇨🇦", dialCode: "+1" },
   { code: "PK", name: "Pakistan", flag: "🇵🇰", dialCode: "+92" },
   { code: "NP", name: "Nepal", flag: "🇳🇵", dialCode: "+977" },
   { code: "AU", name: "Australia", flag: "🇦🇺", dialCode: "+61" },
@@ -123,12 +123,12 @@ const Register = () => {
       if (formData.country === "IN" && !/^[0-9]{10}$/.test(mobileDigits)) {
         errors.mobile = "Please enter a valid 10-digit mobile number";
       } else if (
-        formData.country === "BD" &&
+        formData.country === "CA" &&
         !/^[0-9]{10,11}$/.test(mobileDigits)
       ) {
         errors.mobile = "Please enter a valid mobile number";
       } else if (
-        formData.country === "AE" &&
+        formData.country === "UAE" &&
         !/^[0-9]{9}$/.test(mobileDigits)
       ) {
         errors.mobile = "Please enter a valid 9-digit mobile number";
@@ -144,7 +144,7 @@ const Register = () => {
         errors.mobile = "Please enter a valid 10-digit mobile number";
       } else if (
         formData.country === "AU" &&
-        !/^[0-9]{9}$/.test(mobileDigits)
+        !/^[0-9]{10}$/.test(mobileDigits)
       ) {
         errors.mobile = "Please enter a valid 9-digit mobile number";
       }

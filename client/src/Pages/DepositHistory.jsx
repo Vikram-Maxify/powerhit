@@ -12,14 +12,62 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getMyDeposits } from "../redux/slices/depositSlice";
 
+// ======================================================
+// CURRENCY CONFIGURATION
+// ======================================================
+
+const getCurrencyConfig = (countryCode) => {
+  const config = {
+    IN: { symbol: "₹", code: "INR", locale: "en-IN" },
+    NP: { symbol: "रु", code: "NPR", locale: "ne-NP" },
+    PK: { symbol: "Rs", code: "PKR", locale: "en-PK" },
+    AU: { symbol: "$", code: "AUD", locale: "en-AU" },
+    CA: { symbol: "$", code: "CAD", locale: "en-CA" },
+    AE: { symbol: "د.إ", code: "AED", locale: "ar-AE" },
+    default: { symbol: "₹", code: "INR", locale: "en-IN" },
+  };
+  return config[countryCode] || config.default;
+};
+
+// ======================================================
+// COMPONENT
+// ======================================================
+
 const DepositHistory = () => {
   const dispatch = useDispatch();
 
   const { deposits, loading } = useSelector((state) => state.deposit);
+  const { user } = useSelector((state) => state.auth);
+
+  // ======================================================
+  // CURRENCY
+  // ======================================================
+
+  const currencyConfig = getCurrencyConfig(user?.country);
+  const currencySymbol = currencyConfig.symbol;
+  const locale = currencyConfig.locale;
+
+  // ======================================================
+  // FORMAT FUNCTIONS
+  // ======================================================
+
+  const formatAmount = (amount) => {
+    const num = parseFloat(amount);
+    if (isNaN(num)) return `${currencySymbol}0`;
+    return `${currencySymbol}${num.toLocaleString(locale)}`;
+  };
+
+  // ======================================================
+  // EFFECTS
+  // ======================================================
 
   useEffect(() => {
     dispatch(getMyDeposits());
   }, [dispatch]);
+
+  // ======================================================
+  // STATUS BADGE
+  // ======================================================
 
   const getStatusBadge = (status) => {
     const configs = {
@@ -53,9 +101,17 @@ const DepositHistory = () => {
     );
   };
 
+  // ======================================================
+  // COPY TRANSACTION ID
+  // ======================================================
+
   const copyTransactionId = (transactionId) => {
     navigator.clipboard.writeText(transactionId);
   };
+
+  // ======================================================
+  // LOADING
+  // ======================================================
 
   if (loading) {
     return (
@@ -69,6 +125,10 @@ const DepositHistory = () => {
       </div>
     );
   }
+
+  // ======================================================
+  // UI
+  // ======================================================
 
   return (
     <div className="relative bg-gradient-to-b from-amber-50/50 via-white to-white overflow-hidden">
@@ -101,6 +161,13 @@ const DepositHistory = () => {
             </div>
           </div>
 
+          {/* Currency Badge */}
+          <div className="mb-4 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-full">
+            <span className="text-[10px] font-medium text-amber-700">
+              Currency: {currencySymbol} {currencyConfig.code}
+            </span>
+          </div>
+
           {deposits.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100 p-10 text-center">
               <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -124,7 +191,7 @@ const DepositHistory = () => {
                   {/* Top row: Amount + Status */}
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-lg font-bold text-gray-900">
-                      ₹{parseFloat(item.amount).toLocaleString("en-IN")}
+                      {formatAmount(item.amount)}
                     </span>
                     {getStatusBadge(item.status)}
                   </div>
@@ -147,7 +214,7 @@ const DepositHistory = () => {
                         Date
                       </span>
                       <span className="font-medium text-gray-700">
-                        {new Date(item.createdAt).toLocaleString("en-IN", {
+                        {new Date(item.createdAt).toLocaleString(locale, {
                           day: "2-digit",
                           month: "short",
                           year: "numeric",

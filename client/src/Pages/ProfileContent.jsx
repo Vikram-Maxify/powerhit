@@ -3,7 +3,6 @@ import {
   Calendar,
   Camera,
   Copy,
-  Currency,
   Loader2,
   Mail,
   MapPin,
@@ -11,6 +10,7 @@ import {
   User,
   Users,
   Wallet,
+  WalletCards,
 } from "lucide-react";
 
 import { useEffect, useRef, useState } from "react";
@@ -38,6 +38,66 @@ const getCurrencySymbol = (country) => {
   };
 
   return symbols[country] || symbols.default;
+};
+
+// ======================================================
+// COUNTRY PHONE CONFIG
+// ======================================================
+
+const getCountryPhoneConfig = (countryCode) => {
+  const config = {
+    IN: {
+      countryCode: "+91",
+      length: 10,
+      pattern: /^[6-9]\d{9}$/,
+      errorMessage: "Please enter a valid 10-digit Indian mobile number",
+      placeholder: "9876543210",
+    },
+    NP: {
+      countryCode: "+977",
+      length: 10,
+      pattern: /^[9][6-9]\d{8}$/,
+      errorMessage: "Please enter a valid 10-digit Nepali mobile number",
+      placeholder: "9812345678",
+    },
+    PK: {
+      countryCode: "+92",
+      length: 10,
+      pattern: /^[3]\d{9}$/,
+      errorMessage: "Please enter a valid 10-digit Pakistani mobile number",
+      placeholder: "3012345678",
+    },
+    AU: {
+      countryCode: "+61",
+      length: 9,
+      pattern: /^[4]\d{8}$/,
+      errorMessage: "Please enter a valid 9-digit Australian mobile number",
+      placeholder: "412345678",
+    },
+    CA: {
+      countryCode: "+1",
+      length: 10,
+      pattern: /^[2-9]\d{9}$/,
+      errorMessage: "Please enter a valid 10-digit Canadian mobile number",
+      placeholder: "4165551234",
+    },
+    US: {
+      countryCode: "+1",
+      length: 10,
+      pattern: /^[2-9]\d{9}$/,
+      errorMessage: "Please enter a valid 10-digit US mobile number",
+      placeholder: "2125551234",
+    },
+    default: {
+      countryCode: "+91",
+      length: 10,
+      pattern: /^[0-9]{10}$/,
+      errorMessage: "Please enter a valid 10-digit mobile number",
+      placeholder: "Enter mobile number",
+    },
+  };
+
+  return config[countryCode] || config.default;
 };
 
 // ======================================================
@@ -69,13 +129,19 @@ export default function ProfileContent({
       })}`);
 
   // ======================================================
+  // COUNTRY PHONE CONFIG
+  // ======================================================
+
+  const phoneConfig = getCountryPhoneConfig(user?.country || "IN");
+
+  // ======================================================
   // PROFILE STATE
   // ======================================================
 
   const [profile, setProfile] = useState({
     name: "",
     email: "",
-    mobile: "",
+    mobile: "", // Store only the phone number (without country code)
     city: "",
     referralCode: "",
   });
@@ -144,7 +210,7 @@ export default function ProfileContent({
     {
       title: "Available Balance",
       value: formatCurrency(user?.balance?.local || 0),
-      icon: Currency,
+      icon: WalletCards,
       color: "text-amber-500",
     },
     {
@@ -189,6 +255,44 @@ export default function ProfileContent({
       setFormErrors((prev) => ({
         ...prev,
         [name]: "",
+      }));
+    }
+
+    if (error) {
+      dispatch(clearError());
+    }
+
+    setUpdateStatus(null);
+  };
+
+  // ======================================================
+  // HANDLE MOBILE CHANGE (with country code prefix)
+  // ======================================================
+
+  const handleMobileChange = (e) => {
+    const rawValue = e.target.value;
+
+    // Remove country code prefix if present (for display purposes)
+    let value = rawValue;
+    if (value.startsWith(phoneConfig.countryCode)) {
+      value = value.substring(phoneConfig.countryCode.length).trim();
+    }
+
+    // Remove non-numeric characters
+    value = value.replace(/\D/g, "");
+
+    // Limit to country's phone number length
+    value = value.slice(0, phoneConfig.length);
+
+    setProfile((prev) => ({
+      ...prev,
+      mobile: value,
+    }));
+
+    if (formErrors.mobile) {
+      setFormErrors((prev) => ({
+        ...prev,
+        mobile: "",
       }));
     }
 
@@ -262,8 +366,10 @@ export default function ProfileContent({
 
     if (!profile.mobile.trim()) {
       errors.mobile = "Mobile number is required";
-    } else if (!/^[0-9]{10}$/.test(cleanMobile)) {
-      errors.mobile = "Please enter a valid 10-digit mobile number";
+    } else if (cleanMobile.length !== phoneConfig.length) {
+      errors.mobile = `Mobile number must be ${phoneConfig.length} digits`;
+    } else if (!phoneConfig.pattern.test(cleanMobile)) {
+      errors.mobile = phoneConfig.errorMessage;
     }
 
     setFormErrors(errors);
@@ -285,10 +391,11 @@ export default function ProfileContent({
       const formData = new FormData();
 
       formData.append("fullName", profile.name.trim());
-
       formData.append("email", profile.email.trim());
 
-      formData.append("mobile", profile.mobile.replace(/\D/g, ""));
+      // Send only the numeric phone number (without country code)
+      const cleanMobile = profile.mobile.replace(/\D/g, "");
+      formData.append("mobile", cleanMobile);
 
       formData.append("city", profile.city.trim());
 
@@ -635,7 +742,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] r
               </div>
 
               {/* ==========================================
-                  MOBILE
+                  MOBILE - WITH COUNTRY CODE PREFIX
               ========================================== */}
 
               <div>
@@ -645,20 +752,42 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] r
 
                 <div className="relative mt-1">
                   <Phone
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
                     size={16}
+                    strokeWidth={1.8}
                   />
 
-                  <input
-                    name="mobile"
-                    value={profile.mobile}
-                    onChange={handleChange}
-                    disabled={isEditing}
-                    inputMode="numeric"
-                    className={`w-full h-10 rounded-xl border ${
-                      formErrors.mobile ? "border-red-400" : "border-gray-300"
-                    } pl-9 pr-3 bg-gray-50 focus:border-amber-500 focus:ring-4 focus:ring-amber-100 outline-none text-sm disabled:opacity-60`}
-                  />
+                  <div
+                    className={`flex items-center w-full h-11 rounded-xl border bg-white overflow-hidden transition-all ${
+                      formErrors.mobile
+                        ? "border-red-400 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-50"
+                        : "border-gray-200 hover:border-gray-300 focus-within:border-amber-500 focus-within:ring-4 focus-within:ring-amber-50"
+                    } ${isEditing ? "bg-gray-50" : ""}`}
+                  >
+                    {/* Country Code */}
+                    <div className="pl-10 pr-3 h-full flex items-center border-r border-gray-200 bg-gray-50/80">
+                      <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        {phoneConfig.countryCode}
+                      </span>
+                    </div>
+
+                    {/* Phone Number */}
+                    <input
+                      name="mobile"
+                      value={profile.mobile || ""}
+                      onChange={handleMobileChange}
+                      disabled={isEditing}
+                      inputMode="numeric"
+                      placeholder={phoneConfig.placeholder}
+                      className="flex-1 h-full px-3 bg-transparent outline-none text-sm text-gray-800 placeholder:text-gray-400 disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  {formErrors.mobile && (
+                    <p className="mt-1.5 text-xs text-red-500">
+                      {formErrors.mobile}
+                    </p>
+                  )}
                 </div>
 
                 {formErrors.mobile && (
@@ -666,6 +795,17 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] r
                     {formErrors.mobile}
                   </p>
                 )}
+
+                <p className="text-xs text-gray-400 mt-1">
+                  Country:{" "}
+                  <span className="font-medium">
+                    {user?.country || "India"}
+                  </span>{" "}
+                  • Format:{" "}
+                  <span className="font-medium">
+                    {phoneConfig.countryCode} XXXXXXXXXX
+                  </span>
+                </p>
               </div>
 
               {/* ==========================================

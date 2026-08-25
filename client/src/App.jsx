@@ -33,7 +33,12 @@ import Withdrawal from "./Pages/Withdrawal.jsx";
 // ========================================
 import Account from "./Pages/Account.jsx";
 import DepositPayment from "./Pages/DepositPayment.jsx";
-import GameEntryResultPage from "./Pages/GameEntryResultPage .jsx";
+
+// ========================================
+// Game Entry Result Pages
+// ========================================
+import GameEntryResultDetail from "./Pages/GameEntryResultDetail.jsx";
+import GameEntryResultPage from "./Pages/GameEntryResultPage.jsx";
 
 // ========================================
 // Other Pages
@@ -217,6 +222,123 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* ========================================
+                COUNTRY-WISE POWERHIT HISTORY
+            ======================================== */}
+
+            {/* India */}
+            <Route
+              path="/india/powerhit/history"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/india/game-entry-result/:entryId"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultDetail />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Australia */}
+            <Route
+              path="/australia/powerhit/history"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/australia/game-entry-result/:entryId"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultDetail />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Pakistan */}
+            <Route
+              path="/pakistan/powerhit/history"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pakistan/game-entry-result/:entryId"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultDetail />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Canada */}
+            <Route
+              path="/canada/powerhit/history"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/canada/game-entry-result/:entryId"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultDetail />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Nepal */}
+            <Route
+              path="/nepal/powerhit/history"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/nepal/game-entry-result/:entryId"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultDetail />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* UAE */}
+            <Route
+              path="/uae/powerhit/history"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/uae/game-entry-result/:entryId"
+              element={
+                <ProtectedRoute>
+                  <GameEntryResultDetail />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ========================================
+                PUBLIC RESULT ROUTES
+            ======================================== */}
+
             <Route
               path="/publicresult"
               element={
@@ -225,6 +347,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="/chartanalysis"
               element={
@@ -348,64 +471,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Account />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* ========================================
-                POWERHIT HISTORY
-            ======================================== */}
-
-            <Route
-              path="/india/powerhit/history"
-              element={
-                <ProtectedRoute>
-                  <GameEntryResultPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/australia/powerhit/history"
-              element={
-                <ProtectedRoute>
-                  <GameEntryResultPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/pakistan/powerhit/history"
-              element={
-                <ProtectedRoute>
-                  <GameEntryResultPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/canada/powerhit/history"
-              element={
-                <ProtectedRoute>
-                  <GameEntryResultPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/nepal/powerhit/history"
-              element={
-                <ProtectedRoute>
-                  <GameEntryResultPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/uae/powerhit/history"
-              element={
-                <ProtectedRoute>
-                  <GameEntryResultPage />
                 </ProtectedRoute>
               }
             />
