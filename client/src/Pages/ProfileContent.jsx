@@ -3,7 +3,7 @@ import {
   Calendar,
   Camera,
   Copy,
-  IndianRupee,
+  Currency,
   Loader2,
   Mail,
   MapPin,
@@ -30,11 +30,8 @@ import {
 const getCurrencySymbol = (country) => {
   const symbols = {
     IN: "₹",
-    US: "$",
-    GB: "£",
-    EU: "€",
-    JP: "¥",
-    CN: "¥",
+    NP: "रु",
+    PK: "Rs",
     AU: "$",
     CA: "$",
     default: "₹",
@@ -147,7 +144,7 @@ export default function ProfileContent({
     {
       title: "Available Balance",
       value: formatCurrency(user?.balance?.local || 0),
-      icon: IndianRupee,
+      icon: Currency,
       color: "text-amber-500",
     },
     {

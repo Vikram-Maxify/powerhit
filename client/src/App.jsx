@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { useEffect, useLayoutEffect } from "react";
@@ -18,12 +18,12 @@ import WithdrawalHistory from "./components/WithdrawalHistory.jsx";
 // Common Pages
 // ========================================
 import Deposit from "./Pages/Deposit.jsx";
-import DepositHistory from "./Pages/DepositHistory.jsx";
+import DepositHistory from "./pages/DepositHistory.jsx";
 import GameCounts from "./Pages/GameCounts.jsx";
-import Homme from "./Pages/Homme.jsx";
+import Homme from "./pages/Homme.jsx";
 import Login from "./Pages/Login.jsx";
 import ProfilePage from "./Pages/ProfilePage.jsx";
-import PromoPage from "./Pages/Promo/PromoPage.jsx";
+import PromoPage from "./pages/Promo/PromoPage.jsx";
 import Register from "./Pages/Register.jsx";
 import WalletDashboard from "./Pages/WalletDashboard.jsx";
 import Withdrawal from "./Pages/Withdrawal.jsx";
@@ -44,11 +44,14 @@ import Maintenance from "./Pages/Maintenance.jsx";
 // Matka Pages
 // ========================================
 import PowerballResults from "./components/PowerballResults.jsx";
+import AllResultsPage from "./Pages/Allresultspage.jsx";
+import MatkaChartAnalysis from "./Pages/Matkachartanalysis.jsx";
 import BidsHistory from "./Pages/user/BidsHistory.jsx";
 import MatkaDashboard from "./Pages/user/Dashboard.jsx";
 import MatkaMarkets from "./Pages/user/Markets.jsx";
 import PlaceBid from "./Pages/user/PlaceBid.jsx";
 import MatkaResults from "./Pages/user/Results.jsx";
+import { getProfile } from "./redux/slices/authSlice.js";
 
 // ========================================
 // Scroll To Top
@@ -107,7 +110,16 @@ function CountryPowerhitRedirect() {
 // App
 // ========================================
 function App() {
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+  const { isAuthenticated, profileLoaded, isProfileLoading } = useSelector(
+    (state) => state.auth,
+  );
+
+  useEffect(() => {
+    if (isAuthenticated && !profileLoaded && !isProfileLoading) {
+      dispatch(getProfile());
+    }
+  }, [isAuthenticated, profileLoaded, isProfileLoading, dispatch]);
 
   return (
     <>
@@ -202,6 +214,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GameCounts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/publicresult"
+              element={
+                <ProtectedRoute>
+                  <AllResultsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chartanalysis"
+              element={
+                <ProtectedRoute>
+                  <MatkaChartAnalysis />
                 </ProtectedRoute>
               }
             />

@@ -22,13 +22,7 @@ exports.createMarket = async (req, res) => {
     // VALIDATION
     // ======================================================
 
-    if (
-      !name ||
-      !marketId ||
-      !openTime ||
-      !closeTime ||
-      !resultTime
-    ) {
+    if (!name || !marketId || !openTime || !closeTime || !resultTime) {
       return res.status(400).json({
         success: false,
         message:
@@ -94,22 +88,16 @@ exports.createMarket = async (req, res) => {
       resultTime,
 
       minBid:
-        minBid !== undefined &&
-        minBid !== null &&
-        minBid !== ""
+        minBid !== undefined && minBid !== null && minBid !== ""
           ? Number(minBid)
           : 10,
 
       maxBid:
-        maxBid !== undefined &&
-        maxBid !== null &&
-        maxBid !== ""
+        maxBid !== undefined && maxBid !== null && maxBid !== ""
           ? Number(maxBid)
           : 10000,
 
-      description: description
-        ? description.trim()
-        : "",
+      description: description ? description.trim() : "",
 
       // IMPORTANT:
       // Always save string URL
@@ -234,17 +222,11 @@ exports.updateMarket = async (req, res) => {
     // NUMBER FIELDS
     // ======================================================
 
-    if (
-      updateData.minBid !== undefined &&
-      updateData.minBid !== ""
-    ) {
+    if (updateData.minBid !== undefined && updateData.minBid !== "") {
       updateData.minBid = Number(updateData.minBid);
     }
 
-    if (
-      updateData.maxBid !== undefined &&
-      updateData.maxBid !== ""
-    ) {
+    if (updateData.maxBid !== undefined && updateData.maxBid !== "") {
       updateData.maxBid = Number(updateData.maxBid);
     }
 
@@ -253,8 +235,7 @@ exports.updateMarket = async (req, res) => {
     // ======================================================
 
     if (updateData.description !== undefined) {
-      updateData.description =
-        updateData.description?.trim() || "";
+      updateData.description = updateData.description?.trim() || "";
     }
 
     // ======================================================
@@ -265,10 +246,7 @@ exports.updateMarket = async (req, res) => {
       const uploadedImage = await uploadToImgBB(req.file);
 
       console.log("ImgBB update response:", uploadedImage);
-      console.log(
-        "ImgBB update response type:",
-        typeof uploadedImage
-      );
+      console.log("ImgBB update response type:", typeof uploadedImage);
 
       if (typeof uploadedImage !== "string") {
         return res.status(500).json({
@@ -299,14 +277,10 @@ exports.updateMarket = async (req, res) => {
     // UPDATE
     // ======================================================
 
-    const market = await Market.findByIdAndUpdate(
-      marketId,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const market = await Market.findByIdAndUpdate(marketId, updateData, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!market) {
       return res.status(404).json({
@@ -347,21 +321,11 @@ exports.updateMarket = async (req, res) => {
 
 exports.getAllMarkets = async (req, res) => {
   try {
-    const {
-      isActive,
-      page = 1,
-      limit = 20,
-    } = req.query;
+    const { isActive, page = 1, limit = 20 } = req.query;
 
-    const currentPage = Math.max(
-      parseInt(page, 10) || 1,
-      1
-    );
+    const currentPage = Math.max(parseInt(page, 10) || 1, 1);
 
-    const currentLimit = Math.max(
-      parseInt(limit, 10) || 20,
-      1
-    );
+    const currentLimit = Math.max(parseInt(limit, 10) || 20, 1);
 
     const filter = {};
 
@@ -386,9 +350,7 @@ exports.getAllMarkets = async (req, res) => {
         page: currentPage,
         limit: currentLimit,
         total,
-        pages: Math.ceil(
-          total / currentLimit
-        ),
+        pages: Math.ceil(total / currentLimit),
       },
     });
   } catch (error) {
@@ -409,11 +371,9 @@ exports.getMarketById = async (req, res) => {
   try {
     const { marketId } = req.params;
 
-    const market = await Market.findById(
-      marketId
-    ).populate(
+    const market = await Market.findById(marketId).populate(
       "createdBy",
-      "name email"
+      "name email",
     );
 
     if (!market) {
@@ -453,17 +413,16 @@ exports.toggleMarketStatus = async (req, res) => {
       });
     }
 
-    const market =
-      await Market.findByIdAndUpdate(
-        marketId,
-        {
-          isActive,
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+    const market = await Market.findByIdAndUpdate(
+      marketId,
+      {
+        isActive,
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
 
     if (!market) {
       return res.status(404).json({
@@ -474,18 +433,11 @@ exports.toggleMarketStatus = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Market ${
-        isActive
-          ? "activated"
-          : "deactivated"
-      } successfully`,
+      message: `Market ${isActive ? "activated" : "deactivated"} successfully`,
       data: market,
     });
   } catch (error) {
-    console.error(
-      "TOGGLE MARKET ERROR:",
-      error
-    );
+    console.error("TOGGLE MARKET ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -502,10 +454,9 @@ exports.getActiveMarkets = async (req, res) => {
   try {
     const markets = await Market.find({
       isActive: true,
-      isResultDeclared: false,
     })
       .select(
-        "name marketId openTime closeTime resultTime minBid maxBid description image"
+        "name marketId openTime closeTime resultTime minBid maxBid description image",
       )
       .sort({
         createdAt: -1,
@@ -516,10 +467,7 @@ exports.getActiveMarkets = async (req, res) => {
       data: markets,
     });
   } catch (error) {
-    console.error(
-      "GET ACTIVE MARKETS ERROR:",
-      error
-    );
+    console.error("GET ACTIVE MARKETS ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -536,10 +484,7 @@ exports.deleteMarket = async (req, res) => {
   try {
     const { marketId } = req.params;
 
-    const market =
-      await Market.findByIdAndDelete(
-        marketId
-      );
+    const market = await Market.findByIdAndDelete(marketId);
 
     if (!market) {
       return res.status(404).json({
@@ -553,10 +498,7 @@ exports.deleteMarket = async (req, res) => {
       message: "Market deleted successfully",
     });
   } catch (error) {
-    console.error(
-      "DELETE MARKET ERROR:",
-      error
-    );
+    console.error("DELETE MARKET ERROR:", error);
 
     return res.status(500).json({
       success: false,

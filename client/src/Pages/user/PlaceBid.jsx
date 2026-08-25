@@ -6,12 +6,11 @@ import {
   ChevronRight,
   Clock,
   Coins,
-  Crown,
   RefreshCw,
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { clearBidError, placeBid } from "../../redux/slices/bidSlice";
@@ -19,10 +18,62 @@ import {
   clearCurrentMarket,
   getMarketById,
 } from "../../redux/slices/marketSlice";
+import {
+  fetchPublicBidResults,
+  selectPublicBidResults,
+} from "../../redux/slices/publicBidSlice";
 
 const getCurrencySymbol = (country) => {
   const symbols = { IN: "₹", US: "$", GB: "£", EU: "€", default: "₹" };
   return symbols[country] || symbols.default;
+};
+
+// Generates round, human-friendly bid amounts between minBid and maxBid.
+// Picks "nice" numbers (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8 x 10^n) within range,
+// always includes min & max, and caps the button count so the UI stays clean.
+const generateBidAmounts = (min, max, maxButtons = 9) => {
+  if (!min || !max || min >= max) return [min || 0];
+
+  const niceBases = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8];
+  const candidates = new Set();
+  let magnitude = 1;
+
+  while (magnitude <= max) {
+    niceBases.forEach((b) => {
+      const val = Math.round(b * magnitude);
+      if (val >= min && val <= max) candidates.add(val);
+    });
+    magnitude *= 10;
+  }
+
+  candidates.add(min);
+  candidates.add(max);
+
+  let amounts = Array.from(candidates).sort((a, b) => a - b);
+
+  if (amounts.length > maxButtons) {
+    const step = (amounts.length - 1) / (maxButtons - 1);
+    const picked = [];
+    for (let i = 0; i < maxButtons; i++) {
+      picked.push(amounts[Math.round(i * step)]);
+    }
+    amounts = Array.from(new Set(picked));
+  }
+
+  return amounts;
+};
+
+// Returns a YYYY-MM-DD key for a date string, normalized to IST so
+// "today" / "yesterday" grouping matches the market's declared-result day.
+const toISTDateKey = (dateStr) =>
+  new Date(dateStr).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+const formatShortDate = (dateKey) => {
+  if (!dateKey) return "";
+  const d = new Date(`${dateKey}T00:00:00`);
+  return d
+    .toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
+    .toUpperCase();
 };
 
 const PlaceBid = () => {
@@ -40,6 +91,9 @@ const PlaceBid = () => {
     error,
     message,
   } = useSelector((state) => state.bid);
+  const { results: publicResults, loading: resultsLoading } = useSelector(
+    selectPublicBidResults,
+  );
   const { gameType: autoGameType } = location.state || {};
 
   const currencySymbol = getCurrencySymbol(user?.country);
@@ -47,13 +101,6 @@ const PlaceBid = () => {
   const formatCurrency = (amount) => {
     return `${currencySymbol}${Number(amount).toLocaleString("en-IN")}`;
   };
-
-  // ===== MOCK RESULT DATA (Temporary) =====
-  const mockTodayResult = ["4", "6", "8"];
-  const mockLastResult = ["7", "9", "0"];
-  const mockLastDate = new Date(Date.now() - 86400000 * 2)
-    .toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
-    .toUpperCase();
 
   const [selectedDigits, setSelectedDigits] = useState([]);
   const [currentDigitIndex, setCurrentDigitIndex] = useState(0);
@@ -65,6 +112,69 @@ const PlaceBid = () => {
   const [localError, setLocalError] = useState("");
   const [success, setSuccess] = useState("");
   const [isHalfSangamMode, setIsHalfSangamMode] = useState("single");
+  const [isCustomAmount, setIsCustomAmount] = useState(false);
+  const [customAmountError, setCustomAmountError] = useState("");
+
+  // Bid amount options derived from the market's minBid/maxBid range
+  const bidAmountOptions = useMemo(
+    () => generateBidAmounts(currentMarket?.minBid, currentMarket?.maxBid),
+    [currentMarket?.minBid, currentMarket?.maxBid],
+  );
+
+  // Fetch declared results (panna = 3-digit result, matches the
+  // digit-box UI below). status: "all" pulls full declared history.
+  // NOT scoped to a single market — we want the latest declared
+  // result across ALL markets here.
+  useEffect(() => {
+    dispatch(
+      fetchPublicBidResults({
+        gameType: "panna",
+        status: "all",
+      }),
+    );
+  }, [dispatch]);
+
+  // Derive "today's result" (most recent declared result today, from
+  // ANY market) and "last result" (most recent declared result on the
+  // previous day that has a result, from ANY market) from the fetched
+  // public results.
+  const { todayResult, lastResult, lastResultDateKey } = useMemo(() => {
+    if (!publicResults || publicResults.length === 0) {
+      return { todayResult: [], lastResult: [], lastResultDateKey: null };
+    }
+
+    // No marketId filter here on purpose — pick the latest result
+    // overall, regardless of which market it belongs to.
+    const marketResults = publicResults.filter((r) => r.resultNumber);
+
+    const sorted = [...marketResults].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+    );
+
+    // Keep only the most recent entry per calendar day (IST)
+    const byDate = new Map();
+    sorted.forEach((r) => {
+      const key = toISTDateKey(r.createdAt);
+      if (!byDate.has(key)) byDate.set(key, r);
+    });
+
+    const sortedDateKeys = Array.from(byDate.keys()).sort((a, b) =>
+      b.localeCompare(a),
+    );
+
+    const todayKey = toISTDateKey(new Date());
+    const todayEntry = byDate.get(todayKey);
+
+    // First declared date that isn't today = previous result day
+    const prevDateKey = sortedDateKeys.find((key) => key !== todayKey);
+    const prevEntry = prevDateKey ? byDate.get(prevDateKey) : null;
+
+    return {
+      todayResult: todayEntry ? todayEntry.resultNumber.split("") : [],
+      lastResult: prevEntry ? prevEntry.resultNumber.split("") : [],
+      lastResultDateKey: prevDateKey || null,
+    };
+  }, [publicResults]);
 
   const getDigitsCount = (gameType) => {
     if (gameType === "half-sangam")
@@ -177,7 +287,34 @@ const PlaceBid = () => {
   };
 
   const handleBidAmountClick = (amount) => {
+    setIsCustomAmount(false);
+    setCustomAmountError("");
     setFormData({ ...formData, bidAmount: amount.toString() });
+  };
+
+  const handleCustomAmountChange = (e) => {
+    const value = e.target.value;
+    // allow only digits
+    if (value !== "" && !/^\d+$/.test(value)) return;
+
+    setFormData({ ...formData, bidAmount: value });
+
+    if (value === "") {
+      setCustomAmountError("");
+      return;
+    }
+
+    const amount = parseInt(value, 10);
+    const min = currentMarket?.minBid;
+    const max = currentMarket?.maxBid;
+
+    if (min && amount < min) {
+      setCustomAmountError(`Minimum bid is ${formatCurrency(min)}`);
+    } else if (max && amount > max) {
+      setCustomAmountError(`Maximum bid is ${formatCurrency(max)}`);
+    } else {
+      setCustomAmountError("");
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -190,6 +327,8 @@ const PlaceBid = () => {
       return setLocalError("Please select all digits");
     if (!formData.bidAmount || parseFloat(formData.bidAmount) <= 0)
       return setLocalError("Enter valid bid amount");
+    if (isCustomAmount && customAmountError)
+      return setLocalError(customAmountError);
 
     const bidAmount = parseFloat(formData.bidAmount);
     if (bidAmount < currentMarket?.minBid)
@@ -211,6 +350,8 @@ const PlaceBid = () => {
     if (result.payload?.success) {
       setSuccess(result.payload.message);
       resetSelection();
+      setIsCustomAmount(false);
+      setCustomAmountError("");
       setFormData({ number: "", bidAmount: "", gameType: formData.gameType });
       setTimeout(() => navigate("/matka/bids-history"), 2000);
     }
@@ -429,7 +570,7 @@ const PlaceBid = () => {
               <div
                 className={`w-14 h-14 rounded-full border-2 flex items-center justify-center text-2xl font-bold transition-all ${
                   selectedDigits[i] !== null && selectedDigits[i] !== undefined
-                    ? "border-amber-500 bg-amber-500 text-white shadow-lg shadow-amber-200"
+                    ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-white"
                     : i === currentDigitIndex
                       ? "border-amber-400 bg-amber-50 text-gray-400"
                       : "border-gray-200 bg-gray-50 text-gray-300"
@@ -576,20 +717,27 @@ const PlaceBid = () => {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-stretch">
                 {/* LEFT - Market Name (Full Height Gradient Panel) */}
-                <div className="relative w-28 flex-shrink-0 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 flex flex-col items-center justify-center gap-2 py-5 overflow-hidden">
-                  <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
-                    <Crown size={22} className="text-amber-100" />
+                <div
+                  className="relative w-28 flex-shrink-0 bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
+border border-[#FFD75A]
+shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex flex-col items-center justify-center gap-2 py-5 overflow-hidden"
+                >
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center">
+                    <img
+                      src={currentMarket.image}
+                      alt=""
+                      className="h-full w-full rounded-full"
+                    />
                   </div>
                   <h1 className="text-white font-extrabold text-base tracking-wide text-center leading-tight">
                     {currentMarket.name}
                   </h1>
-                  {currentMarket.isActive &&
-                    !currentMarket.isResultDeclared && (
-                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-green-500/90 text-white flex items-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-white animate-pulse"></span>
-                        LIVE
-                      </span>
-                    )}
+                  {currentMarket.isActive && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-green-500/90 text-white flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-white animate-pulse"></span>
+                      LIVE
+                    </span>
+                  )}
                 </div>
 
                 {/* RIGHT - All Info (Two Rows) */}
@@ -643,14 +791,22 @@ const PlaceBid = () => {
                         Today's Result
                       </p>
                       <div className="flex items-center gap-1.5">
-                        {mockTodayResult.map((digit, index) => (
-                          <div
-                            key={index}
-                            className="w-7 h-7 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-extrabold text-base shadow-md shadow-amber-200"
-                          >
-                            {digit}
-                          </div>
-                        ))}
+                        {resultsLoading && todayResult.length === 0 ? (
+                          <div className="w-7 h-7 rounded-xl bg-gray-100 border border-gray-200 animate-pulse" />
+                        ) : todayResult.length > 0 ? (
+                          todayResult.map((digit, index) => (
+                            <div
+                              key={index}
+                              className="w-7 h-7 rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center text-white font-extrabold text-base"
+                            >
+                              {digit}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-300 font-semibold">
+                            Awaited
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -661,15 +817,28 @@ const PlaceBid = () => {
                         Last Result
                       </p>
                       <div className="flex items-center gap-1.5">
-                        {mockLastResult.map((digit, index) => (
-                          <div
-                            key={index}
-                            className="w-7 h-7 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-700 font-extrabold text-base"
-                          >
-                            {digit}
-                          </div>
-                        ))}
+                        {resultsLoading && lastResult.length === 0 ? (
+                          <div className="w-7 h-7 rounded-xl bg-gray-100 border border-gray-200 animate-pulse" />
+                        ) : lastResult.length > 0 ? (
+                          lastResult.map((digit, index) => (
+                            <div
+                              key={index}
+                              className="w-7 h-7 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-700 font-extrabold text-base"
+                            >
+                              {digit}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-300 font-semibold">
+                            —
+                          </span>
+                        )}
                       </div>
+                      {lastResultDateKey && (
+                        <p className="text-[8px] text-gray-300 font-semibold">
+                          {formatShortDate(lastResultDateKey)}
+                        </p>
+                      )}
                     </div>
 
                     <div className="w-px h-12 bg-gray-100 flex-shrink-0"></div>
@@ -693,36 +862,6 @@ const PlaceBid = () => {
               </div>
             </div>
 
-            {/* Game Type Selection */}
-            {/* <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">
-                  Game:
-                </span>
-                {gameTypes.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => {
-                      resetSelection();
-                      setIsHalfSangamMode("single");
-                      setFormData({ ...formData, gameType: type, number: "" });
-                    }}
-                    className={`
-                      px-3.5 py-1 rounded-full text-xs font-medium transition-all
-                      ${
-                        formData.gameType === type
-                          ? "bg-amber-500 text-white shadow-sm"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }
-                    `}
-                  >
-                    {getGameTypeIcon(type)} {getGameTypeDisplay(type)}
-                  </button>
-                ))}
-              </div>
-            </div> */}
-
             {/* Number Selection */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
               {renderDigitSelection()}
@@ -739,12 +878,16 @@ const PlaceBid = () => {
               <p className="text-xs text-gray-500 mb-3">
                 Choose how many coins you want to play
               </p>
+              <p className="text-[10px] text-gray-400 mb-3">
+                Range: {formatCurrency(currentMarket.minBid)} —{" "}
+                {formatCurrency(currentMarket.maxBid)}
+              </p>
 
               <form onSubmit={handleSubmit}>
                 <div className="space-y-4">
-                  {/* Coin Amount Buttons */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {[10, 50, 100, 500, 1000].map((amount) => (
+                  {/* Coin Amount Buttons - dynamic, based on market's minBid/maxBid */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {bidAmountOptions.map((amount) => (
                       <button
                         key={amount}
                         type="button"
@@ -753,7 +896,7 @@ const PlaceBid = () => {
                           py-2.5 rounded-xl text-sm font-bold transition-all border-2
                           ${
                             formData.bidAmount === amount.toString()
-                              ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-200"
+                              ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
                               : "bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-300 hover:bg-amber-50"
                           }
                         `}
@@ -761,6 +904,68 @@ const PlaceBid = () => {
                         {formatCurrency(amount)}
                       </button>
                     ))}
+                  </div>
+
+                  {/* Custom Amount */}
+                  <div>
+                    {!isCustomAmount ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomAmount(true);
+                          setCustomAmountError("");
+                          setFormData({ ...formData, bidAmount: "" });
+                        }}
+                        className="w-full py-2.5 rounded-xl text-sm font-bold border-2 border-dashed border-amber-300 text-amber-600 hover:bg-amber-50 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Coins size={14} />
+                        Enter Custom Amount
+                      </button>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">
+                              {currencySymbol}
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              autoFocus
+                              value={formData.bidAmount}
+                              onChange={handleCustomAmountChange}
+                              placeholder={`${currentMarket.minBid} - ${currentMarket.maxBid}`}
+                              className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${
+                                customAmountError
+                                  ? "border-red-300 focus:border-red-400 text-red-600"
+                                  : "border-amber-300 focus:border-amber-500 text-gray-700"
+                              }`}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomAmount(false);
+                              setCustomAmountError("");
+                              setFormData({ ...formData, bidAmount: "" });
+                            }}
+                            className="p-2.5 rounded-xl border-2 border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        {customAmountError ? (
+                          <p className="text-[10px] text-red-500 mt-1.5 flex items-center gap-1">
+                            <AlertCircle size={11} /> {customAmountError}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-gray-400 mt-1.5">
+                            Min {formatCurrency(currentMarket.minBid)} · Max{" "}
+                            {formatCurrency(currentMarket.maxBid)}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Potential Win */}
@@ -847,7 +1052,7 @@ const PlaceBid = () => {
                     disabled={
                       bidLoading || !formData.number || !formData.bidAmount
                     }
-                    className="w-full bg-gradient-to-r from-amber-500 to-orange-500 py-3.5 rounded-xl text-white font-bold text-base shadow-lg shadow-amber-200 hover:shadow-xl hover:scale-[1.01] transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] py-3.5 rounded-xl text-black font-bold text-base shadow-amber-200 hover:shadow-xl hover:scale-[1.01] transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {bidLoading ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>

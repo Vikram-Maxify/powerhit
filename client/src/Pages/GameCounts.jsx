@@ -57,17 +57,17 @@ const countries = [
 // CURRENCY CONFIGURATION
 // ==========================================
 const currencyConfig = {
-  IN: { symbol: '₹', code: 'INR', name: 'Indian Rupee' },
-  AU: { symbol: 'A$', code: 'AUD', name: 'Australian Dollar' },
-  PK: { symbol: '₨', code: 'PKR', name: 'Pakistani Rupee' },
-  CA: { symbol: 'C$', code: 'CAD', name: 'Canadian Dollar' },
-  NP: { symbol: 'रू', code: 'NPR', name: 'Nepalese Rupee' },
-  UAE: { symbol: 'د.إ', code: 'AED', name: 'UAE Dirham' },
+  IN: { symbol: "₹", code: "INR", name: "Indian Rupee" },
+  AU: { symbol: "A$", code: "AUD", name: "Australian Dollar" },
+  PK: { symbol: "₨", code: "PKR", name: "Pakistani Rupee" },
+  CA: { symbol: "C$", code: "CAD", name: "Canadian Dollar" },
+  NP: { symbol: "रू", code: "NPR", name: "Nepalese Rupee" },
+  UAE: { symbol: "د.إ", code: "AED", name: "UAE Dirham" },
 };
 
 // Helper function to get currency symbol
 const getCurrencySymbol = (countryCode) => {
-  return currencyConfig[countryCode]?.symbol || '₹';
+  return currencyConfig[countryCode]?.symbol || "₹";
 };
 
 // Helper function to format price with currency
@@ -352,7 +352,9 @@ const GameSelection = () => {
 
   const normalizedCountry =
     countryAliases[
-      String(activeCountryName || "").trim().toLowerCase()
+      String(activeCountryName || "")
+        .trim()
+        .toLowerCase()
     ] || "";
 
   const activeCountryConfig = countryConfig[normalizedCountry] || null;
@@ -581,10 +583,7 @@ const GameSelection = () => {
       }
 
       // If ticket has no game type selection, return all packages
-      if (
-        !selectedGameType ||
-        selectedGameType === "default"
-      ) {
+      if (!selectedGameType || selectedGameType === "default") {
         return true;
       }
 
@@ -596,10 +595,7 @@ const GameSelection = () => {
         item?.gameTypeDetails?._id ||
         "";
 
-      return (
-        String(gameTypeId) ===
-        String(selectedGameType)
-      );
+      return String(gameTypeId) === String(selectedGameType);
     });
 
     console.log("📊 Game counts from API:", gameCounts);
@@ -613,49 +609,33 @@ const GameSelection = () => {
     // returned gameType as null/undefined, still
     // show the packages belonging to this ticket.
     // ==========================================
-    if (
-      result.length === 0 &&
-      gameCounts.length > 0
-    ) {
-      const anyForTicket =
-        gameCounts.filter((item) => {
-          const ticketId =
-            item?.ticketType?._id ||
-            item?.ticketType?.id ||
-            item?.ticketType ||
-            item?.ticketTypeId ||
-            "";
+    if (result.length === 0 && gameCounts.length > 0) {
+      const anyForTicket = gameCounts.filter((item) => {
+        const ticketId =
+          item?.ticketType?._id ||
+          item?.ticketType?.id ||
+          item?.ticketType ||
+          item?.ticketTypeId ||
+          "";
 
-          return (
-            String(ticketId) ===
-            activeTicketId
-          );
-        });
+        return String(ticketId) === activeTicketId;
+      });
 
       if (anyForTicket.length > 0) {
-        console.log(
-          "🔄 Using ticket fallback:",
-          anyForTicket
-        );
+        console.log("🔄 Using ticket fallback:", anyForTicket);
 
         return anyForTicket;
       }
     }
 
     return result;
-  }, [
-    gameCounts,
-    activeTicket,
-    selectedGameType,
-  ]);
+  }, [gameCounts, activeTicket, selectedGameType]);
 
   const selectedCount = useMemo(() => {
     if (selectedGameCount) {
       return (
         filteredGameCounts.find(
-          (x) =>
-            String(x?._id) ===
-            String(selectedGameCount)
+          (x) => String(x?._id) === String(selectedGameCount),
         ) || null
       );
     }
@@ -665,10 +645,7 @@ const GameSelection = () => {
     }
 
     return null;
-  }, [
-    filteredGameCounts,
-    selectedGameCount,
-  ]);
+  }, [filteredGameCounts, selectedGameCount]);
 
   const activeTicketTitle = useMemo(() => {
     const ticket = ticketTypes.find((t) => t._id === activeTicket);
@@ -753,7 +730,7 @@ const GameSelection = () => {
     // Do not call the API before a ticket is selected.
     if (!activeTicket) {
       console.log(
-        "⏳ Waiting for active ticket before fetching game counts..."
+        "⏳ Waiting for active ticket before fetching game counts...",
       );
       return;
     }
@@ -784,14 +761,9 @@ const GameSelection = () => {
     dispatch(
       activeCountryConfig.getGameCounts({
         ticketType,
-      })
+      }),
     );
-  }, [
-    dispatch,
-    normalizedCountry,
-    activeTicket,
-    activeCountryConfig,
-  ]);
+  }, [dispatch, normalizedCountry, activeTicket, activeCountryConfig]);
 
   // Set initial ticket
   useEffect(() => {
@@ -800,7 +772,7 @@ const GameSelection = () => {
         const matchingTicket = ticketTypes.find((ticket) =>
           String(ticket?.title || ticket?.name || "")
             .toLowerCase()
-            .includes(String(urlCountry).toLowerCase())
+            .includes(String(urlCountry).toLowerCase()),
         );
 
         if (matchingTicket) {
@@ -810,9 +782,8 @@ const GameSelection = () => {
       }
 
       const firstActiveTicket =
-        ticketTypes.find(
-          (ticket) => ticket?.isActive !== false
-        ) || ticketTypes[0];
+        ticketTypes.find((ticket) => ticket?.isActive !== false) ||
+        ticketTypes[0];
 
       setActiveTicket(firstActiveTicket?._id || null);
     }
@@ -1304,7 +1275,7 @@ const GameSelection = () => {
                 <Star size={14} /> Premium Dashboard
               </div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                Welcome back, <span className="text-yellow-200">Player</span>
+                Welcome back, <span className="text-yellow-200">Plyer</span>
               </h1>
               <p className="text-amber-100 text-sm mt-1">
                 Select your ticket and start playing
@@ -1622,7 +1593,8 @@ const GameSelection = () => {
                 const currencySymbol = getCurrencySymbol(activeCountryCode);
                 return (
                   <option key={item._id} value={item._id}>
-                    {item.totalGames} Games - {currencySymbol}{item.price}
+                    {item.totalGames} Games - {currencySymbol}
+                    {item.price}
                     {item.label && ` (${item.label})`}
                     {item.discount && ` - ${item.discount}% off`}
                     {item.isActive !== undefined &&
