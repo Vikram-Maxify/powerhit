@@ -46,6 +46,87 @@ import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ============================
+// Country Data with Flags
+// ============================
+
+const countries = [
+  { name: "India", flag: "https://flagcdn.com/w80/in.png", code: "IN" },
+  { name: "Australia", flag: "https://flagcdn.com/w80/au.png", code: "AU" },
+  { name: "Pakistan", flag: "https://flagcdn.com/w80/pk.png", code: "PK" },
+  { name: "Bangladesh", flag: "https://flagcdn.com/w80/bd.png", code: "BD" },
+  { name: "Nepal", flag: "https://flagcdn.com/w80/np.png", code: "NP" },
+  { name: "Dubai", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
+  { name: "United States", flag: "https://flagcdn.com/w80/us.png", code: "US" },
+  { name: "United Kingdom", flag: "https://flagcdn.com/w80/gb.png", code: "GB" },
+  { name: "Canada", flag: "https://flagcdn.com/w80/ca.png", code: "CA" },
+  { name: "Germany", flag: "https://flagcdn.com/w80/de.png", code: "DE" },
+  { name: "France", flag: "https://flagcdn.com/w80/fr.png", code: "FR" },
+  { name: "Italy", flag: "https://flagcdn.com/w80/it.png", code: "IT" },
+  { name: "Spain", flag: "https://flagcdn.com/w80/es.png", code: "ES" },
+  { name: "Brazil", flag: "https://flagcdn.com/w80/br.png", code: "BR" },
+  { name: "Mexico", flag: "https://flagcdn.com/w80/mx.png", code: "MX" },
+  { name: "Japan", flag: "https://flagcdn.com/w80/jp.png", code: "JP" },
+  { name: "China", flag: "https://flagcdn.com/w80/cn.png", code: "CN" },
+  { name: "Russia", flag: "https://flagcdn.com/w80/ru.png", code: "RU" },
+  { name: "South Africa", flag: "https://flagcdn.com/w80/za.png", code: "ZA" },
+  { name: "Egypt", flag: "https://flagcdn.com/w80/eg.png", code: "EG" },
+  { name: "Nigeria", flag: "https://flagcdn.com/w80/ng.png", code: "NG" },
+  { name: "Kenya", flag: "https://flagcdn.com/w80/ke.png", code: "KE" },
+  { name: "Singapore", flag: "https://flagcdn.com/w80/sg.png", code: "SG" },
+  { name: "Malaysia", flag: "https://flagcdn.com/w80/my.png", code: "MY" },
+  { name: "Philippines", flag: "https://flagcdn.com/w80/ph.png", code: "PH" },
+  { name: "Vietnam", flag: "https://flagcdn.com/w80/vn.png", code: "VN" },
+  { name: "Thailand", flag: "https://flagcdn.com/w80/th.png", code: "TH" },
+  { name: "Indonesia", flag: "https://flagcdn.com/w80/id.png", code: "ID" },
+  { name: "Turkey", flag: "https://flagcdn.com/w80/tr.png", code: "TR" },
+  { name: "Saudi Arabia", flag: "https://flagcdn.com/w80/sa.png", code: "SA" },
+  { name: "Israel", flag: "https://flagcdn.com/w80/il.png", code: "IL" },
+  { name: "New Zealand", flag: "https://flagcdn.com/w80/nz.png", code: "NZ" },
+];
+
+// ============================
+// Helper Functions
+// ============================
+
+// Get country flag by country name
+const getCountryFlag = (countryName) => {
+  if (!countryName) return null;
+  
+  // Try exact match first
+  let country = countries.find(
+    c => c.name.toLowerCase() === countryName.toLowerCase()
+  );
+  
+  // Try partial match if exact match not found
+  if (!country) {
+    country = countries.find(
+      c => countryName.toLowerCase().includes(c.name.toLowerCase()) ||
+           c.name.toLowerCase().includes(countryName.toLowerCase())
+    );
+  }
+  
+  return country ? country.flag : null;
+};
+
+// Get country code by country name
+const getCountryCode = (countryName) => {
+  if (!countryName) return null;
+  
+  let country = countries.find(
+    c => c.name.toLowerCase() === countryName.toLowerCase()
+  );
+  
+  if (!country) {
+    country = countries.find(
+      c => countryName.toLowerCase().includes(c.name.toLowerCase()) ||
+           c.name.toLowerCase().includes(countryName.toLowerCase())
+    );
+  }
+  
+  return country ? country.code : null;
+};
+
+// ============================
 // Custom Hooks
 // ============================
 
@@ -175,6 +256,51 @@ const useUserManagement = () => {
 // Components
 // ============================
 
+// Flag Component
+const CountryFlag = ({ countryName, size = "md" }) => {
+  const flagUrl = getCountryFlag(countryName);
+  const countryCode = getCountryCode(countryName);
+  
+  const sizeClasses = {
+    sm: "w-5 h-4",
+    md: "w-8 h-6",
+    lg: "w-12 h-8",
+    xl: "w-16 h-10",
+  };
+
+  if (!flagUrl) {
+    return (
+      <div className={`${sizeClasses[size] || sizeClasses.md} bg-gray-200 rounded flex items-center justify-center`}>
+        <MapPin className="w-3 h-3 text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${sizeClasses[size] || sizeClasses.md} rounded shadow-sm overflow-hidden flex-shrink-0 border border-gray-200 relative group`}>
+      <img 
+        src={flagUrl} 
+        alt={`${countryName || 'Unknown'} flag`}
+        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+        loading="lazy"
+        onError={(e) => {
+          e.target.style.display = 'none';
+          e.target.parentElement.innerHTML = `
+            <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+              <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          `;
+        }}
+      />
+      {countryName && (
+        <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+      )}
+    </div>
+  );
+};
+
 // Stats Cards
 const StatsCards = ({ stats }) => {
   const cards = [
@@ -303,6 +429,7 @@ const UserCard = ({
 }) => {
   const isAdmin = user.role === "admin";
   const isCurrentAdminUser = isCurrentAdmin(user._id);
+  const flagUrl = getCountryFlag(user.country);
 
   return (
     <motion.div
@@ -375,6 +502,15 @@ const UserCard = ({
             <Gift size={14} className="text-gray-400" />
             <span className="text-amber-600 font-medium">{user.totalReferrals || 0} referrals</span>
           </div>
+          {user.country && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 col-span-2 mt-1">
+              <CountryFlag countryName={user.country} size="sm" />
+              <span className="text-xs text-gray-500">{user.country}</span>
+              {getCountryCode(user.country) && (
+                <span className="text-xs text-gray-400 font-mono">({getCountryCode(user.country)})</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -460,7 +596,12 @@ const UserRow = ({
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        {getRoleBadge(user.role)}
+        <div className="flex items-center gap-2">
+          {user.country && (
+            <CountryFlag countryName={user.country} size="sm" />
+          )}
+          {getRoleBadge(user.role)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(user.status)}`}>
@@ -529,8 +670,11 @@ const UserDetailsModal = ({
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-6 rounded-t-3xl flex justify-between items-center z-10">
           <div className="flex items-center gap-4">
-            <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
+            <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm flex items-center gap-3">
               <User className="w-8 h-8 text-white" />
+              {user.country && (
+                <CountryFlag countryName={user.country} size="lg" />
+              )}
             </div>
             <div>
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -541,6 +685,15 @@ const UserDetailsModal = ({
                 <Mail size={14} />
                 {user.email}
               </p>
+              {user.country && (
+                <p className="text-indigo-200 text-xs flex items-center gap-2 mt-1">
+                  <MapPin size={12} />
+                  {user.country}
+                  {getCountryCode(user.country) && (
+                    <span className="text-indigo-300 font-mono">({getCountryCode(user.country)})</span>
+                  )}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -643,7 +796,19 @@ const UserDetailsModal = ({
                 <InfoRow label="Full Name" value={user.name} />
                 <InfoRow label="Email" value={user.email} icon={<Mail size={14} />} />
                 <InfoRow label="Mobile" value={user.mobile} icon={<Phone size={14} />} />
-                <InfoRow label="Country" value={user.country || "N/A"} icon={<MapPin size={14} />} />
+                <InfoRow 
+                  label="Country" 
+                  value={
+                    <div className="flex items-center gap-2">
+                      {user.country && <CountryFlag countryName={user.country} size="sm" />}
+                      <span>{user.country || "N/A"}</span>
+                      {user.country && getCountryCode(user.country) && (
+                        <span className="text-xs text-gray-400 font-mono">({getCountryCode(user.country)})</span>
+                      )}
+                    </div>
+                  } 
+                  icon={<MapPin size={14} />} 
+                />
                 <InfoRow label="City" value={user.city || "N/A"} icon={<MapPin size={14} />} />
               </div>
             </div>
@@ -1024,7 +1189,7 @@ const Users = () => {
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                            <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country / Role</th>
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                           </tr>
