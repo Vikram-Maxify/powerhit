@@ -1,17 +1,18 @@
-// GameSelection.jsx - Amber/Orange/Yellow Theme with Multi-Country Support & Dynamic Currency
+// GameSelection.jsx - FULLY FIXED - Manual Number Selection Working
 
 import {
   AlertCircle,
   BarChart3,
   Calendar,
   ChevronDown,
+  ChevronUp,
   ClipboardList,
   Crown,
   Diamond,
   Flame,
   Gift,
   Home,
-  Package,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   Trophy,
@@ -124,66 +125,6 @@ const CustomModal = ({ isOpen, onClose, type, title, message, details }) => {
   );
 };
 
-// ===== TICKET INFO TOOLTIP =====
-const TicketInfoTooltip = ({ ticket }) => {
-  if (!ticket) return null;
-
-  return (
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 bg-gray-900 text-white text-xs rounded-xl p-4 shadow-2xl z-50 border border-gray-700">
-      <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-gray-900 rotate-45"></div>
-      <div className="space-y-1.5">
-        <p className="flex justify-between">
-          <span className="text-gray-400">ID:</span>
-          <span className="font-mono text-[10px]">{ticket._id}</span>
-        </p>
-        <p className="flex justify-between">
-          <span className="text-gray-400">Title:</span>
-          <span className="font-semibold">{ticket.title}</span>
-        </p>
-        {ticket.subTitle && (
-          <p className="flex justify-between">
-            <span className="text-gray-400">Subtitle:</span>
-            <span>{ticket.subTitle}</span>
-          </p>
-        )}
-        <p className="flex justify-between">
-          <span className="text-gray-400">Order:</span>
-          <span>{ticket.order}</span>
-        </p>
-        <p className="flex justify-between">
-          <span className="text-gray-400">Status:</span>
-          <span>{ticket.isActive ? "🟢 Active" : "🔴 Inactive"}</span>
-        </p>
-        <p className="flex justify-between">
-          <span className="text-gray-400">Game Types:</span>
-          <span>{ticket.gameTypes?.length || 0}</span>
-        </p>
-        {ticket.gameTypes && ticket.gameTypes.length > 0 && (
-          <div className="mt-1 pt-1 border-t border-gray-700">
-            <p className="text-gray-400 text-[10px] mb-0.5">Game Types:</p>
-            {ticket.gameTypes.map((gt, idx) => (
-              <div key={gt._id} className="flex justify-between text-[10px]">
-                <span>{gt.title}</span>
-                <span className="text-gray-500">
-                  {gt.isActive ? "✅" : "❌"} Order: {gt.order}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="flex justify-between text-[10px] text-gray-500 pt-1 border-t border-gray-700">
-          <span>
-            Created: {new Date(ticket.createdAt).toLocaleDateString()}
-          </span>
-          <span>
-            Updated: {new Date(ticket.updatedAt).toLocaleDateString()}
-          </span>
-        </p>
-      </div>
-    </div>
-  );
-};
-
 const GameSelection = () => {
   const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
@@ -246,13 +187,6 @@ const GameSelection = () => {
 
   // ==========================================
   // NORMALIZE COUNTRY
-  // User country can be:
-  // India / india / IN
-  // Australia / australia / AU
-  // Pakistan / pakistan / PK
-  // Bangladesh / bangladesh / BD
-  // Nepal / nepal / NP
-  // UAE / uae / dubai / AE
   // ==========================================
   const countryAliases = {
     india: "india",
@@ -337,7 +271,6 @@ const GameSelection = () => {
   const gameCounts = getGameCountsByCountry();
 
   // Get loading states at the top level.
-  // Do NOT call useSelector conditionally or inside helper functions.
   const indiaGameCountLoading = useSelector(
     (state) => state.indiaGameCount?.loading || false,
   );
@@ -477,20 +410,15 @@ const GameSelection = () => {
 
   // ==========================================
   // FILTER GAME COUNTS
-  // IMPORTANT:
-  // Mongo ObjectId can arrive as an object/string.
-  // Always compare IDs as strings.
   // ==========================================
   const filteredGameCounts = useMemo(() => {
     if (!Array.isArray(gameCounts) || gameCounts.length === 0) {
-      console.log("📊 No game counts available");
       return [];
     }
 
     const activeTicketId = String(activeTicket || "");
 
     if (!activeTicketId) {
-      console.log("📊 Waiting for active ticket");
       return [];
     }
 
@@ -502,12 +430,10 @@ const GameSelection = () => {
         item?.ticketTypeId ||
         "";
 
-      // FIX: ObjectId/string mismatch
       if (String(ticketId) !== activeTicketId) {
         return false;
       }
 
-      // If ticket has no game type selection, return all packages
       if (!selectedGameType || selectedGameType === "default") {
         return true;
       }
@@ -523,17 +449,6 @@ const GameSelection = () => {
       return String(gameTypeId) === String(selectedGameType);
     });
 
-    console.log("📊 Game counts from API:", gameCounts);
-    console.log("🎟️ Active ticket:", activeTicketId);
-    console.log("🎮 Selected game type:", selectedGameType);
-    console.log("📊 Filtered game counts:", result);
-
-    // ==========================================
-    // FALLBACK:
-    // If gameType does not match because backend
-    // returned gameType as null/undefined, still
-    // show the packages belonging to this ticket.
-    // ==========================================
     if (result.length === 0 && gameCounts.length > 0) {
       const anyForTicket = gameCounts.filter((item) => {
         const ticketId =
@@ -547,8 +462,6 @@ const GameSelection = () => {
       });
 
       if (anyForTicket.length > 0) {
-        console.log("🔄 Using ticket fallback:", anyForTicket);
-
         return anyForTicket;
       }
     }
@@ -582,11 +495,6 @@ const GameSelection = () => {
     return gameType?.title || "";
   }, [availableGameTypes, selectedGameType]);
 
-  const selectedGameTypeOrder = useMemo(() => {
-    const gameType = availableGameTypes.find((g) => g.id === selectedGameType);
-    return gameType?.order;
-  }, [availableGameTypes, selectedGameType]);
-
   const totalPrice = useMemo(() => {
     const basePrice = selectedCount?.price || 0;
     return basePrice * (autoPlay ? drawCount : 1);
@@ -613,22 +521,6 @@ const GameSelection = () => {
     );
   }, [games, selectionMode]);
 
-  const isCountryValid = useMemo(() => {
-    if (!activeCountryName) {
-      setCountryError("Please set your country to play.");
-      return false;
-    }
-    const countryObj = getCountryObject(activeCountryName);
-    if (!countryObj) {
-      setCountryError(
-        `Country "${activeCountryName}" not found in our supported countries.`,
-      );
-      return false;
-    }
-    setCountryError(null);
-    return true;
-  }, [activeCountryName]);
-
   // ==========================================
   // EFFECTS
   // ==========================================
@@ -639,33 +531,19 @@ const GameSelection = () => {
 
   // ==========================================
   // FETCH GAME COUNTS
-  // COUNTRY + TICKET TYPE
   // ==========================================
   const lastGameCountRequest = useRef("");
 
   useEffect(() => {
-    // Wait until country config is ready
     if (!activeCountryConfig) return;
-
-    // Wait until country is normalized
     if (!normalizedCountry) return;
-
-    // IMPORTANT:
-    // Game counts are ticket-specific.
-    // Do not call the API before a ticket is selected.
     if (!activeTicket) {
-      console.log(
-        "⏳ Waiting for active ticket before fetching game counts...",
-      );
       return;
     }
 
     const ticketType = String(activeTicket).trim();
-
     if (!ticketType) return;
 
-    // Prevent duplicate requests for the exact same
-    // country + ticket combination.
     const requestKey = `${normalizedCountry}:${ticketType}`;
 
     if (lastGameCountRequest.current === requestKey) {
@@ -673,15 +551,6 @@ const GameSelection = () => {
     }
 
     lastGameCountRequest.current = requestKey;
-
-    console.log("=================================");
-    console.log("🎟️ GAME COUNT FETCH");
-    console.log("COUNTRY:", normalizedCountry);
-    console.log("TICKET TYPE:", ticketType);
-    console.log("REQUEST:", {
-      ticketType,
-    });
-    console.log("=================================");
 
     dispatch(
       activeCountryConfig.getGameCounts({
@@ -848,7 +717,7 @@ const GameSelection = () => {
   };
 
   // ==========================================
-  // GAME FUNCTIONS
+  // GAME FUNCTIONS - FIXED
   // ==========================================
 
   const toggleNumber = (gameIndex, num) => {
@@ -857,9 +726,13 @@ const GameSelection = () => {
     setGames((prev) => {
       const newGames = [...prev];
       const game = newGames[gameIndex];
-      const currentNumbers = game.selectedNumbers || [];
 
-      if (currentNumbers.includes(num)) {
+      if (!game) return prev;
+
+      const currentNumbers = game.selectedNumbers || [];
+      const isSelected = currentNumbers.includes(num);
+
+      if (isSelected) {
         game.selectedNumbers = currentNumbers.filter((n) => n !== num);
       } else {
         if (currentNumbers.length >= 7) {
@@ -867,7 +740,7 @@ const GameSelection = () => {
             isOpen: true,
             type: "error",
             title: "⚠️ Maximum Numbers Reached",
-            message: "You can select maximum 7 numbers per game.",
+            message: `Game #${gameIndex + 1}: You can select maximum 7 numbers per game.`,
             details: null,
           });
           return prev;
@@ -890,7 +763,11 @@ const GameSelection = () => {
       const newGames = [...prev];
       const game = newGames[gameIndex];
 
-      if (game.selectedPowerball === num) {
+      if (!game) return prev;
+
+      const isSelected = game.selectedPowerball === num;
+
+      if (isSelected) {
         game.selectedPowerball = null;
       } else {
         game.selectedPowerball = num;
@@ -906,6 +783,8 @@ const GameSelection = () => {
     setGames((prev) => {
       const newGames = [...prev];
       const game = newGames[gameIndex];
+
+      if (!game) return prev;
 
       const numbers = generateRandomGameNumbers();
       game.selectedNumbers = numbers;
@@ -923,12 +802,14 @@ const GameSelection = () => {
       const newGames = [...prev];
       const game = newGames[gameIndex];
 
+      if (!game) return prev;
+
+      const numbers = generateRandomGameNumbers();
+
       if (selectionMode === "pick") {
-        const numbers = generateRandomGameNumbers();
         game.selectedNumbers = numbers;
         game.selectedPowerball = generateRandomPowerball();
       } else {
-        const numbers = generateRandomGameNumbers();
         game.numbers = numbers;
         game.powerball = generateRandomPowerball();
       }
@@ -943,6 +824,9 @@ const GameSelection = () => {
     setGames((prev) => {
       const newGames = [...prev];
       const game = newGames[gameIndex];
+
+      if (!game) return prev;
+
       game.selectedNumbers = [];
       game.selectedPowerball = null;
       return newGames;
@@ -1148,15 +1032,6 @@ const GameSelection = () => {
     return Sparkles;
   };
 
-  // Match the reference dashboard: once a valid package is selected,
-  // show a ready-to-play QuickPick selection by default.
-  useEffect(() => {
-    if (selectedCount && !selectionMode && !isInitialized) {
-      initializeGames("quickpick");
-      setSelectionMode("quickpick");
-    }
-  }, [selectedCount, selectionMode, isInitialized]);
-
   // ==========================================
   // RENDER
   // ==========================================
@@ -1176,26 +1051,27 @@ const GameSelection = () => {
     );
   }
 
-  const referenceGame = games[0];
-  const referenceNumbers =
-    selectionMode === "quickpick"
-      ? referenceGame?.numbers || []
-      : referenceGame?.selectedNumbers || [];
-  const referencePowerball =
-    selectionMode === "quickpick"
-      ? referenceGame?.powerball
-      : referenceGame?.selectedPowerball;
-
-  const displayNumbers = referenceNumbers.length
-    ? referenceNumbers
-    : [12, 24, 31, 45, 58, 63, 71];
-  const displayPowerball = referencePowerball || 9;
-
   const ticketVisuals = [
-    { icon: Sparkles, title: "STANDARD", subtitle: "Most Popular" },
-    { icon: Zap, title: "POWERHIT", subtitle: "High Rewards" },
-    { icon: Gift, title: "SYSTEM", subtitle: "Smart Play" },
-    { icon: Users, title: "LOTTO PARTY", subtitle: "Group Play" },
+    {
+      icon: "https://i.ibb.co/hxmPYBfh/icon1.png",
+      title: "STANDARD",
+      subtitle: "Most Popular",
+    },
+    {
+      icon: "https://i.ibb.co/8Lspfbsd/icon2.png",
+      title: "POWERHIT",
+      subtitle: "High Rewards",
+    },
+    {
+      icon: "https://i.ibb.co/cSgM060K/icon3.png",
+      title: "SYSTEM",
+      subtitle: "Smart Play",
+    },
+    {
+      icon: "https://i.ibb.co/WvZct5CP/icon4.png",
+      title: "LOTTO PARTY",
+      subtitle: "Group Play",
+    },
   ];
 
   const selectGameType = (gameTypeId) => {
@@ -1217,27 +1093,53 @@ const GameSelection = () => {
     setAllGamesExpanded(false);
   };
 
-  const quickPickReference = () => {
-    if (!selectedCount) return;
-    setSelectionMode("quickpick");
-    initializeGames("quickpick");
+  const handleModeSelect = (mode) => {
+    if (!selectedCount) {
+      setModal({
+        isOpen: true,
+        type: "error",
+        title: "⚠️ Select Package First",
+        message: "Please select a game package before choosing numbers.",
+        details: null,
+      });
+      return;
+    }
+    setSelectionMode(mode);
+    initializeGames(mode);
     setExpandedGame(null);
+    setAllGamesExpanded(mode === "pick");
+  };
+
+  const getGameDisplayData = (gameIndex) => {
+    const game = games[gameIndex];
+    if (!game) return { numbers: [], powerball: null, isComplete: false };
+
+    const numbers =
+      selectionMode === "quickpick"
+        ? game.numbers || []
+        : game.selectedNumbers || [];
+    const powerball =
+      selectionMode === "quickpick" ? game.powerball : game.selectedPowerball;
+    const isComplete =
+      numbers.length === 7 && powerball !== null && powerball !== undefined;
+
+    return { numbers, powerball, isComplete };
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-[#fffdf8] to-[#fff7e8] pb-28 text-[#111]">
       <CustomModal {...modal} onClose={closeModal} />
 
-      {/* HERO — supplied image */}
-      <section className="mx-auto max-w-[860px] px-3 pt-3 sm:px-5 sm:pt-4">
-        <div className="relative h-[270px] overflow-hidden rounded-[22px] border-2 border-amber-400 bg-amber-50 shadow-[0_8px_25px_rgba(168,113,0,0.12)] sm:h-[352px]">
+      {/* HERO */}
+      <section className="mx-auto max-w-[860px] sm:pt-4">
+        <div className="relative overflow-hidden sm:h-[352px]">
           <img
             src="https://i.ibb.co/60g6N1Fp/banner1.png"
             alt="WinLuxury Powerball"
             className="h-full w-full object-cover"
           />
-          <div className="absolute bottom-4 left-4 flex min-w-[220px] items-center gap-3 rounded-2xl border border-amber-500 bg-black/90 px-3 py-2.5 text-white shadow-2xl sm:bottom-6 sm:left-7 sm:min-w-[240px] sm:px-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white sm:h-12 sm:w-12">
+          <div className="absolute bottom-4 left-2 flex min-w-[130px] items-center gap-3 rounded-2xl border border-amber-500 bg-black/90 px-3 py-2.5 text-white shadow-2xl sm:bottom-6 sm:left-7 sm:min-w-[40px] sm:px-4">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white sm:h-12 sm:w-12">
               {activeCountryObject ? (
                 <img
                   src={activeCountryObject.flag}
@@ -1252,11 +1154,10 @@ const GameSelection = () => {
               <div className="text-xs font-bold text-amber-300">
                 Playing from
               </div>
-              <div className="text-lg font-black sm:text-xl">
+              <div className="text-sm font-black sm:text-xl">
                 {activeCountryObject?.name || activeCountryName || "INDIA"}
               </div>
             </div>
-            <ChevronDown size={22} className="ml-auto" />
           </div>
         </div>
       </section>
@@ -1282,7 +1183,7 @@ const GameSelection = () => {
       )}
 
       <main className="mx-auto max-w-[860px] px-3 sm:px-5">
-        {/* STEP 1 */}
+        {/* STEP 1: SELECT TICKET TYPE */}
         <section className="mt-3 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
@@ -1304,27 +1205,34 @@ const GameSelection = () => {
             {ticketTypes.slice(0, 4).map((ticket, index) => {
               const isActive = activeTicket === ticket._id;
               const visual = ticketVisuals[index % ticketVisuals.length];
-              const Icon = visual.icon;
+
               return (
                 <button
                   key={ticket._id}
                   onClick={() => setActiveTicket(ticket._id)}
                   onMouseEnter={() => setHoveredTicket(ticket._id)}
                   onMouseLeave={() => setHoveredTicket(null)}
-                  className={`relative flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-[17px] border-2 bg-gradient-to-b from-white to-[#fffdf8] p-3 text-center transition ${isActive ? "border-amber-500 shadow-[0_6px_15px_rgba(229,163,18,0.18)]" : "border-[#f1d7a3] hover:-translate-y-0.5 hover:shadow-lg"}`}
+                  className={`relative flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-[17px] border-2 bg-gradient-to-b from-white to-[#fffdf8] p-3 text-center transition ${
+                    isActive
+                      ? "border-amber-500 shadow-[0_6px_15px_rgba(229,163,18,0.18)]"
+                      : "border-[#f1d7a3] hover:-translate-y-0.5 hover:shadow-lg"
+                  }`}
                 >
                   {isActive && (
                     <span className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-amber-500 font-black text-white shadow">
                       ✓
                     </span>
                   )}
-                  {hoveredTicket === ticket._id && (
-                    <TicketInfoTooltip ticket={ticket} />
-                  )}
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#fff8d2] to-[#f4cf75] text-amber-500 shadow">
-                    {" "}
-                    <Icon size={34} />{" "}
+
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full p-2">
+                    <img
+                      src={visual.icon}
+                      alt={ticket.title || visual.title}
+                      className="h-10 w-10 object-contain"
+                      loading="lazy"
+                    />
                   </span>
+
                   <strong className="text-sm font-black sm:text-[17px]">
                     {ticket.title || visual.title}
                   </strong>
@@ -1337,8 +1245,8 @@ const GameSelection = () => {
           </div>
         </section>
 
-        {/* STEP 2 */}
-        <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
+        {/* STEP 2: SELECT GAME TYPE */}
+        <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-2 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
               2
@@ -1352,13 +1260,16 @@ const GameSelection = () => {
               </p>
             </div>
           </div>
-          <div className="relative flex min-h-[105px] items-center overflow-hidden rounded-[18px] border-2 border-amber-500 bg-gradient-to-r from-[#fff6d8] via-[#fffdf6] to-[#fff0bc] p-3 shadow-[0_5px_14px_rgba(230,166,0,0.13)] sm:p-4">
-            <div className="flex h-20 w-20 shrink-0 rotate-[-8deg] flex-col items-center justify-center rounded-full border-2 border-red-900 bg-gradient-to-br from-red-400 via-red-700 to-red-950 text-xs font-black text-white shadow-lg sm:h-[88px] sm:w-[88px]">
-              <span>POWER</span>
-              <span>BALL</span>
-            </div>
-            <div className="min-w-0 px-3 sm:px-6">
-              <strong className="block text-xl font-black sm:text-[28px]">
+          <div
+            style={{
+              backgroundImage: "url('https://i.ibb.co/WNQ1Y9Gs/banner2.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+            className="relative flex min-h-[95px] items-center overflow-hidden shadow-[0_5px_14px_rgba(230,166,0,0.13)] sm:p-4"
+          >
+            <div className="min-w-0 ml-11 px-6">
+              <strong className="block text-lg font-black sm:text-[28px]">
                 {selectedGameTypeTitle || "POWERBALL"}
               </strong>
               <span className="text-sm text-amber-700 sm:text-lg">
@@ -1373,7 +1284,7 @@ const GameSelection = () => {
                   JACKPOT
                 </small>
                 <strong className="block text-2xl font-black">
-                  {/* {jackpotAmount} */}
+                  {/* jackpotAmount */}
                 </strong>
                 <span className="text-xs text-gray-600">Estimated Jackpot</span>
               </div>
@@ -1399,8 +1310,8 @@ const GameSelection = () => {
           </div>
         </section>
 
-        {/* STEP 3 */}
-        <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
+        {/* STEP 3: SELECT GAME PACKAGE */}
+        <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-1 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
               3
@@ -1417,11 +1328,15 @@ const GameSelection = () => {
               BEST ODDS
             </div>
           </div>
-          <div className="relative flex min-h-[76px] items-center overflow-hidden rounded-[18px] border-2 border-amber-500 bg-[#fffdf8] px-3 shadow-[0_5px_14px_rgba(230,166,0,0.1)]">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#fff5c4] to-[#efbd38] text-amber-600 shadow">
-              <Package size={34} />
-            </div>
-            <div className="ml-4">
+          <div
+            style={{
+              backgroundImage: "url('https://i.ibb.co/nsXWsYZs/banner3.png')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+            className="relative flex min-h-[76px] items-center overflow-hidden rounded-[18px] shadow-[0_5px_14px_rgba(230,166,0,0.1)]"
+          >
+            <div className="ml-20">
               <strong className="block text-sm font-black sm:text-lg">
                 POWER PACK ({selectedCount?.totalGames || 6} GAMES)
               </strong>
@@ -1452,14 +1367,13 @@ const GameSelection = () => {
                 </option>
               ))}
             </select>
-            <ChevronDown size={24} className="text-amber-600" />
           </div>
         </section>
 
-        {/* STEP 4 */}
+        {/* STEP 4: SELECT NUMBERS */}
         {activeTicket && activeCountryName && (
           <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
-            <div className="mb-2 flex items-center gap-3">
+            <div className="mb-3 flex flex-wrap items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
                 4
               </div>
@@ -1468,100 +1382,391 @@ const GameSelection = () => {
                   SELECT NUMBERS
                 </h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Choose 5 numbers + 1 Powerball
+                  Choose 7 numbers + 1 Powerball for each game
                 </p>
               </div>
-              <button
-                onClick={quickPickReference}
-                disabled={!selectedCount}
-                className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-[#ffe28a] to-[#f4b82c] px-3 py-2 text-xs font-black text-amber-900 shadow sm:px-5 sm:text-sm"
-              >
-                <Zap size={17} fill="currentColor" /> QUICK PICK
-              </button>
-            </div>
-            <div className="mb-2 flex justify-between px-2 text-xs font-black text-amber-700 sm:text-sm">
-              <span>PICK 5 NUMBERS</span>
-              <span className="mr-24 sm:mr-40">POWERBALL</span>
-            </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
-              <div className="flex shrink-0 gap-2 sm:gap-3">
-                {displayNumbers.slice(0, 5).map((num, index) => (
-                  <button
-                    key={`${num}-${index}`}
-                    onClick={() =>
-                      selectionMode === "pick" &&
-                      referenceGame &&
-                      toggleNumber(0, num)
-                    }
-                    className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[3px] border-amber-500 bg-white text-lg font-black shadow sm:h-[67px] sm:w-[67px] sm:text-[23px]"
-                  >
-                    {num}
-                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-green-600 text-[10px] text-white">
-                      ✓
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <span className="text-xl font-black">+</span>
-              <button
-                onClick={quickPickReference}
-                className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-red-800 text-lg font-black text-white shadow sm:h-[69px] sm:w-[69px] sm:text-[22px]"
-              >
-                {String(displayPowerball).padStart(2, "0")}
-                <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-green-600 text-[10px]">
-                  ✓
-                </span>
-              </button>
-              <div className="ml-auto hidden min-h-[105px] w-[170px] shrink-0 grid-cols-2 items-center rounded-2xl bg-gradient-to-br from-[#090807] to-[#252015] px-3 py-2 text-white shadow-lg sm:grid">
-                <div className="col-span-1 text-center">
-                  <small className="text-[10px]">TOTAL GAMES</small>
-                  <strong className="block text-2xl text-amber-400">
-                    {selectedCount?.totalGames || 6}
-                  </strong>
-                  <i className="my-1 block h-px bg-amber-900" />
-                  <small className="text-[10px]">POTENTIAL WINS</small>
-                  <strong className="block text-2xl text-amber-400">X10</strong>
-                </div>
-                <div className="flex h-12 items-end gap-1">
-                  {[14, 22, 29, 37, 46].map((h, i) => (
-                    <b
-                      key={i}
-                      className="w-1.5 rounded-t bg-amber-400"
-                      style={{ height: h }}
-                    />
-                  ))}
-                </div>
+              <div className="ml-auto flex gap-2">
+                <button
+                  onClick={() => handleModeSelect("pick")}
+                  disabled={!selectedCount}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-black shadow transition ${
+                    selectionMode === "pick"
+                      ? "bg-gradient-to-b from-amber-400 to-amber-600 text-white"
+                      : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                  } sm:px-4 sm:text-sm`}
+                >
+                  <ClipboardList size={16} /> PICK
+                </button>
+                <button
+                  onClick={() => handleModeSelect("quickpick")}
+                  disabled={!selectedCount}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-black shadow transition ${
+                    selectionMode === "quickpick"
+                      ? "bg-gradient-to-b from-yellow-400 to-amber-500 text-white"
+                      : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                  } sm:px-4 sm:text-sm`}
+                >
+                  <Zap size={16} fill="currentColor" /> QUICK
+                </button>
               </div>
             </div>
 
-            {selectionMode === "pick" && referenceGame && (
-              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-3 sm:p-4">
-                <div className="mb-3 flex items-center gap-2 font-black text-amber-900">
-                  <ClipboardList size={18} /> Pick your numbers manually
-                </div>
-                <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-10 sm:gap-2">
-                  {Array.from({ length: 35 }, (_, i) => i + 1).map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => toggleNumber(0, num)}
-                      className={`h-9 rounded-full border text-xs font-bold ${referenceNumbers.includes(num) ? "border-amber-600 bg-amber-500 text-white" : "border-amber-100 bg-white text-gray-700 hover:border-amber-400"}`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-3 grid grid-cols-5 gap-1.5 sm:grid-cols-10 sm:gap-2">
-                  {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => togglePowerball(0, num)}
-                      className={`h-9 rounded-full border text-xs font-bold ${referencePowerball === num ? "border-red-700 bg-red-600 text-white" : "border-red-100 bg-white text-red-600 hover:border-red-400"}`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
+            {!selectionMode && selectedCount && (
+              <div className="mb-3 rounded-xl bg-amber-50 p-3 text-center text-sm text-amber-700">
+                👆 Select "PICK" to choose numbers manually or "QUICK" for
+                random numbers
               </div>
+            )}
+
+            {selectionMode && (
+              <>
+                {/* Games Summary Bar */}
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 p-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="font-bold text-gray-700">
+                      {games.length} Games
+                    </span>
+                    <span className="text-gray-400">|</span>
+                    <span className="text-green-600 font-medium">
+                      ✅{" "}
+                      {
+                        games.filter((g) => {
+                          if (selectionMode === "quickpick") {
+                            return g.numbers?.length === 7 && g.powerball;
+                          }
+                          return (
+                            g.selectedNumbers?.length === 7 &&
+                            g.selectedPowerball
+                          );
+                        }).length
+                      }{" "}
+                      Complete
+                    </span>
+                    <span className="text-gray-400">|</span>
+                    <span className="text-amber-600 font-medium">
+                      {selectionMode === "quickpick"
+                        ? "QuickPick"
+                        : "Manual Mode"}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleReshuffleAll}
+                      className="rounded-lg bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 hover:bg-amber-200"
+                    >
+                      🔄 Reshuffle All
+                    </button>
+                  </div>
+                </div>
+
+                {/* Individual Games */}
+                <div className="space-y-4">
+                  {games.map((game, gameIndex) => {
+                    const { numbers, powerball, isComplete } =
+                      getGameDisplayData(gameIndex);
+                    const isExpanded =
+                      allGamesExpanded || expandedGame === gameIndex;
+
+                    return (
+                      <div
+                        key={game.id}
+                        className={`rounded-xl border-2 transition-all duration-300 overflow-hidden ${
+                          isComplete
+                            ? "border-green-400 shadow-lg shadow-green-100"
+                            : "border-gray-200 hover:border-amber-200 hover:shadow-lg"
+                        }`}
+                      >
+                        {/* Game Header */}
+                        <div
+                          className="p-3 cursor-pointer hover:bg-amber-50/30 transition-colors duration-200"
+                          onClick={() => {
+                            if (selectionMode === "pick") {
+                              toggleExpand(gameIndex);
+                            }
+                          }}
+                        >
+                          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span
+                                className={`font-bold text-base min-w-[32px] ${
+                                  isComplete
+                                    ? "text-green-600"
+                                    : "text-gray-700"
+                                }`}
+                              >
+                                #{game.id}
+                              </span>
+
+                              {numbers.length > 0 || powerball ? (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {numbers.map((num, idx) => (
+                                    <span
+                                      key={idx}
+                                      style={{
+                                        backgroundImage:
+                                          "url('https://i.ibb.co/rGfVhpYT/circle1.png')",
+                                        backgroundSize: "cover",
+                                        backgroundPosition: "center",
+                                      }}
+                                      className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-black"
+                                    >
+                                      {num}
+                                    </span>
+                                  ))}
+                                  {numbers.length > 0 && numbers.length < 7 && (
+                                    <span className="text-xs text-gray-400 font-medium">
+                                      ({numbers.length}/7)
+                                    </span>
+                                  )}
+                                  {powerball && (
+                                    <>
+                                      <span className="text-gray-300 font-bold">
+                                        |
+                                      </span>
+                                      <span
+                                        style={{
+                                          backgroundImage:
+                                            "url('https://i.ibb.co/r2ztZKWD/Red-circle.png')",
+                                          backgroundSize: "cover",
+                                          backgroundPosition: "center",
+                                        }}
+                                        className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
+                                      >
+                                        {powerball}
+                                      </span>
+                                    </>
+                                  )}
+                                  {isComplete && (
+                                    <span className="ml-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                                      ✅ Complete
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-xs flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></span>
+                                  Click to expand and select numbers
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {selectionMode === "pick" && (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      quickPickGame(gameIndex);
+                                    }}
+                                    className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg transition-colors duration-200 flex items-center gap-1 font-medium"
+                                  >
+                                    <Zap size={12} />
+                                    Quick
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      autoFillGame(gameIndex);
+                                    }}
+                                    className="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2.5 py-1 rounded-lg transition-colors duration-200 flex items-center gap-1 font-medium"
+                                  >
+                                    <span>+</span>
+                                    Fill
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      clearGame(gameIndex);
+                                    }}
+                                    className="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-2.5 py-1 rounded-lg transition-colors duration-200 flex items-center gap-1 font-medium"
+                                  >
+                                    <X size={12} />
+                                    Clear
+                                  </button>
+                                </>
+                              )}
+                              {selectionMode === "quickpick" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    quickPickGame(gameIndex);
+                                  }}
+                                  className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg transition-colors duration-200 flex items-center gap-1 font-medium"
+                                >
+                                  <RefreshCw size={12} />
+                                  Re-Generate
+                                </button>
+                              )}
+
+                              {selectionMode === "pick" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleExpand(gameIndex);
+                                  }}
+                                  className="p-1 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp
+                                      size={18}
+                                      className="text-amber-600"
+                                    />
+                                  ) : (
+                                    <ChevronDown
+                                      size={18}
+                                      className="text-gray-400"
+                                    />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded Content - Number Selection Grid - FIXED */}
+                        {selectionMode === "pick" && isExpanded && (
+                          <div className="p-4 border-t border-gray-100 bg-amber-50/20">
+                            <div className="mb-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-semibold text-gray-700 flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full"></span>
+                                  Select 7 numbers (1-35)
+                                  <span className="text-gray-400 font-normal ml-2">
+                                    ({numbers.length}/7 selected)
+                                  </span>
+                                </p>
+                                {numbers.length === 7 && (
+                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                    ✅ Full
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-7 sm:grid-cols-10 gap-1.5">
+                                {Array.from(
+                                  { length: 35 },
+                                  (_, i) => i + 1,
+                                ).map((num) => {
+                                  const isSelected = numbers.includes(num);
+
+                                  return (
+                                    <button
+                                      key={num}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        toggleNumber(gameIndex, num);
+                                      }}
+                                      className={`h-9 rounded-full font-semibold transition-all duration-200 text-sm ${
+                                        isSelected
+                                          ? "bg-gradient-to-br from-amber-400 to-yellow-400 text-white shadow-md scale-105"
+                                          : "bg-white hover:bg-gray-100 text-gray-700 border-2 border-gray-200 hover:border-amber-300"
+                                      }`}
+                                    >
+                                      {num}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-semibold text-gray-700 flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-gradient-to-r from-red-500 to-red-300 rounded-full"></span>
+                                  Select Powerball (1-20)
+                                  <span className="text-gray-400 font-normal ml-2">
+                                    {powerball
+                                      ? `Selected: ${powerball}`
+                                      : "Not selected"}
+                                  </span>
+                                </p>
+                                {powerball && (
+                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                    ✅ Set
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                                {Array.from(
+                                  { length: 20 },
+                                  (_, i) => i + 1,
+                                ).map((num) => {
+                                  const isSelected = powerball === num;
+
+                                  return (
+                                    <button
+                                      key={num}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        togglePowerball(gameIndex, num);
+                                      }}
+                                      className={`h-9 rounded-full font-semibold transition-all duration-200 text-sm ${
+                                        isSelected
+                                          ? "bg-gradient-to-br from-red-500 to-red-400 text-white shadow-md scale-105"
+                                          : "bg-white hover:bg-red-50 text-red-600 border-2 border-red-200 hover:border-red-400"
+                                      }`}
+                                    >
+                                      {num}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Game Status */}
+                            <div className="mt-3 flex items-center justify-between pt-2 border-t border-gray-200">
+                              <span className="text-xs text-gray-500">
+                                Game #{game.id} • {numbers.length}/7 numbers •{" "}
+                                {powerball ? "Powerball ✓" : "Powerball ✗"}
+                              </span>
+                              {isComplete ? (
+                                <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
+                                  ✅ Ready to Play
+                                </span>
+                              ) : (
+                                <span className="text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-full font-medium">
+                                  ⚠️ Incomplete
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* QuickPick mode - show numbers only */}
+                        {selectionMode === "quickpick" && (
+                          <div className="px-3 pb-3 pt-0 flex items-center gap-2 text-xs text-gray-500">
+                            <span>🎲 QuickPick numbers</span>
+                            {isComplete ? (
+                              <span className="text-green-600 font-medium">
+                                ✅ Ready
+                              </span>
+                            ) : (
+                              <span className="text-amber-600">
+                                ⏳ Generating...
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Toggle All Games */}
+                {selectionMode === "pick" && games.length > 1 && (
+                  <button
+                    onClick={() => setAllGamesExpanded(!allGamesExpanded)}
+                    className="mt-3 w-full rounded-xl bg-gray-100 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                  >
+                    {allGamesExpanded
+                      ? "🔼 Collapse All Games"
+                      : "🔽 Expand All Games"}
+                  </button>
+                )}
+              </>
             )}
           </section>
         )}
@@ -1571,31 +1776,112 @@ const GameSelection = () => {
           games.length > 0 &&
           allGamesFilled &&
           activeCountryName && (
-            <section className="mt-2 rounded-2xl border-2 border-amber-500 bg-gradient-to-br from-[#080807] to-[#211d15] p-4 text-white shadow-xl sm:p-5">
-              <div className="flex gap-3">
-                <ClipboardList className="shrink-0 text-amber-400" size={32} />
+            <section
+              style={{
+                backgroundImage: "url('https://i.ibb.co/XZs4vz6f/banner4.png')",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+              className="mt-2 rounded-2xl min-h-[148px] text-white shadow-xl p-4 sm:p-5"
+            >
+              <div className="flex flex-wrap gap-3">
                 <div className="min-w-0 flex-1">
                   <h3 className="text-base font-black sm:text-lg">
                     YOUR SELECTION SUMMARY
                   </h3>
                   <div className="mt-2 flex flex-wrap items-center gap-3 border-b border-amber-900 pb-2">
                     <span className="text-xs font-bold text-amber-400">
-                      Numbers
+                      Games: {games.length}
                     </span>
-                    <span className="text-sm font-bold">
-                      {displayNumbers.slice(0, 5).join("  ")}
+                    <span className="text-xs text-amber-400">|</span>
+                    <span className="text-xs font-bold text-green-400">
+                      Complete:{" "}
+                      {
+                        games.filter((g) => {
+                          if (selectionMode === "quickpick") {
+                            return g.numbers?.length === 7 && g.powerball;
+                          }
+                          return (
+                            g.selectedNumbers?.length === 7 &&
+                            g.selectedPowerball
+                          );
+                        }).length
+                      }
+                      /{games.length}
                     </span>
-                    <span>|</span>
-                    <span className="text-sm font-bold">
-                      Powerball: {String(displayPowerball).padStart(2, "0")}
+                    <span className="ml-auto text-xs bg-amber-700/50 px-2 py-0.5 rounded-full">
+                      {selectionMode === "quickpick" ? "QuickPick" : "Manual"}
                     </span>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+                  {/* Show all games numbers summary */}
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {games.map((game, idx) => {
+                      const nums =
+                        selectionMode === "quickpick"
+                          ? game.numbers || []
+                          : game.selectedNumbers || [];
+                      const pb =
+                        selectionMode === "quickpick"
+                          ? game.powerball
+                          : game.selectedPowerball;
+                      const isComplete = nums.length === 7 && pb;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`bg-white/10 backdrop-blur-sm rounded-lg p-2 ${isComplete ? "border border-green-400/30" : ""}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-amber-300">
+                              Game #{idx + 1}
+                            </span>
+                            {isComplete ? (
+                              <span className="text-[8px] text-green-300">
+                                ✅
+                              </span>
+                            ) : (
+                              <span className="text-[8px] text-red-300">
+                                ⏳
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-0.5 mt-1">
+                            {nums.length > 0 ? (
+                              nums.map((n, i) => (
+                                <span
+                                  key={i}
+                                  className="w-5 h-5 rounded-full bg-amber-400/30 text-white flex items-center justify-center text-[8px] font-bold"
+                                >
+                                  {n}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[8px] text-white/50">
+                                Not selected
+                              </span>
+                            )}
+                            {pb && (
+                              <>
+                                <span className="text-white/30 text-[8px] mx-0.5">
+                                  +
+                                </span>
+                                <span className="w-5 h-5 rounded-full bg-red-400/30 text-white flex items-center justify-center text-[8px] font-bold">
+                                  {pb}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-3 grid gap-3 grid-cols-3 sm:grid-cols-4">
                     {[
                       ["Game Type", selectedGameTypeTitle || "POWERBALL"],
                       ["Package", `POWER PACK (${selectedCount.totalGames})`],
-                      ["Total Games", selectedCount.totalGames],
-                      // ["Estimated Jackpot", jackpotAmount],
+                      ["Total Games", `${selectedCount.totalGames}`],
                     ].map(([label, value]) => (
                       <div key={label} className="min-w-0">
                         <small className="block text-[10px] font-bold text-amber-400">
@@ -1612,7 +1898,7 @@ const GameSelection = () => {
             </section>
           )}
 
-        {/* PLAY NOW — supplied button image */}
+        {/* PLAY NOW */}
         {selectedCount &&
           allGamesFilled &&
           selectionMode !== null &&
@@ -1622,14 +1908,14 @@ const GameSelection = () => {
               <button
                 onClick={handleAddToCart}
                 disabled={entryLoading}
-                className="group relative mt-3 block h-[86px] w-full overflow-hidden rounded-2xl border-2 border-amber-500 shadow-xl disabled:opacity-70"
+                className="group relative mt-3 block h-[86px] w-full overflow-hidden disabled:opacity-70"
               >
                 <img
                   src="https://i.ibb.co/39SJT6f1/banner6.png"
                   alt="Play Now"
                   className="absolute inset-0 h-full w-full object-cover"
                 />
-                <span className="absolute inset-0 flex items-center justify-center gap-5 text-3xl font-black tracking-wide text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.55)] sm:text-4xl">
+                <span className="absolute inset-0 flex items-center justify-center gap-5 text-xl font-black tracking-wide text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.55)] sm:text-4xl">
                   {entryLoading ? (
                     "PROCESSING…"
                   ) : (
@@ -1638,11 +1924,6 @@ const GameSelection = () => {
                     </>
                   )}
                 </span>
-                {!entryLoading && (
-                  <small className="absolute bottom-1 left-0 right-0 text-xs font-bold text-white drop-shadow">
-                    GOOD LUCK! MAY FORTUNE BE WITH YOU!
-                  </small>
-                )}
               </button>
 
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
