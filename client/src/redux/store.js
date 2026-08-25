@@ -21,10 +21,10 @@ import pakistanGameCountReducer from "./slices/pakistan/gameCountSlice";
 import pakistanGameEntryReducer from "./slices/pakistan/gameEntrySlice";
 
 // ========================================
-// CANADA
+// BANGLADESH
 // ========================================
-import canadaGameCountReducer from "./slices/canada/gameCountSlice";
-import canadaGameEntryReducer from "./slices/canada/gameEntrySlice";
+import bangladeshGameCountReducer from "./slices/bangladesh/gameCountSlice";
+import bangladeshGameEntryReducer from "./slices/bangladesh/gameEntrySlice";
 
 // ========================================
 // INDIA
@@ -44,17 +44,16 @@ import nepalGameEntryReducer from "./slices/nepal/gameEntrySlice";
 import uaeGameCountReducer from "./slices/uae/gameCountSlice";
 import uaeGameEntryReducer from "./slices/uae/gameEntrySlice";
 
-
-// 👇 Matka Slices
+// ========================================
+// MATKA SLICES
+// ========================================
 import marketReducer from "./slices/marketSlice";
 import bidReducer from "./slices/bidSlice";
 import resultReducer from "./slices/resultSlice";
 import publicBidReducer from "./slices/publicBidSlice";
 
-
 export const store = configureStore({
   reducer: {
-
     // ========================================
     // COMMON USER
     // ========================================
@@ -65,13 +64,11 @@ export const store = configureStore({
     banner: bannerReducer,
     ticketType: ticketTypeReducer,
 
-
     // ========================================
     // AUSTRALIA
     // ========================================
     australiaGameCount: australiaGameCountReducer,
     australiaGameEntry: australiaGameEntryReducer,
-
 
     // ========================================
     // PAKISTAN
@@ -79,13 +76,11 @@ export const store = configureStore({
     pakistanGameCount: pakistanGameCountReducer,
     pakistanGameEntry: pakistanGameEntryReducer,
 
-
     // ========================================
-    // CANADA
+    // BANGLADESH
     // ========================================
-    canadaGameCount: canadaGameCountReducer,
-    canadaGameEntry: canadaGameEntryReducer,
-
+    bangladeshGameCount: bangladeshGameCountReducer,
+    bangladeshGameEntry: bangladeshGameEntryReducer,
 
     // ========================================
     // INDIA
@@ -93,20 +88,17 @@ export const store = configureStore({
     indiaGameCount: indiaGameCountReducer,
     indiaGameEntry: indiaGameEntryReducer,
 
-
     // ========================================
     // NEPAL
     // ========================================
     nepalGameCount: nepalGameCountReducer,
     nepalGameEntry: nepalGameEntryReducer,
 
-
     // ========================================
     // UAE
     // ========================================
     uaeGameCount: uaeGameCountReducer,
     uaeGameEntry: uaeGameEntryReducer,
-
 
     // ========================================
     // MATKA
@@ -117,6 +109,5 @@ export const store = configureStore({
     publicBid: publicBidReducer,
   },
 });
-
 
 export default store;

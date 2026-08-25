@@ -4,13 +4,25 @@ import axios from "axios";
 // ======================================================
 // BASE URL
 // ======================================================
-const BASE_URL = "/api/canada/powerball/divisions";
+const BASE_URL = "/api/bangladesh/powerball/divisions";
+
+// ======================================================
+// HELPER
+// ======================================================
+const getErrorMessage = (error, fallback) => {
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    fallback
+  );
+};
 
 // ======================================================
 // GET ALL DIVISIONS
 // ======================================================
 export const getAllDivisions = createAsyncThunk(
-  "CanadaPowerballDivision/getAll",
+  "bangladeshPowerballDivision/getAll",
   async (_, { rejectWithValue }) => {
     try {
       const response = await axios.get(BASE_URL, {
@@ -20,8 +32,10 @@ export const getAllDivisions = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "Failed to fetch Powerball divisions."
+        )
       );
     }
   }
@@ -31,7 +45,7 @@ export const getAllDivisions = createAsyncThunk(
 // GET ACTIVE DIVISIONS
 // ======================================================
 export const getActiveDivisions = createAsyncThunk(
-  "CanadaPowerballDivision/getActive",
+  "bangladeshPowerballDivision/getActive",
   async (_, { rejectWithValue }) => {
     try {
       const response = await axios.get(`${BASE_URL}/active`, {
@@ -41,8 +55,10 @@ export const getActiveDivisions = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "Failed to fetch active Powerball divisions."
+        )
       );
     }
   }
@@ -52,9 +68,13 @@ export const getActiveDivisions = createAsyncThunk(
 // GET DIVISION BY ID
 // ======================================================
 export const getDivisionById = createAsyncThunk(
-  "CanadaPowerballDivision/getById",
+  "bangladeshPowerballDivision/getById",
   async (id, { rejectWithValue }) => {
     try {
+      if (!id) {
+        return rejectWithValue("Division ID is required.");
+      }
+
       const response = await axios.get(`${BASE_URL}/${id}`, {
         withCredentials: true,
       });
@@ -62,8 +82,10 @@ export const getDivisionById = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "Failed to fetch Powerball division."
+        )
       );
     }
   }
@@ -73,7 +95,7 @@ export const getDivisionById = createAsyncThunk(
 // CREATE DIVISION
 // ======================================================
 export const createDivision = createAsyncThunk(
-  "CanadaPowerballDivision/create",
+  "bangladeshPowerballDivision/create",
   async (data, { rejectWithValue }) => {
     try {
       const response = await axios.post(BASE_URL, data, {
@@ -83,8 +105,10 @@ export const createDivision = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "Failed to create Powerball division."
+        )
       );
     }
   }
@@ -94,18 +118,28 @@ export const createDivision = createAsyncThunk(
 // UPDATE DIVISION
 // ======================================================
 export const updateDivision = createAsyncThunk(
-  "CanadaPowerballDivision/update",
+  "bangladeshPowerballDivision/update",
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await axios.put(`${BASE_URL}/${id}`, data, {
-        withCredentials: true,
-      });
+      if (!id) {
+        return rejectWithValue("Division ID is required.");
+      }
+
+      const response = await axios.put(
+        `${BASE_URL}/${id}`,
+        data,
+        {
+          withCredentials: true,
+        }
+      );
 
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "Failed to update Powerball division."
+        )
       );
     }
   }
@@ -115,12 +149,19 @@ export const updateDivision = createAsyncThunk(
 // DELETE DIVISION
 // ======================================================
 export const deleteDivision = createAsyncThunk(
-  "CanadaPowerballDivision/delete",
+  "bangladeshPowerballDivision/delete",
   async (id, { rejectWithValue }) => {
     try {
-      const response = await axios.delete(`${BASE_URL}/${id}`, {
-        withCredentials: true,
-      });
+      if (!id) {
+        return rejectWithValue("Division ID is required.");
+      }
+
+      const response = await axios.delete(
+        `${BASE_URL}/${id}`,
+        {
+          withCredentials: true,
+        }
+      );
 
       return {
         ...response.data,
@@ -128,8 +169,10 @@ export const deleteDivision = createAsyncThunk(
       };
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "Failed to delete Powerball division."
+        )
       );
     }
   }
@@ -139,9 +182,13 @@ export const deleteDivision = createAsyncThunk(
 // TOGGLE STATUS
 // ======================================================
 export const toggleDivisionStatus = createAsyncThunk(
-  "CanadaPowerballDivision/toggle",
+  "bangladeshPowerballDivision/toggle",
   async (id, { rejectWithValue }) => {
     try {
+      if (!id) {
+        return rejectWithValue("Division ID is required.");
+      }
+
       const response = await axios.patch(
         `${BASE_URL}/${id}/toggle`,
         {},
@@ -153,8 +200,10 @@ export const toggleDivisionStatus = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message ||
+        getErrorMessage(
+          error,
           "Failed to change division status."
+        )
       );
     }
   }
@@ -166,8 +215,10 @@ export const toggleDivisionStatus = createAsyncThunk(
 const initialState = {
   divisions: [],
   selectedDivision: null,
+
   loading: false,
   error: null,
+
   success: false,
   message: "",
 };
@@ -176,7 +227,7 @@ const initialState = {
 // SLICE
 // ======================================================
 const powerballDivisionSlice = createSlice({
-  name: "canadaPowerballDivision",
+  name: "bangladeshPowerballDivision",
 
   initialState,
 
@@ -200,7 +251,11 @@ const powerballDivisionSlice = createSlice({
     // ==================================================
     // RESET STATE
     // ==================================================
-    resetDivisionState: () => initialState,
+    resetDivisionState: () => ({
+      ...initialState,
+      divisions: [],
+      selectedDivision: null,
+    }),
   },
 
   extraReducers: (builder) => {
@@ -217,17 +272,26 @@ const powerballDivisionSlice = createSlice({
         state.loading = false;
         state.error = null;
 
-        state.divisions = Array.isArray(action.payload?.divisions)
-          ? action.payload.divisions
+        const divisions =
+          action.payload?.divisions;
+
+        state.divisions = Array.isArray(divisions)
+          ? [...divisions].sort(
+              (a, b) =>
+                Number(a.division) - Number(b.division)
+            )
           : [];
 
-        state.message = action.payload?.message || "";
+        state.message =
+          action.payload?.message || "";
       })
 
       .addCase(getAllDivisions.rejected, (state, action) => {
         state.loading = false;
+
         state.error =
-          action.payload || "Failed to fetch Powerball divisions.";
+          action.payload ||
+          "Failed to fetch Powerball divisions.";
       })
 
       // ==================================================
@@ -242,17 +306,26 @@ const powerballDivisionSlice = createSlice({
         state.loading = false;
         state.error = null;
 
-        state.divisions = Array.isArray(action.payload?.divisions)
-          ? action.payload.divisions
+        const divisions =
+          action.payload?.divisions;
+
+        state.divisions = Array.isArray(divisions)
+          ? [...divisions].sort(
+              (a, b) =>
+                Number(a.division) - Number(b.division)
+            )
           : [];
 
-        state.message = action.payload?.message || "";
+        state.message =
+          action.payload?.message || "";
       })
 
       .addCase(getActiveDivisions.rejected, (state, action) => {
         state.loading = false;
+
         state.error =
-          action.payload || "Failed to fetch active Powerball divisions.";
+          action.payload ||
+          "Failed to fetch active Powerball divisions.";
       })
 
       // ==================================================
@@ -270,13 +343,16 @@ const powerballDivisionSlice = createSlice({
         state.selectedDivision =
           action.payload?.division || null;
 
-        state.message = action.payload?.message || "";
+        state.message =
+          action.payload?.message || "";
       })
 
       .addCase(getDivisionById.rejected, (state, action) => {
         state.loading = false;
+
         state.error =
-          action.payload || "Failed to fetch Powerball division.";
+          action.payload ||
+          "Failed to fetch Powerball division.";
       })
 
       // ==================================================
@@ -298,11 +374,13 @@ const powerballDivisionSlice = createSlice({
           action.payload?.message ||
           "Powerball division created successfully.";
 
-        const newDivision = action.payload?.division;
+        const newDivision =
+          action.payload?.division;
 
         if (newDivision) {
           const exists = state.divisions.some(
-            (item) => item._id === newDivision._id
+            (item) =>
+              item._id === newDivision._id
           );
 
           if (!exists) {
@@ -310,7 +388,9 @@ const powerballDivisionSlice = createSlice({
           }
 
           state.divisions.sort(
-            (a, b) => Number(a.division) - Number(b.division)
+            (a, b) =>
+              Number(a.division) -
+              Number(b.division)
           );
         }
       })
@@ -318,8 +398,10 @@ const powerballDivisionSlice = createSlice({
       .addCase(createDivision.rejected, (state, action) => {
         state.loading = false;
         state.success = false;
+
         state.error =
-          action.payload || "Failed to create Powerball division.";
+          action.payload ||
+          "Failed to create Powerball division.";
       })
 
       // ==================================================
@@ -341,32 +423,44 @@ const powerballDivisionSlice = createSlice({
           action.payload?.message ||
           "Powerball division updated successfully.";
 
-        const updatedDivision = action.payload?.division;
+        const updatedDivision =
+          action.payload?.division;
 
         if (updatedDivision) {
-          const index = state.divisions.findIndex(
-            (item) => item._id === updatedDivision._id
-          );
+          const index =
+            state.divisions.findIndex(
+              (item) =>
+                item._id ===
+                updatedDivision._id
+            );
 
           if (index !== -1) {
-            state.divisions[index] = updatedDivision;
+            state.divisions[index] =
+              updatedDivision;
           } else {
-            state.divisions.push(updatedDivision);
+            state.divisions.push(
+              updatedDivision
+            );
           }
 
           state.divisions.sort(
-            (a, b) => Number(a.division) - Number(b.division)
+            (a, b) =>
+              Number(a.division) -
+              Number(b.division)
           );
 
-          state.selectedDivision = updatedDivision;
+          state.selectedDivision =
+            updatedDivision;
         }
       })
 
       .addCase(updateDivision.rejected, (state, action) => {
         state.loading = false;
         state.success = false;
+
         state.error =
-          action.payload || "Failed to update Powerball division.";
+          action.payload ||
+          "Failed to update Powerball division.";
       })
 
       // ==================================================
@@ -388,13 +482,19 @@ const powerballDivisionSlice = createSlice({
           action.payload?.message ||
           "Powerball division deleted successfully.";
 
-        const deletedId = action.payload?.deletedId;
+        const deletedId =
+          action.payload?.deletedId;
 
-        state.divisions = state.divisions.filter(
-          (item) => item._id !== deletedId
-        );
+        state.divisions =
+          state.divisions.filter(
+            (item) =>
+              item._id !== deletedId
+          );
 
-        if (state.selectedDivision?._id === deletedId) {
+        if (
+          state.selectedDivision?._id ===
+          deletedId
+        ) {
           state.selectedDivision = null;
         }
       })
@@ -402,8 +502,10 @@ const powerballDivisionSlice = createSlice({
       .addCase(deleteDivision.rejected, (state, action) => {
         state.loading = false;
         state.success = false;
+
         state.error =
-          action.payload || "Failed to delete Powerball division.";
+          action.payload ||
+          "Failed to delete Powerball division.";
       })
 
       // ==================================================
@@ -416,43 +518,65 @@ const powerballDivisionSlice = createSlice({
         state.message = "";
       })
 
-      .addCase(toggleDivisionStatus.fulfilled, (state, action) => {
-        state.loading = false;
-        state.error = null;
-        state.success = true;
+      .addCase(
+        toggleDivisionStatus.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.error = null;
+          state.success = true;
 
-        state.message =
-          action.payload?.message ||
-          "Division status updated successfully.";
+          state.message =
+            action.payload?.message ||
+            "Division status updated successfully.";
 
-        const updatedDivision = action.payload?.division;
+          const updatedDivision =
+            action.payload?.division;
 
-        if (updatedDivision) {
-          const index = state.divisions.findIndex(
-            (item) => item._id === updatedDivision._id
-          );
+          if (updatedDivision) {
+            const index =
+              state.divisions.findIndex(
+                (item) =>
+                  item._id ===
+                  updatedDivision._id
+              );
 
-          if (index !== -1) {
-            state.divisions[index] = updatedDivision;
-          } else {
-            state.divisions.push(updatedDivision);
-          }
+            if (index !== -1) {
+              state.divisions[index] =
+                updatedDivision;
+            } else {
+              state.divisions.push(
+                updatedDivision
+              );
+            }
 
-          if (
-            state.selectedDivision?._id ===
-            updatedDivision._id
-          ) {
-            state.selectedDivision = updatedDivision;
+            state.divisions.sort(
+              (a, b) =>
+                Number(a.division) -
+                Number(b.division)
+            );
+
+            if (
+              state.selectedDivision?._id ===
+              updatedDivision._id
+            ) {
+              state.selectedDivision =
+                updatedDivision;
+            }
           }
         }
-      })
+      )
 
-      .addCase(toggleDivisionStatus.rejected, (state, action) => {
-        state.loading = false;
-        state.success = false;
-        state.error =
-          action.payload || "Failed to change division status.";
-      });
+      .addCase(
+        toggleDivisionStatus.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.success = false;
+
+          state.error =
+            action.payload ||
+            "Failed to change division status.";
+        }
+      );
   },
 });
 
@@ -464,6 +588,27 @@ export const {
   clearSelectedDivision,
   resetDivisionState,
 } = powerballDivisionSlice.actions;
+
+// ======================================================
+// SELECTORS
+// ======================================================
+export const selectBangladeshDivisions = (state) =>
+  state.bangladeshPowerballDivision?.divisions || [];
+
+export const selectBangladeshSelectedDivision = (state) =>
+  state.bangladeshPowerballDivision?.selectedDivision || null;
+
+export const selectBangladeshDivisionLoading = (state) =>
+  state.bangladeshPowerballDivision?.loading || false;
+
+export const selectBangladeshDivisionError = (state) =>
+  state.bangladeshPowerballDivision?.error || null;
+
+export const selectBangladeshDivisionSuccess = (state) =>
+  state.bangladeshPowerballDivision?.success || false;
+
+export const selectBangladeshDivisionMessage = (state) =>
+  state.bangladeshPowerballDivision?.message || "";
 
 // ======================================================
 // REDUCER

@@ -29,6 +29,7 @@ const UAEPowerballResult = () => {
 
     const [formData, setFormData] = useState({
         drawNo: "",
+        gamePoolId: "",
         powerball: "",
         numbers: ["", "", "", "", "", "", ""],
     });
@@ -47,27 +48,92 @@ const UAEPowerballResult = () => {
         dispatch(getAllPendingGames());
     }, [dispatch]);
 
-    // Group pending games by pool
+    // Group pending games by poolId.
+    // Supports both flat records and nested { poolId, games: [] } responses.
     useEffect(() => {
-        if (pendingGames && pendingGames.length > 0) {
-            const grouped = pendingGames.reduce((acc, game) => {
-                if (!acc[game.poolId]) {
-                    acc[game.poolId] = {
-                        poolId: game.poolId,
-                        poolTotalPlayers: game.poolTotalPlayers || 0,
-                        poolTotalAmount: game.poolTotalAmount || 0,
-                        poolStatus: game.poolStatus || "Open",
-                        drawNo: game.drawNo,
-                        games: []
-                    };
-                }
-                acc[game.poolId].games.push(game);
-                return acc;
-            }, {});
-            setGroupedGames(grouped);
-        } else {
+        if (!Array.isArray(pendingGames) || pendingGames.length === 0) {
             setGroupedGames({});
+            return;
         }
+
+        const grouped = {};
+
+        pendingGames.forEach((item) => {
+            if (!item) return;
+
+            const poolId = item.poolId || item.gamePoolId;
+            if (!poolId) return;
+
+            if (!grouped[poolId]) {
+                grouped[poolId] = {
+                    poolId: String(poolId),
+                    poolTotalPlayers: item.poolTotalPlayers || 0,
+                    poolTotalAmount: item.poolTotalAmount || 0,
+                    poolStatus: item.poolStatus || "Open",
+                    drawNo: Number(item.drawNo) || 0,
+                    playerId: item.playerId || null,
+                    userId: item.userId || null,
+                    userName: item.userName || "",
+                    userEmail: item.userEmail || "",
+                    bidAmount: item.bidAmount || 0,
+                    currencyDetails: item.currencyDetails || {},
+                    playerStatus: item.playerStatus || "Pending",
+                    createdAt: item.createdAt || null,
+                    games: [],
+                };
+            }
+
+            if (Array.isArray(item.games)) {
+                item.games.forEach((game) => {
+                    if (!game) return;
+
+                    grouped[poolId].games.push({
+                        ...game,
+                        poolId: String(poolId),
+                        drawNo: Number(item.drawNo) || 0,
+                        gameNo: Number(game.gameNo) || 0,
+                        numbers: Array.isArray(game.numbers)
+                            ? game.numbers.map(Number)
+                            : [],
+                        powerball: Number(game.powerball) || 0,
+                        playerId: item.playerId || game.playerId || null,
+                        userId: item.userId || game.userId || null,
+                        userName: item.userName || game.userName || "",
+                        userEmail: item.userEmail || game.userEmail || "",
+                        bidAmount: item.bidAmount || game.bidAmount || 0,
+                        currencyDetails:
+                            item.currencyDetails ||
+                            game.currencyDetails ||
+                            {},
+                        playerStatus:
+                            item.playerStatus ||
+                            game.playerStatus ||
+                            "Pending",
+                        poolStatus:
+                            item.poolStatus ||
+                            game.poolStatus ||
+                            "Open",
+                        createdAt:
+                            item.createdAt ||
+                            game.createdAt ||
+                            null,
+                    });
+                });
+            } else {
+                grouped[poolId].games.push({
+                    ...item,
+                    poolId: String(poolId),
+                    drawNo: Number(item.drawNo) || 0,
+                    gameNo: Number(item.gameNo) || 0,
+                    numbers: Array.isArray(item.numbers)
+                        ? item.numbers.map(Number)
+                        : [],
+                    powerball: Number(item.powerball) || 0,
+                });
+            }
+        });
+
+        setGroupedGames(grouped);
     }, [pendingGames]);
 
     // Get unique draw numbers from pending games
@@ -99,6 +165,7 @@ const UAEPowerballResult = () => {
             // Reset form
             setFormData({
                 drawNo: "",
+                gamePoolId: "",
                 powerball: "",
                 numbers: ["", "", "", "", "", "", ""],
             });
@@ -128,10 +195,13 @@ const UAEPowerballResult = () => {
     }, [success, error, dispatch, message, notificationShown]);
 
     const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value,
-        });
+        const { name, value } = e.target;
+
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+            ...(name === "drawNo" ? { gamePoolId: "" } : {}),
+        }));
     };
 
     const handleNumberChange = (index, value) => {
@@ -144,72 +214,190 @@ const UAEPowerballResult = () => {
         });
     };
 
+    // Pools for the selected draw.
+    const poolsForSelectedDraw = Object.values(groupedGames).filter(
+        (pool) =>
+            Number(pool.drawNo) === Number(formData.drawNo)
+    );
+
+    const selectedPool =
+        poolsForSelectedDraw.find(
+            (pool) =>
+                String(pool.poolId) ===
+                String(formData.gamePoolId)
+        ) || null;
+
+    const selectedDrawHasResult =
+        Array.isArray(results) &&
+        results.some(
+            (result) =>
+                Number(result.drawNo) ===
+                Number(formData.drawNo)
+        );
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        if (isSubmitting || createLoading) {
+
+        if (isSubmitting || createLoading) return;
+
+        console.log("=================================");
+        console.log("🔥 UAE DECLARE RESULT");
+        console.log("FORM:", formData);
+        console.log("SELECTED POOL:", selectedPool);
+        console.log("=================================");
+
+        if (!formData.drawNo) {
+            toast.error("Please select Draw Number.");
+            return;
+        }
+
+        if (!formData.gamePoolId) {
+            toast.error("Please select Game Pool.");
+            return;
+        }
+
+        if (!selectedPool) {
+            toast.error("Selected Game Pool not found.");
+            return;
+        }
+
+        if (
+            Number(selectedPool.drawNo) !==
+            Number(formData.drawNo)
+        ) {
+            toast.error(
+                "Selected Game Pool does not belong to selected draw."
+            );
+            return;
+        }
+
+        if (
+            String(selectedPool.poolStatus || "")
+                .trim()
+                .toLowerCase() !== "open"
+        ) {
+            toast.error("Selected Game Pool is not open.");
+            return;
+        }
+
+        if (selectedDrawHasResult) {
+            toast.error(
+                `Draw #${formData.drawNo} already has a result!`
+            );
+            return;
+        }
+
+        if (
+            !Array.isArray(formData.numbers) ||
+            formData.numbers.length !== 7 ||
+            formData.numbers.some(
+                (value) =>
+                    value === "" ||
+                    value === null ||
+                    value === undefined
+            )
+        ) {
+            toast.error("Please enter all 7 winning numbers.");
             return;
         }
 
         const numbers = formData.numbers.map(Number);
 
-        // Validate all fields are filled
-        if (!formData.drawNo || !formData.powerball || numbers.some((n) => Number.isNaN(n))) {
-            toast.error("Please fill all fields.");
+        if (
+            numbers.some(
+                (number) => !Number.isInteger(number)
+            )
+        ) {
+            toast.error("Winning numbers must be valid.");
             return;
         }
 
-        // Validate unique numbers
+        if (
+            numbers.some(
+                (number) => number < 1 || number > 35
+            )
+        ) {
+            toast.error(
+                "Winning numbers must be between 1 and 35."
+            );
+            return;
+        }
+
         if (new Set(numbers).size !== 7) {
             toast.error("Winning numbers must be unique.");
             return;
         }
 
-        // Check for duplicate draw number
-        if (results && results.some(r => r.drawNo === Number(formData.drawNo))) {
-            toast.error(`Draw #${formData.drawNo} already exists!`);
+        if (
+            formData.powerball === "" ||
+            formData.powerball === null ||
+            formData.powerball === undefined
+        ) {
+            toast.error("Please enter Winning Powerball.");
             return;
         }
+
+        const powerball = Number(formData.powerball);
+
+        if (
+            !Number.isInteger(powerball) ||
+            powerball < 1 ||
+            powerball > 20
+        ) {
+            toast.error(
+                "Powerball must be between 1 and 20."
+            );
+            return;
+        }
+
+        // IMPORTANT:
+        // Backend requires gamePoolId.
+        // Do NOT send drawNo as the pool identifier.
+        const payload = {
+            gamePoolId: String(formData.gamePoolId),
+            numbers,
+            powerball,
+        };
+
+        console.log(
+            "🚀 UAE FINAL CREATE PAYLOAD:",
+            JSON.stringify(payload, null, 2)
+        );
 
         setIsSubmitting(true);
         setNotificationShown(false);
 
-        console.log('Submitting Powerball Result:', {
-            drawNo: Number(formData.drawNo),
-            numbers: numbers,
-            powerball: Number(formData.powerball),
-        });
-
         try {
             const result = await dispatch(
-                createPowerballResult({
-                    drawNo: Number(formData.drawNo),
-                    numbers: numbers,
-                    powerball: Number(formData.powerball),
-                })
+                createPowerballResult(payload)
             ).unwrap();
 
-            console.log('Result created successfully:', result);
-            
-            toast.success(result.message || "Result Declared Successfully!");
-            
-            // Reset form immediately
+            toast.success(
+                result?.message ||
+                    "Result Declared Successfully!"
+            );
+
             setFormData({
                 drawNo: "",
+                gamePoolId: "",
                 powerball: "",
                 numbers: ["", "", "", "", "", "", ""],
             });
 
-            // Refresh data
             await dispatch(getAllPowerballResults());
             await dispatch(getAllPendingGames());
-            
-            // Clear Redux state
+
             dispatch(clearPowerballResultState());
-            
         } catch (error) {
-            console.error('Submission error:', error);
-            toast.error(typeof error === 'string' ? error : error.message || "Failed to declare result");
+            console.error("❌ UAE result error:", error);
+
+            toast.error(
+                typeof error === "string"
+                    ? error
+                    : error?.message ||
+                      error?.error ||
+                      "Failed to declare result"
+            );
         } finally {
             setIsSubmitting(false);
         }
@@ -455,6 +643,103 @@ const UAEPowerballResult = () => {
                             )}
                         </div>
 
+                        {/* GAME POOL */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Game Pool
+                            </label>
+
+                            <select
+                                name="gamePoolId"
+                                value={formData.gamePoolId}
+                                onChange={handleChange}
+                                disabled={
+                                    isSubmitting ||
+                                    createLoading ||
+                                    !formData.drawNo
+                                }
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                            >
+                                <option value="">
+                                    {!formData.drawNo
+                                        ? "Select Draw Number First"
+                                        : "Select Game Pool"}
+                                </option>
+
+                                {poolsForSelectedDraw.map((pool) => (
+                                    <option
+                                        key={pool.poolId}
+                                        value={pool.poolId}
+                                    >
+                                        Pool #
+                                        {pool.poolId
+                                            ? pool.poolId.slice(-8)
+                                            : "N/A"}{" "}
+                                        — {pool.games?.length || 0} Games —{" "}
+                                        {pool.poolStatus || "Open"}
+                                    </option>
+                                ))}
+                            </select>
+
+                            {formData.drawNo &&
+                                poolsForSelectedDraw.length === 0 && (
+                                    <p className="mt-1 text-xs text-orange-600">
+                                        No game pool found for Draw #
+                                        {formData.drawNo}
+                                    </p>
+                                )}
+
+                            {selectedPool && (
+                                <div className="mt-3 p-4 bg-purple-50 border border-purple-200 rounded-md">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div>
+                                            <p className="text-xs text-gray-500">
+                                                Pool ID
+                                            </p>
+                                            <p className="text-xs font-semibold text-purple-700 break-all">
+                                                {selectedPool.poolId}
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-xs text-gray-500">
+                                                Draw
+                                            </p>
+                                            <p className="font-semibold">
+                                                #{selectedPool.drawNo}
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-xs text-gray-500">
+                                                Games
+                                            </p>
+                                            <p className="font-semibold">
+                                                {selectedPool.games?.length || 0}
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-xs text-gray-500">
+                                                Status
+                                            </p>
+                                            <p
+                                                className={
+                                                    String(
+                                                        selectedPool.poolStatus || ""
+                                                    ).toLowerCase() === "open"
+                                                        ? "font-semibold text-green-600"
+                                                        : "font-semibold text-red-600"
+                                                }
+                                            >
+                                                {selectedPool.poolStatus || "N/A"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Winning Numbers
@@ -542,7 +827,7 @@ const UAEPowerballResult = () => {
                         <button
                             type="submit"
                             className="w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isSubmitting || createLoading || !formData.drawNo}
+                            disabled={isSubmitting || createLoading}
                         >
                             {isSubmitting || createLoading ? "Declaring..." : "Declare Result"}
                         </button>

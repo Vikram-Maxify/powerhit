@@ -1,5 +1,3 @@
-// src/components/admin/Sidebar.jsx
-
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
@@ -48,7 +46,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     powerhit: true,
     australia: false,
     pakistan: false,
-    canada: false,
+    bangladesh: false,
     india: false,
     nepal: false,
     uae: false,
@@ -91,10 +89,10 @@ const Sidebar = ({ isOpen, onClose }) => {
       "/admin/pakistan/gameEntries",
       "/admin/pakistan/powerball-result",
       "/admin/pakistan/powerball-divisions",
-      "/admin/canada/gamecounts",
-      "/admin/canada/gameEntries",
-      "/admin/canada/powerball-result",
-      "/admin/canada/powerball-divisions",
+      "/admin/bangladesh/gamecounts",
+      "/admin/bangladesh/gameEntries",
+      "/admin/bangladesh/powerball-result",
+      "/admin/bangladesh/powerball-divisions",
       "/admin/india/gamecounts",
       "/admin/india/gameEntries",
       "/admin/india/powerball-result",
@@ -133,14 +131,14 @@ const Sidebar = ({ isOpen, onClose }) => {
       setExpandedMenus(prev => ({ ...prev, pakistan: true, powerhit: true }));
     }
 
-    const canadaPaths = [
-      "/admin/canada/gamecounts",
-      "/admin/canada/gameEntries",
-      "/admin/canada/powerball-result",
-      "/admin/canada/powerball-divisions"
+    const bangladeshPaths = [
+      "/admin/bangladesh/gamecounts",
+      "/admin/bangladesh/gameEntries",
+      "/admin/bangladesh/powerball-result",
+      "/admin/bangladesh/powerball-divisions"
     ];
-    if (canadaPaths.includes(location.pathname)) {
-      setExpandedMenus(prev => ({ ...prev, canada: true, powerhit: true }));
+    if (bangladeshPaths.includes(location.pathname)) {
+      setExpandedMenus(prev => ({ ...prev, bangladesh: true, powerhit: true }));
     }
 
     const indiaPaths = [
@@ -329,31 +327,31 @@ const Sidebar = ({ isOpen, onClose }) => {
             },
           ],
         },
-        // ✅ Canada
+        // ✅ Bangladesh
         {
-          name: "Canada",
+          name: "Bangladesh",
           icon: <Flag size={16} />,
           isCountry: true,
-          countryKey: "canada",
+          countryKey: "bangladesh",
           subMenus: [
             {
               name: "Game Counts",
-              path: "/admin/canada/gamecounts",
+              path: "/admin/bangladesh/gamecounts",
               icon: <ListOrdered size={14} />,
             },
             {
               name: "Game Entries",
-              path: "/admin/canada/gameEntries",
+              path: "/admin/bangladesh/gameEntries",
               icon: <ZapIcon size={14} />,
             },
             {
               name: "Powerball Result",
-              path: "/admin/canada/powerball-result",
+              path: "/admin/bangladesh/powerball-result",
               icon: <Trophy size={14} />,
             },
             {
               name: "Powerball Divisions",
-              path: "/admin/canada/powerball-divisions",
+              path: "/admin/bangladesh/powerball-divisions",
               icon: <ListOrdered size={14} />,
             },
           ],

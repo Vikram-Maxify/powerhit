@@ -27,7 +27,7 @@ import { useSearchParams } from "react-router-dom";
 
 // Import country-specific game count slices
 import { getGameCounts as getAustraliaGameCounts } from "../redux/slices/australia/gameCountSlice";
-import { getGameCounts as getCanadaGameCounts } from "../redux/slices/canada/gameCountSlice";
+import { getGameCounts as getBangladeshGameCounts } from "../redux/slices/bangladesh/gameCountSlice";
 import { getGameCounts as getIndiaGameCounts } from "../redux/slices/india/gameCountSlice";
 import { getGameCounts as getNepalGameCounts } from "../redux/slices/nepal/gameCountSlice";
 import { getGameCounts as getPakistanGameCounts } from "../redux/slices/pakistan/gameCountSlice";
@@ -44,7 +44,7 @@ const countries = [
   { name: "India", flag: "https://flagcdn.com/w80/in.png", code: "IN" },
   { name: "Australia", flag: "https://flagcdn.com/w80/au.png", code: "AU" },
   { name: "Pakistan", flag: "https://flagcdn.com/w80/pk.png", code: "PK" },
-  { name: "Canada", flag: "https://flagcdn.com/w80/ca.png", code: "CA" },
+  { name: "Bangladesh", flag: "https://flagcdn.com/w80/bd.png", code: "BD" },
   { name: "Nepal", flag: "https://flagcdn.com/w80/np.png", code: "NP" },
   { name: "Dubai", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
 ];
@@ -56,7 +56,7 @@ const currencyConfig = {
   IN: { symbol: "₹", code: "INR", name: "Indian Rupee" },
   AU: { symbol: "A$", code: "AUD", name: "Australian Dollar" },
   PK: { symbol: "₨", code: "PKR", name: "Pakistani Rupee" },
-  CA: { symbol: "C$", code: "CAD", name: "Canadian Dollar" },
+  BD: { symbol: "৳", code: "BDT", name: "Bangladeshi Taka" },
   NP: { symbol: "रू", code: "NPR", name: "Nepalese Rupee" },
   UAE: { symbol: "د.إ", code: "AED", name: "UAE Dirham" },
 };
@@ -218,11 +218,11 @@ const GameSelection = () => {
       countryCode: "PK",
       displayName: "Pakistan",
     },
-    canada: {
-      stateKey: "canadaGameCount",
-      getGameCounts: getCanadaGameCounts,
-      countryCode: "CA",
-      displayName: "Canada",
+    bangladesh: {
+      stateKey: "bangladeshGameCount",
+      getGameCounts: getBangladeshGameCounts,
+      countryCode: "BD",
+      displayName: "Bangladesh",
     },
     nepal: {
       stateKey: "nepalGameCount",
@@ -250,7 +250,7 @@ const GameSelection = () => {
   // India / india / IN
   // Australia / australia / AU
   // Pakistan / pakistan / PK
-  // Canada / canada / CA
+  // Bangladesh / bangladesh / BD
   // Nepal / nepal / NP
   // UAE / uae / dubai / AE
   // ==========================================
@@ -264,8 +264,8 @@ const GameSelection = () => {
     pakistan: "pakistan",
     pk: "pakistan",
 
-    canada: "canada",
-    ca: "canada",
+    bangladesh: "bangladesh",
+    bd: "bangladesh",
 
     nepal: "nepal",
     np: "nepal",
@@ -302,8 +302,8 @@ const GameSelection = () => {
   const pakistanGameCounts = useSelector(
     (state) => state.pakistanGameCount?.gameCounts || [],
   );
-  const canadaGameCounts = useSelector(
-    (state) => state.canadaGameCount?.gameCounts || [],
+  const bangladeshGameCounts = useSelector(
+    (state) => state.bangladeshGameCount?.gameCounts || [],
   );
   const nepalGameCounts = useSelector(
     (state) => state.nepalGameCount?.gameCounts || [],
@@ -323,8 +323,8 @@ const GameSelection = () => {
         return australiaGameCounts;
       case "pakistanGameCount":
         return pakistanGameCounts;
-      case "canadaGameCount":
-        return canadaGameCounts;
+      case "bangladeshGameCount":
+        return bangladeshGameCounts;
       case "nepalGameCount":
         return nepalGameCounts;
       case "uaeGameCount":
@@ -347,8 +347,8 @@ const GameSelection = () => {
   const pakistanGameCountLoading = useSelector(
     (state) => state.pakistanGameCount?.loading || false,
   );
-  const canadaGameCountLoading = useSelector(
-    (state) => state.canadaGameCount?.loading || false,
+  const bangladeshGameCountLoading = useSelector(
+    (state) => state.bangladeshGameCount?.loading || false,
   );
   const nepalGameCountLoading = useSelector(
     (state) => state.nepalGameCount?.loading || false,
@@ -361,7 +361,7 @@ const GameSelection = () => {
     indiaGameCount: indiaGameCountLoading,
     australiaGameCount: australiaGameCountLoading,
     pakistanGameCount: pakistanGameCountLoading,
-    canadaGameCount: canadaGameCountLoading,
+    bangladeshGameCount: bangladeshGameCountLoading,
     nepalGameCount: nepalGameCountLoading,
     uaeGameCount: uaeGameCountLoading,
   };
@@ -393,8 +393,8 @@ const GameSelection = () => {
       au: "AU",
       pakistan: "PK",
       pk: "PK",
-      canada: "CA",
-      ca: "CA",
+      bangladesh: "BD",
+      bd: "BD",
       nepal: "NP",
       np: "NP",
       uae: "UAE",
