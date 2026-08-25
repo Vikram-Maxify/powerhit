@@ -1,4 +1,4 @@
-// GameSelection.jsx - Amber/Orange/Yellow Theme with Multi-Country Support
+// GameSelection.jsx - Amber/Orange/Yellow Theme with Multi-Country Support & Dynamic Currency
 
 import {
   AlertCircle,
@@ -52,6 +52,29 @@ const countries = [
   { name: "Nepal", flag: "https://flagcdn.com/w80/np.png", code: "NP" },
   { name: "Dubai", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
 ];
+
+// ==========================================
+// CURRENCY CONFIGURATION
+// ==========================================
+const currencyConfig = {
+  IN: { symbol: '₹', code: 'INR', name: 'Indian Rupee' },
+  AU: { symbol: 'A$', code: 'AUD', name: 'Australian Dollar' },
+  PK: { symbol: '₨', code: 'PKR', name: 'Pakistani Rupee' },
+  CA: { symbol: 'C$', code: 'CAD', name: 'Canadian Dollar' },
+  NP: { symbol: 'रू', code: 'NPR', name: 'Nepalese Rupee' },
+  UAE: { symbol: 'د.إ', code: 'AED', name: 'UAE Dirham' },
+};
+
+// Helper function to get currency symbol
+const getCurrencySymbol = (countryCode) => {
+  return currencyConfig[countryCode]?.symbol || '₹';
+};
+
+// Helper function to format price with currency
+const formatPrice = (amount, countryCode) => {
+  const symbol = getCurrencySymbol(countryCode);
+  return `${symbol}${amount}`;
+};
 
 // ===== CUSTOM MODAL COMPONENT =====
 const CustomModal = ({ isOpen, onClose, type, title, message, details }) => {
@@ -1330,9 +1353,14 @@ const GameSelection = () => {
                         "Not Set"}
                     </span>
                     {activeCountryCode && (
-                      <span className="text-white/90 text-xs font-mono bg-white/30 px-2 py-0.5 rounded-full">
-                        {activeCountryCode}
-                      </span>
+                      <>
+                        <span className="text-white/90 text-xs font-mono bg-white/30 px-2 py-0.5 rounded-full">
+                          {activeCountryCode}
+                        </span>
+                        <span className="text-yellow-200 text-xs font-mono bg-white/20 px-2 py-0.5 rounded-full">
+                          {getCurrencySymbol(activeCountryCode)}
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1590,16 +1618,19 @@ const GameSelection = () => {
                     ? "No game packages available"
                     : "Select Game Package"}
               </option>
-              {filteredGameCounts.map((item) => (
-                <option key={item._id} value={item._id}>
-                  {item.totalGames} Games - ₹{item.price}
-                  {item.label && ` (${item.label})`}
-                  {item.discount && ` - ${item.discount}% off`}
-                  {item.isActive !== undefined &&
-                    !item.isActive &&
-                    " (Inactive)"}
-                </option>
-              ))}
+              {filteredGameCounts.map((item) => {
+                const currencySymbol = getCurrencySymbol(activeCountryCode);
+                return (
+                  <option key={item._id} value={item._id}>
+                    {item.totalGames} Games - {currencySymbol}{item.price}
+                    {item.label && ` (${item.label})`}
+                    {item.discount && ` - ${item.discount}% off`}
+                    {item.isActive !== undefined &&
+                      !item.isActive &&
+                      " (Inactive)"}
+                  </option>
+                );
+              })}
             </select>
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
               <ChevronDown size={18} className="text-gray-400" />
@@ -2177,7 +2208,7 @@ const GameSelection = () => {
                   </p>
                   <div className="flex items-baseline gap-3 mt-2">
                     <span className="text-4xl md:text-5xl font-bold drop-shadow-2xl">
-                      ₹{totalPrice}
+                      {formatPrice(totalPrice, activeCountryCode)}
                     </span>
                     <span className="text-white/80 text-sm">/ total</span>
                   </div>
@@ -2202,7 +2233,7 @@ const GameSelection = () => {
                         {selectedCount.totalGames} Games
                       </p>
                       <p className="text-[8px] text-white/50">
-                        ₹{selectedCount.price}
+                        {formatPrice(selectedCount.price, activeCountryCode)}
                       </p>
                     </div>
                     <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
@@ -2240,6 +2271,9 @@ const GameSelection = () => {
                       />
                       <span className="text-yellow-300 text-[10px] font-mono font-bold">
                         {activeCountryCode}
+                      </span>
+                      <span className="text-yellow-200 text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded-full">
+                        {getCurrencySymbol(activeCountryCode)}
                       </span>
                     </span>
                   </div>
