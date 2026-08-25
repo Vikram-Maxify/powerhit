@@ -1,0 +1,400 @@
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronRight,
+  Circle,
+  ClipboardList,
+  Coins,
+  Copy,
+  Crown,
+  Gift,
+  History,
+  HistoryIcon,
+  Key,
+  LogOut,
+  MessageCircle,
+  Phone,
+  ShieldCheck,
+  User,
+  X,
+} from "lucide-react";
+import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link, useNavigate } from "react-router-dom";
+import { logout } from "../redux/slices/authSlice";
+
+const Account = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Same items as before — just grouped to match the reference layout
+  const accountMenuItems = [
+    {
+      icon: User,
+      label: "Profile",
+      path: "/profile",
+      iconColor: "text-blue-500",
+      description: "View and edit your profile",
+      group: "more",
+    },
+    {
+      icon: Coins,
+      label: "Deposit",
+      path: "/deposit",
+      iconColor: "text-green-500",
+      description: "Add money to your wallet",
+      group: "top",
+    },
+    {
+      icon: History,
+      label: "Deposit History",
+      path: "/deposit-history",
+      iconColor: "text-amber-500",
+      description: "Check your all deposit history",
+      group: "history",
+    },
+    {
+      icon: HistoryIcon,
+      label: "Powerhit History",
+      path: "/powerhit/history",
+      iconColor: "text-purple-500",
+      description: "Check your powerhit history",
+      group: "history",
+    },
+    {
+      icon: ArrowUpRight,
+      label: "Withdrawal",
+      path: "/withdrawal",
+      iconColor: "text-amber-500",
+      description: "Withdraw to your bank",
+      group: "top",
+    },
+    {
+      icon: ArrowDownLeft,
+      label: "Withdrawal History",
+      path: "/withdrawal-history",
+      iconColor: "text-blue-500",
+      description: "Check your all withdrawal history",
+      group: "history",
+    },
+    {
+      icon: Gift,
+      label: "Refer & Earn",
+      path: "/promo",
+      iconColor: "text-pink-500",
+      description: "Invite friends & earn rewards",
+      group: "more",
+    },
+    {
+      icon: ClipboardList,
+      label: "Matka Bet History",
+      path: "/matka/bids-history",
+      iconColor: "text-violet-500",
+      description: "Check your all bet history",
+      group: "history",
+    },
+    {
+      icon: Key,
+      label: "Change Password",
+      path: "/change-password",
+      iconColor: "text-amber-500",
+      description: "Update your account password",
+      group: "more",
+    },
+    {
+      icon: MessageCircle,
+      label: "Support Chat",
+      path: "/support-chat",
+      iconColor: "text-cyan-500",
+      description: "Help & support center",
+      group: "more",
+    },
+  ];
+
+  const topCards = accountMenuItems.filter((i) => i.group === "top");
+  const historyItems = accountMenuItems.filter((i) => i.group === "history");
+  const moreOptions = accountMenuItems.filter((i) => i.group === "more");
+
+  const getUserDisplayName = () => user?.name || user?.username || "Player123";
+  const getUserUID = () => user?.uid || "WINZOX123456";
+  const getUserPhone = () => user?.mobile || "+91 98765 43210";
+
+  const copyUID = async () => {
+    try {
+      await navigator.clipboard.writeText(getUserUID());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (error) {
+      console.error("Failed to copy UID:", error);
+    }
+  };
+
+  const handleLogoutClick = () => setShowLogoutConfirm(true);
+
+  const handleCancelLogout = () => {
+    if (isLoggingOut) return;
+    setShowLogoutConfirm(false);
+  };
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await dispatch(logout()).unwrap();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setIsLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-white pb-24">
+      <div className="max-w-2xl mx-auto px-4 py-4">
+        {/* Profile Card */}
+        {/* Profile Card */}
+        <Link
+          to="/profile"
+          className="flex items-center gap-4 rounded-2xl bg-white border border-amber-200 p-4 mb-4"
+        >
+          {/* Profile Picture / Avatar */}
+          <div className="w-20 h-20 rounded-full border-2 border-amber-400 flex items-center justify-center flex-shrink-0 overflow-hidden bg-gray-100">
+            {user?.profilePic ? (
+              <img
+                src={user.profilePic}
+                alt={getUserDisplayName()}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Agar image load na ho toh default icon dikhao
+                  e.target.style.display = "none";
+                  e.target.parentElement.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-400">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          `;
+                }}
+              />
+            ) : (
+              <User size={38} className="text-amber-400" strokeWidth={1.5} />
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-xl font-bold text-gray-900 truncate">
+                {getUserDisplayName()}
+              </h2>
+              <span className="w-6 h-6 rounded-md bg-amber-50 border border-amber-300 flex items-center justify-center flex-shrink-0">
+                <Crown size={13} className="text-amber-500" />
+              </span>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                copyUID();
+              }}
+              className="flex items-center gap-1.5 text-sm text-gray-600 mb-1.5"
+            >
+              UID: {getUserUID()}
+              <Copy
+                size={13}
+                className={copied ? "text-green-500" : "text-gray-400"}
+              />
+            </button>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5 text-sm text-gray-700">
+                <Phone size={14} className="text-gray-400" />
+                {getUserPhone()}
+              </span>
+
+              <span className="flex items-center gap-1 text-xs font-bold text-amber-600 border border-amber-300 rounded-full px-2.5 py-0.5">
+                Verified
+                <ShieldCheck size={12} />
+              </span>
+            </div>
+          </div>
+
+          <ChevronRight size={20} className="text-gray-300 flex-shrink-0" />
+        </Link>
+
+        {/* Deposit / Withdrawal */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {topCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.label}
+                to={card.path}
+                className="rounded-2xl bg-white border border-amber-200 p-4"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <Icon
+                    size={26}
+                    className="text-amber-500"
+                    strokeWidth={1.8}
+                  />
+                  <ChevronRight size={16} className="text-gray-300 mt-1" />
+                </div>
+                <p className="text-base font-bold text-gray-900">
+                  {card.label}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                  {card.description}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* History */}
+        <h3 className="text-sm font-black text-amber-500 tracking-wide mb-2">
+          HISTORY
+        </h3>
+        <div className="rounded-2xl bg-white border border-amber-200 mb-5 overflow-hidden">
+          {historyItems.map((item, i) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.label}
+                to={item.path}
+                className={`flex items-center gap-3 p-4 ${
+                  i !== historyItems.length - 1
+                    ? "border-b border-gray-100"
+                    : ""
+                }`}
+              >
+                <div className="w-11 h-11 rounded-full border border-amber-200 flex items-center justify-center flex-shrink-0">
+                  <Icon size={19} className={item.iconColor} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900">
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-gray-500">{item.description}</p>
+                </div>
+                <ChevronRight
+                  size={18}
+                  className="text-gray-300 flex-shrink-0"
+                />
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* More Options */}
+        <h3 className="text-sm font-black text-amber-500 tracking-wide mb-2">
+          MORE OPTIONS
+        </h3>
+        <div className="rounded-2xl bg-white border border-amber-200 mb-5 overflow-hidden">
+          {moreOptions.map((item, i) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.label}
+                to={item.path}
+                className={`flex items-center gap-3 p-4 ${
+                  i !== moreOptions.length - 1 ? "border-b border-gray-100" : ""
+                }`}
+              >
+                <div className="w-11 h-11 rounded-full border border-amber-200 flex items-center justify-center flex-shrink-0">
+                  <Icon size={18} className={item.iconColor} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900">
+                    {item.label}
+                  </p>
+                  <p className="text-xs text-gray-500">{item.description}</p>
+                </div>
+                <ChevronRight
+                  size={18}
+                  className="text-gray-300 flex-shrink-0"
+                />
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Logout */}
+        <button
+          onClick={handleLogoutClick}
+          className="w-full flex items-center gap-3 rounded-2xl bg-white border border-amber-200 p-4"
+        >
+          <div className="w-11 h-11 rounded-full border border-red-200 flex items-center justify-center flex-shrink-0">
+            <LogOut size={18} className="text-red-500" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-sm font-bold text-red-500">Logout</p>
+            <p className="text-xs text-gray-500">Logout from your account</p>
+          </div>
+          <ChevronRight size={18} className="text-gray-300 flex-shrink-0" />
+        </button>
+      </div>
+
+      {/* Logout Confirmation */}
+      {showLogoutConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          onClick={handleCancelLogout}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-white rounded-2xl border border-amber-200 w-full max-w-xs p-6 text-center"
+          >
+            <button
+              onClick={handleCancelLogout}
+              disabled={isLoggingOut}
+              className="absolute top-3 right-3 p-1 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-40"
+            >
+              <X size={14} className="text-gray-400" />
+            </button>
+
+            <div className="w-14 h-14 rounded-full border border-red-200 flex items-center justify-center mx-auto mb-3">
+              <LogOut size={22} className="text-red-500" />
+            </div>
+
+            <h3 className="text-base font-bold text-gray-900 mb-1">
+              Log out of WINZOX?
+            </h3>
+            <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+              Are you sure you want to logout? You'll need to sign in again to
+              access your wallet and bets.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancelLogout}
+                disabled={isLoggingOut}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmLogout}
+                disabled={isLoggingOut}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-500 rounded-xl text-white font-bold text-sm hover:bg-red-600 transition-colors disabled:opacity-60"
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Circle className="animate-spin" size={14} />
+                    Logging out...
+                  </>
+                ) : (
+                  "Yes, Logout"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Account;
