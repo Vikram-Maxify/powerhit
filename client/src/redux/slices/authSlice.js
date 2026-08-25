@@ -199,7 +199,7 @@ const authSlice = createSlice({
         state.token = action.payload.token;
         state.message = action.payload.message;
         state.isAuthenticated = true;
-        state.profileLoaded = true;
+        state.profileLoaded = false;
         state.isProfileLoading = false;
 
         localStorage.setItem("token", action.payload.token);
@@ -224,7 +224,7 @@ const authSlice = createSlice({
         state.token = action.payload.token;
         state.message = action.payload.message;
         state.isAuthenticated = true;
-        state.profileLoaded = true;
+        state.profileLoaded = false;
         state.isProfileLoading = false;
 
         localStorage.setItem("token", action.payload.token);
