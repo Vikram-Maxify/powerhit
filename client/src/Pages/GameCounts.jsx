@@ -57,17 +57,17 @@ const countries = [
 // CURRENCY CONFIGURATION
 // ==========================================
 const currencyConfig = {
-  IN: { symbol: '₹', code: 'INR', name: 'Indian Rupee' },
-  AU: { symbol: 'A$', code: 'AUD', name: 'Australian Dollar' },
-  PK: { symbol: '₨', code: 'PKR', name: 'Pakistani Rupee' },
-  CA: { symbol: 'C$', code: 'CAD', name: 'Canadian Dollar' },
-  NP: { symbol: 'रू', code: 'NPR', name: 'Nepalese Rupee' },
-  UAE: { symbol: 'د.إ', code: 'AED', name: 'UAE Dirham' },
+  IN: { symbol: "₹", code: "INR", name: "Indian Rupee" },
+  AU: { symbol: "A$", code: "AUD", name: "Australian Dollar" },
+  PK: { symbol: "₨", code: "PKR", name: "Pakistani Rupee" },
+  CA: { symbol: "C$", code: "CAD", name: "Canadian Dollar" },
+  NP: { symbol: "रू", code: "NPR", name: "Nepalese Rupee" },
+  UAE: { symbol: "د.إ", code: "AED", name: "UAE Dirham" },
 };
 
 // Helper function to get currency symbol
 const getCurrencySymbol = (countryCode) => {
-  return currencyConfig[countryCode]?.symbol || '₹';
+  return currencyConfig[countryCode]?.symbol || "₹";
 };
 
 // Helper function to format price with currency
@@ -1593,7 +1593,8 @@ const GameSelection = () => {
                 const currencySymbol = getCurrencySymbol(activeCountryCode);
                 return (
                   <option key={item._id} value={item._id}>
-                    {item.totalGames} Games - {currencySymbol}{item.price}
+                    {item.totalGames} Games - {currencySymbol}
+                    {item.price}
                     {item.label && ` (${item.label})`}
                     {item.discount && ` - ${item.discount}% off`}
                     {item.isActive !== undefined &&
