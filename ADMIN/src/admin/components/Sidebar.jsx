@@ -55,10 +55,8 @@ const Sidebar = ({ isOpen, onClose }) => {
   // Auto-expand settings if any settings submenu is active
   useEffect(() => {
     const settingsPaths = [
-      "/admin/settings",
       "/admin/deposit-settings",
       "/admin/withdrawal-settings",
-      "/admin/security-settings",
       "/admin/ticketsetiings",
       "/admin/referral-levels",
       "/admin/betting-bonus",
@@ -72,7 +70,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       "/admin/markets",
       "/admin/bids",
       "/admin/results",
-      "/admin/currency-rates",
       "/admin/win-multipliers", // ✅ Added Win Multipliers path
     ];
     if (matkaPaths.includes(location.pathname)) {
@@ -210,24 +207,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <CreditCard size={20} />,
       color: "orange",
     },
-    {
-      name: "Transactions",
-      path: "/admin/transactions",
-      icon: <ArrowLeftRight size={20} />,
-      color: "cyan",
-    },
-    {
-      name: "Reports",
-      path: "/admin/reports",
-      icon: <FileText size={20} />,
-      color: "red",
-    },
-    {
-      name: "Notifications",
-      path: "/admin/notifications",
-      icon: <Bell size={20} />,
-      color: "pink",
-    },
+
 
     // ✅ ============ MATKA MENU (with Win Multipliers) ============
     {
@@ -250,11 +230,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           path: "/admin/results",
           icon: <Trophy size={16} />,
         },
-        {
-          name: "Currency Rates",
-          path: "/admin/currency-rates",
-          icon: <DollarSign size={16} />,
-        },
+
         {
           name: "Win Multipliers", // ✅ Moved here from Settings
           path: "/admin/win-multipliers",
@@ -452,11 +428,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       color: "gray",
       subMenus: [
         {
-          name: "General Settings",
-          path: "/admin/settings",
-          icon: <UserCog size={16} />,
-        },
-        {
           name: "Deposit Settings",
           path: "/admin/deposit-settings",
           icon: <DollarSign size={16} />,
@@ -465,11 +436,6 @@ const Sidebar = ({ isOpen, onClose }) => {
           name: "Withdrawal Settings",
           path: "/admin/withdrawal-settings",
           icon: <CreditCard size={16} />,
-        },
-        {
-          name: "Security Settings",
-          path: "/admin/security-settings",
-          icon: <Shield size={16} />,
         },
         {
           name: "Ticket Settings",

@@ -11,7 +11,7 @@ import {
   clearDivisionMessage,
 } from "../redux/powerballDivisionSlice";
 
-const SUPPORTED = ["india", "uae", "nepal", "pakistan", "australia", "canada"];
+const SUPPORTED = ["india", "uae", "nepal", "pakistan", "australia", "bangladesh"];
 
 const normalizeCountry = (value) => {
   const country = String(value || "").toLowerCase();

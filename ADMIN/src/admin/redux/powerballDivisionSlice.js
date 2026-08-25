@@ -7,7 +7,7 @@ const COUNTRIES = new Set([
   "nepal",
   "pakistan",
   "australia",
-  "canada",
+  "bangladesh",
 ]);
 
 const normalizeCountry = (country) => {

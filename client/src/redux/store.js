@@ -51,6 +51,8 @@ import marketReducer from "./slices/marketSlice";
 import bidReducer from "./slices/bidSlice";
 import resultReducer from "./slices/resultSlice";
 import publicBidReducer from "./slices/publicBidSlice";
+import powerballResultReducer from "./slices/powerballResultSlice";
+
 
 export const store = configureStore({
   reducer: {
@@ -107,6 +109,8 @@ export const store = configureStore({
     bid: bidReducer,
     result: resultReducer,
     publicBid: publicBidReducer,
+    powerballResult: powerballResultReducer,
+
   },
 });
 

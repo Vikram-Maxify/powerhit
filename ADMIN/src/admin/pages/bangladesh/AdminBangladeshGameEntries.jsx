@@ -1,3 +1,4 @@
+// pages/admin/AdminGameEntries.jsx
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -17,6 +18,7 @@ import GameEntryFilters from '../../../components/admin/GameEntryFilters';
 import GameEntryStats from '../../../components/admin/GameEntryStats';
 import GameEntryModal from '../../../components/admin/GameEntryModal';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
+
 import { RefreshCw, Search, X } from 'lucide-react';
 
 const AdminBangladeshGameEntries = () => {
@@ -29,7 +31,7 @@ const AdminBangladeshGameEntries = () => {
     stats = {}, 
     filters, 
     selectedEntry 
-  } = useSelector((state) => state.bangladeshGameEntries || {});
+  } = useSelector((state) => state.australiaGameEntries || {});
 
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,7 +41,7 @@ const AdminBangladeshGameEntries = () => {
   const isInitialLoad = useRef(true);
   const isFetching = useRef(false);
 
-  // Country constant for Bangladesh
+  // Country constant for Australia
   const COUNTRY = 'bangladesh';
 
   // Calculate unique players and stats from entries

@@ -81,8 +81,6 @@ const Header = ({ setSidebarOpen }) => {
       "/admin/withdrawals": "Withdrawal Management",
       "/admin/transactions": "Transactions",
       "/admin/reports": "Reports",
-      "/admin/notifications": "Notifications",
-      "/admin/settings": "General Settings",
       "/admin/deposit-settings": "Deposit Settings",
       "/admin/withdrawal-settings": "Withdrawal Settings",
       "/admin/security-settings": "Security Settings",
@@ -159,21 +157,7 @@ const Header = ({ setSidebarOpen }) => {
         {/* Right Section */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Notification Bell */}
-          <button 
-            className="relative p-2 rounded-xl hover:bg-gray-100 transition-all duration-200 hidden sm:flex"
-            onClick={() => toast.info('📬 No new notifications')}
-          >
-            <Bell size={20} className="text-gray-600" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-          </button>
 
-          {/* Settings Button */}
-          <button 
-            className="p-2 rounded-xl hover:bg-gray-100 transition-all duration-200 hidden sm:flex"
-            onClick={() => navigate('/admin/settings')}
-          >
-            <Settings size={20} className="text-gray-600" />
-          </button>
 
           {/* Admin Dropdown */}
           <div className="relative" ref={dropdownRef}>

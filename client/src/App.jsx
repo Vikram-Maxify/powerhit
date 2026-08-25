@@ -66,6 +66,7 @@ import {
   getProfile,
   logout,
 } from "./redux/slices/authSlice.js";
+import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
 
 // ========================================
 // Scroll To Top
@@ -264,6 +265,11 @@ function App() {
             <Route
               path="/register"
               element={<Register />}
+            />
+
+            <Route
+              path="/powerball-results"
+              element={<PowerballpublickResults />}
             />
 
             {/* ========================================

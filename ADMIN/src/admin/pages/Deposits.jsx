@@ -186,7 +186,7 @@ const StatsCards = ({ stats, formatCurrency }) => {
     },
     {
       title: 'Total Amount',
-      value: formatCurrency(stats.approvedAmount || 0),
+      value: formatCurrency(stats.approvedAmount || 0, stats.country || 'India'),
       icon: TrendingUp,
       color: 'purple',
       gradient: 'from-purple-500 to-violet-600',
@@ -394,7 +394,7 @@ const DepositRow = ({
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors duration-300">
-          {formatCurrency(deposit.amount)}
+          {formatCurrency(deposit.amount, deposit.country)}
         </div>
         <div className="text-xs text-gray-400 flex items-center gap-1">
           <Globe className="w-3 h-3" />
@@ -677,7 +677,7 @@ const DetailModal = ({
     { label: 'Email', value: deposit.user?.email || 'N/A', icon: Mail },
     { label: 'Mobile', value: deposit.user?.mobile || 'N/A', icon: Phone },
     { label: 'Country', value: deposit.country || 'N/A', icon: Globe },
-    { label: 'Amount', value: formatCurrency(deposit.amount), icon: DollarSign, highlight: true },
+    { label: 'Amount', value: formatCurrency(deposit.amount, deposit.country), icon: DollarSign, highlight: true },
     { label: 'Method', value: deposit.methodType?.toUpperCase() || 'N/A', icon: CreditCard },
     { label: 'Status', value: deposit.status, icon: Activity, isBadge: true },
     { label: 'Created', value: formatDate(deposit.createdAt), icon: Calendar },
@@ -751,7 +751,7 @@ const DetailModal = ({
                   <span className="w-1 h-1 rounded-full bg-indigo-500"></span>
                 </p>
                 <p className="text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mt-3">
-                  {formatCurrency(deposit.amount)}
+                  {formatCurrency(deposit.amount, deposit.country)}
                 </p>
                 <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border shadow-md mt-4 ${getStatusColors(deposit.status)}`}>
                   {getStatusIcon(deposit.status)}
@@ -921,7 +921,7 @@ const ActionModal = ({
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500 font-medium">Amount:</span>
                 <span className="font-bold text-gray-900 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  {formatCurrency(deposit.amount)}
+                  {formatCurrency(deposit.amount, deposit.country)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -974,6 +974,43 @@ const ActionModal = ({
       </motion.div>
     </motion.div>
   );
+};
+
+// ============================
+// Country Currency Helpers
+// ============================
+
+const COUNTRY_CURRENCY = {
+  India: { symbol: "₹", code: "INR" },
+  Australia: { symbol: "A$", code: "AUD" },
+  Pakistan: { symbol: "Rs", code: "PKR" },
+  Bangladesh: { symbol: "৳", code: "BDT" },
+  Nepal: { symbol: "रू", code: "NPR" },
+  Dubai: { symbol: "د.إ", code: "AED" },
+  UAE: { symbol: "د.إ", code: "AED" },
+  "United Arab Emirates": { symbol: "د.إ", code: "AED" },
+};
+
+const getCountryCurrency = (country) => {
+  if (!country) return COUNTRY_CURRENCY.India;
+
+  const value = String(country).trim().toLowerCase();
+
+  const match = Object.entries(COUNTRY_CURRENCY).find(
+    ([name]) => name.toLowerCase() === value
+  );
+
+  return match ? match[1] : COUNTRY_CURRENCY.India;
+};
+
+const formatCountryCurrency = (amount, country) => {
+  const { symbol } = getCountryCurrency(country);
+  const numericAmount = Number(amount) || 0;
+
+  return `${symbol}${numericAmount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 };
 
 // ============================
@@ -1079,13 +1116,8 @@ const Deposits = () => {
   // Helper Functions
   // ============================
 
-  const formatCurrency = useCallback((amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount || 0);
+  const formatCurrency = useCallback((amount, country) => {
+    return formatCountryCurrency(amount, country);
   }, []);
 
   const formatDate = useCallback((date) => {

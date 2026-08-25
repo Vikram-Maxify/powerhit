@@ -166,6 +166,10 @@ app.use(
   adminPowerballDivisionRoutes
 );
 
+
+app.use("/api/public/:country/powerball-results",require('./routes/user/powerballpublicresult'));
+
+
 // ============================================
 // REFERRAL LEVELS
 // ============================================
