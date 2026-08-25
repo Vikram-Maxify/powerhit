@@ -30,12 +30,12 @@ import pakistanPowerballResultReducer from "../admin/redux/pakistan/powerballRes
 import pakistanPowerballDivisionReducer from "../admin/redux/pakistan/PakistanPowerballDivisionSlice";
 
 // ========================================
-// CANADA
+// BANGLADESH
 // ========================================
-import canadaGameCountReducer from "../admin/redux/canada/gameCountSlice";
-import canadaGameEntryReducer from "../admin/redux/canada/gameEntrySlice";
-import canadaPowerballResultReducer from "../admin/redux/canada/powerballResultSlice";
-import canadaPowerballDivisionReducer from "../admin/redux/canada/CanadaPowerballDivisionSlice";
+import bangladeshGameCountReducer from "../admin/redux/bangladesh/gameCountSlice";
+import bangladeshGameEntryReducer from "../admin/redux/bangladesh/gameEntrySlice";
+import bangladeshPowerballResultReducer from "../admin/redux/bangladesh/powerballResultSlice";
+import bangladeshPowerballDivisionReducer from "../admin/redux/bangladesh/bangladeshPowerballDivisionSlice";
 
 // ========================================
 // INDIA
@@ -61,13 +61,18 @@ import uaeGameEntryReducer from "../admin/redux/uae/gameEntrySlice";
 import uaePowerballResultReducer from "../admin/redux/uae/powerballResultSlice";
 import uaePowerballDivisionReducer from "../admin/redux/uae/UaePowerballDivisionSlice";
 
+// ========================================
+// OTHER ADMIN
+// ========================================
 import referralLevelReducer from "../admin/redux/referralLevelSlice";
 import bettingBonusReducer from "../admin/redux/bettingBonusSlice";
 import winMultiplierReducer from "../admin/redux/winMultiplierSlice";
 import powerballDivisionReducer from "../admin/redux/powerballDivisionSlice";
 import powerballResultReducer from "../admin/redux/powerballResultSlice";
 
-
+// ========================================
+// STORE
+// ========================================
 export const store = configureStore({
   reducer: {
     // ========================================
@@ -88,23 +93,28 @@ export const store = configureStore({
     australiaGameCount: australiaGameCountReducer,
     australiaGameEntries: australiaGameEntryReducer,
     australiaPowerballResult: australiaPowerballResultReducer,
-    australiaPowerballDivision: australiaPowerballDivisionReducer,
+    australiaPowerballDivision:
+      australiaPowerballDivisionReducer,
 
     // ========================================
     // PAKISTAN
     // ========================================
     pakistanGameCount: pakistanGameCountReducer,
     pakistanGameEntries: pakistanGameEntryReducer,
-    pakistanPowerballResult: pakistanPowerballResultReducer,
-    pakistanPowerballDivision: pakistanPowerballDivisionReducer,
+    pakistanPowerballResult:
+      pakistanPowerballResultReducer,
+    pakistanPowerballDivision:
+      pakistanPowerballDivisionReducer,
 
     // ========================================
-    // CANADA
+    // BANGLADESH
     // ========================================
-    canadaGameCount: canadaGameCountReducer,
-    canadaGameEntries: canadaGameEntryReducer,
-    canadaPowerballResult: canadaPowerballResultReducer,
-    canadaPowerballDivision: canadaPowerballDivisionReducer,
+    bangladeshGameCount: bangladeshGameCountReducer,
+    bangladeshGameEntry: bangladeshGameEntryReducer,
+    bangladeshPowerballResult:
+      bangladeshPowerballResultReducer,
+    bangladeshPowerballDivision:
+      bangladeshPowerballDivisionReducer,
 
     // ========================================
     // INDIA
@@ -112,15 +122,18 @@ export const store = configureStore({
     indiaGameCount: indiaGameCountReducer,
     indiaGameEntries: indiaGameEntryReducer,
     indiaPowerballResult: indiaPowerballResultReducer,
-    indiaPowerballDivision: indiaPowerballDivisionReducer,
+    indiaPowerballDivision:
+      indiaPowerballDivisionReducer,
 
     // ========================================
     // NEPAL
     // ========================================
     nepalGameCount: nepalGameCountReducer,
     nepalGameEntries: nepalGameEntryReducer,
-    nepalPowerballResult: nepalPowerballResultReducer,
-    nepalPowerballDivision: nepalPowerballDivisionReducer,
+    nepalPowerballResult:
+      nepalPowerballResultReducer,
+    nepalPowerballDivision:
+      nepalPowerballDivisionReducer,
 
     // ========================================
     // UAE
@@ -128,7 +141,8 @@ export const store = configureStore({
     uaeGameCount: uaeGameCountReducer,
     uaeGameEntries: uaeGameEntryReducer,
     uaePowerballResult: uaePowerballResultReducer,
-    uaePowerballDivision: uaePowerballDivisionReducer,
+    uaePowerballDivision:
+      uaePowerballDivisionReducer,
 
     // ========================================
     // OTHER ADMIN
@@ -141,6 +155,5 @@ export const store = configureStore({
     winMultiplier: winMultiplierReducer,
     powerballDivision: powerballDivisionReducer,
     powerballResult: powerballResultReducer,
-
   },
 });

@@ -89,24 +89,27 @@ const countries = {
     ),
   },
 
-  canada: {
-    key: "canada",
-    name: "Canada",
+  // ==========================================
+  // BANGLADESH
+  // ==========================================
+  bangladesh: {
+    key: "bangladesh",
+    name: "Bangladesh",
 
     gameCount: require(
-      "../models/canada/CanadaGameCount"
+      "../models/bangladesh/BangladeshGameCount"
     ),
 
     gamePool: require(
-      "../models/canada/CanadaGamePool"
+      "../models/bangladesh/BangladeshGamePool"
     ),
 
     powerballDivision: require(
-      "../models/canada/CanadaPowerballDivision"
+      "../models/bangladesh/BangladeshPowerballDivision"
     ),
 
     powerballResult: require(
-      "../models/canada/CanadaPowerballResult"
+      "../models/bangladesh/BangladeshPowerballResult"
     ),
   },
 };
@@ -142,9 +145,10 @@ const normalizeCountry = (country) => {
     australia: "australia",
     au: "australia",
 
-    // CANADA
-    canada: "canada",
-    ca: "canada",
+    // BANGLADESH
+    bangladesh: "bangladesh",
+    bd: "bangladesh",
+    bangla: "bangladesh",
   };
 
   return aliases[value] || "";
@@ -187,15 +191,12 @@ const getCountryModels = (country) => {
 // ==========================================
 
 const getCountryContext = (req) => {
-
-  console.log(req)
   const country =
     req.country ||
     req.params?.country ||
     req.body?.country ||
     req.query?.country ||
     req.user?.country;
-
 
   return getCountryModels(country);
 };

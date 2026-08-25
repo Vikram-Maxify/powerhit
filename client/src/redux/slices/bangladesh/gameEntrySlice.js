@@ -2,10 +2,10 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { api } from "../api";
 
 
-const COUNTRY = "canada";
+const COUNTRY = "bangladesh";
 // ================= CREATE GAME ENTRY =================
 export const createGameEntry = createAsyncThunk(
-  "canadaGameEntry/create",
+  "bangladeshGameEntry/create",
   async (formData, { rejectWithValue }) => {
     try {
       const { data } = await api.post("/" + COUNTRY + "/game-entry", formData);
@@ -20,7 +20,7 @@ export const createGameEntry = createAsyncThunk(
 
 // ================= GET MY GAME ENTRIES =================
 export const getMyGameEntries = createAsyncThunk(
-  "canadaGameEntry/getAll",
+  "bangladeshGameEntry/getAll",
   async (params = {}, { rejectWithValue }) => {
     try {
       // Build query string from params
@@ -31,7 +31,7 @@ export const getMyGameEntries = createAsyncThunk(
       if (params.country) queryParams.append('country', params.country);
       
       const queryString = queryParams.toString();
-      const url = queryString ? `/canada/game-entry?${queryString}` : "/" + COUNTRY + "/game-entry";
+      const url = queryString ? `/bangladesh/game-entry?${queryString}` : "/" + COUNTRY + "/game-entry";
       
       const { data } = await api.get(url);
       return data;
@@ -45,7 +45,7 @@ export const getMyGameEntries = createAsyncThunk(
 
 // ================= GET SINGLE GAME ENTRY =================
 export const getSingleGameEntry = createAsyncThunk(
-  "canadaGameEntry/getSingle",
+  "bangladeshGameEntry/getSingle",
   async (id, { rejectWithValue }) => {
     try {
       const { data } = await api.get(`/${COUNTRY}/game-entry/${id}`);
@@ -60,7 +60,7 @@ export const getSingleGameEntry = createAsyncThunk(
 
 // ================= GET ENTRY RESULTS =================
 export const getEntryResults = createAsyncThunk(
-  "canadaGameEntry/getResults",
+  "bangladeshGameEntry/getResults",
   async (id, { rejectWithValue }) => {
     try {
       const { data } = await api.get(`/${COUNTRY}/game-entry/${id}/results`);
@@ -75,7 +75,7 @@ export const getEntryResults = createAsyncThunk(
 
 // ================= DELETE ENTRY =================
 export const deleteGameEntry = createAsyncThunk(
-  "canadaGameEntry/delete",
+  "bangladeshGameEntry/delete",
   async (id, { rejectWithValue }) => {
     try {
       await api.delete(`/${COUNTRY}/game-entry/${id}`);
@@ -90,7 +90,7 @@ export const deleteGameEntry = createAsyncThunk(
 
 // ================= CANCEL ENTRY (WITH REFUND) =================
 export const cancelGameEntry = createAsyncThunk(
-  "canadaGameEntry/cancel",
+  "bangladeshGameEntry/cancel",
   async (id, { rejectWithValue }) => {
     try {
       const { data } = await api.put(`/${COUNTRY}/game-entry/${id}/cancel`);
@@ -105,10 +105,10 @@ export const cancelGameEntry = createAsyncThunk(
 
 // ================= GET USER BALANCE =================
 export const getUserBalance = createAsyncThunk(
-  "canadaGameEntry/getBalance",
+  "bangladeshGameEntry/getBalance",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await api.get("/canada/game-entry/balance/me");
+      const { data } = await api.get("/bangladesh/game-entry/balance/me");
       return data.balance;
     } catch (error) {
       return rejectWithValue(
@@ -120,7 +120,7 @@ export const getUserBalance = createAsyncThunk(
 
 // ================= GET ENTRIES BY COUNTRY =================
 export const getEntriesByCountry = createAsyncThunk(
-  "canadaGameEntry/getByCountry",
+  "bangladeshGameEntry/getByCountry",
   async (country, { rejectWithValue }) => {
     try {
       const { data } = await api.get(`/${COUNTRY}/game-entry/country/${country}`);
@@ -155,8 +155,8 @@ const initialState = {
   }
 };
 
-const canadaGameEntrySlice = createSlice({
-  name: "canadaGameEntry",
+const bangladeshGameEntrySlice = createSlice({
+  name: "bangladeshGameEntry",
   initialState,
   reducers: {
     resetGameEntryState: (state) => {
@@ -364,23 +364,23 @@ export const {
   setStatusFilter,
   clearFilters,
   updatePagination
-} = canadaGameEntrySlice.actions;
+} = bangladeshGameEntrySlice.actions;
 
 // ================= SELECTORS =================
-export const selectAllEntries = (state) => state.canadaGameEntries.entries;
-export const selectSelectedEntry = (state) => state.canadaGameEntries.selectedEntry;
-export const selectEntryResults = (state) => state.canadaGameEntries.results;
-export const selectWinningNumbers = (state) => state.canadaGameEntries.winningNumbers;
-export const selectBalance = (state) => state.canadaGameEntries.balance;
-export const selectGameEntryLoading = (state) => state.canadaGameEntries.loading;
-export const selectGameEntrySuccess = (state) => state.canadaGameEntries.success;
-export const selectGameEntryError = (state) => state.canadaGameEntries.error;
-export const selectGameEntryMessage = (state) => state.canadaGameEntries.message;
-export const selectPagination = (state) => state.canadaGameEntries.pagination;
-export const selectFilters = (state) => state.canadaGameEntries.filters;
+export const selectAllEntries = (state) => state.bangladeshGameEntries.entries;
+export const selectSelectedEntry = (state) => state.bangladeshGameEntries.selectedEntry;
+export const selectEntryResults = (state) => state.bangladeshGameEntries.results;
+export const selectWinningNumbers = (state) => state.bangladeshGameEntries.winningNumbers;
+export const selectBalance = (state) => state.bangladeshGameEntries.balance;
+export const selectGameEntryLoading = (state) => state.bangladeshGameEntries.loading;
+export const selectGameEntrySuccess = (state) => state.bangladeshGameEntries.success;
+export const selectGameEntryError = (state) => state.bangladeshGameEntries.error;
+export const selectGameEntryMessage = (state) => state.bangladeshGameEntries.message;
+export const selectPagination = (state) => state.bangladeshGameEntries.pagination;
+export const selectFilters = (state) => state.bangladeshGameEntries.filters;
 export const selectEntriesByCountry = (state, country) => 
-  state.canadaGameEntries.entries.filter(entry => entry.country === country);
+  state.bangladeshGameEntries.entries.filter(entry => entry.country === country);
 export const selectEntriesByStatus = (state, status) => 
-  state.canadaGameEntries.entries.filter(entry => entry.poolStatus === status);
+  state.bangladeshGameEntries.entries.filter(entry => entry.poolStatus === status);
 
-export default canadaGameEntrySlice.reducer;
+export default bangladeshGameEntrySlice.reducer;

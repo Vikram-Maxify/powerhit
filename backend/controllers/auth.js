@@ -55,7 +55,7 @@ const generateReferralCode = (name) => {
 const MOBILE_LENGTH = {
     india: 10,
     pakistan: 10,
-    canada: 10,
+    bangladesh: 10,
     nepal: 10,
     uae: 9,
     australia: 9,
@@ -88,7 +88,7 @@ const validateMobile = (mobile, country) => {
         return {
             valid: false,
             message:
-                "Invalid country. Supported countries are India, Pakistan, UAE, Australia, Canada and Nepal.",
+                "Invalid country. Supported countries are India, Pakistan, UAE, Australia, Bangladesh and Nepal.",
         };
     }
 

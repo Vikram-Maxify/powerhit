@@ -1,10 +1,10 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { api } from "../api";
 
+const COUNTRY = "bangladesh";
 
-const COUNTRY = "canada";
 export const getGameCounts = createAsyncThunk(
-  "canadaGameCount",
+  "bangladeshGameCount",
   async (payload = {}, thunkAPI) => {
     try {
       const ticketType =
@@ -41,25 +41,40 @@ export const getGameCounts = createAsyncThunk(
   }
 );
 
-const canadaGameCountSlice = createSlice({
-  name: "canadaGameCount",
-  initialState: { loading: false, gameCounts: [], error: null },
+const bangladeshGameCountSlice = createSlice({
+  name: "bangladeshGameCount",
+
+  initialState: {
+    loading: false,
+    gameCounts: [],
+    error: null,
+  },
+
   reducers: {},
+
   extraReducers: (builder) => {
     builder
-      .addCase(getGameCounts.pending, (state) => { 
-        state.loading = true; 
-        state.error = null; 
+
+      // ==========================================
+      // GET GAME COUNTS
+      // ==========================================
+      .addCase(getGameCounts.pending, (state) => {
+        state.loading = true;
+        state.error = null;
       })
+
       .addCase(getGameCounts.fulfilled, (state, action) => {
-        state.loading = false; 
+        state.loading = false;
         state.gameCounts = action.payload || [];
       })
+
       .addCase(getGameCounts.rejected, (state, action) => {
-        state.loading = false; 
-        state.error = action.payload;
+        state.loading = false;
+        state.error =
+          action.payload ||
+          "Failed to fetch game counts";
       });
   },
 });
 
-export default canadaGameCountSlice.reducer;
+export default bangladeshGameCountSlice.reducer;

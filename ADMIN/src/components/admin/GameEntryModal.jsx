@@ -8,7 +8,7 @@ import {
   Circle, CheckCircle, XCircle, AlertCircle, Phone, Mail,
   Calendar as CalendarIcon, TrendingUp
 } from 'lucide-react';
-import { createPowerballResult } from '../../admin/redux/powerballResultSlice';
+import { createPowerballResult } from '../../admin/redux/bangladesh/powerballResultSlice';
 import { toast } from 'react-hot-toast';
 
 // Currency symbol mapping
@@ -22,6 +22,7 @@ const getCurrencySymbol = (country) => {
     'eu': '€',
     'australia': 'A$',
     'canada': 'C$',
+    'bangladesh': '৳',
     'japan': '¥',
     'china': '¥',
     'default': '$'
@@ -29,7 +30,7 @@ const getCurrencySymbol = (country) => {
   return symbols[country?.toLowerCase()] || symbols.default;
 };
 
-const GameEntryModal = ({ entry, onClose, selectedPool, onResultAnnounced, country = 'us' }) => {
+const GameEntryModal = ({ entry, onClose, selectedPool, onResultAnnounced, country = 'bangladesh' }) => {
   const dispatch = useDispatch();
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [localError, setLocalError] = useState(null);
@@ -38,7 +39,7 @@ const GameEntryModal = ({ entry, onClose, selectedPool, onResultAnnounced, count
   
   // Redux state
   const { loading, success, error } = useSelector(
-    (state) => state.powerballResult || { loading: false, success: false, error: null }
+    (state) => state.bangladeshPowerballResult || { loading: false, success: false, error: null }
   );
 
   // Helper functions
@@ -211,7 +212,7 @@ const GameEntryModal = ({ entry, onClose, selectedPool, onResultAnnounced, count
       gamePoolId: poolId,
       numbers: winningNumbers,
       powerball: powerball,
-      country: selectedPool?.country || selectedPool?.userCountry || entry?.country || "india",
+      country: selectedPool?.country || selectedPool?.userCountry || entry?.country || "bangladesh",
     };
 
     console.log('Announcing result with data:', resultData);
