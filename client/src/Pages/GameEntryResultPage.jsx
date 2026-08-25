@@ -100,6 +100,7 @@ const countryAliases = {
   uae: "uae",
   ae: "uae",
   dubai: "uae",
+  "united arab emirates": "uae",
 };
 
 const countryConfig = {
@@ -149,7 +150,7 @@ const countryConfig = {
     deleteGameEntry: deleteUaeGameEntry,
     resetState: resetUaeGameEntryState,
     countryCode: "UAE",
-    displayName: "UAE",
+    displayName: "United Arab Emirates",
   },
 };
 
@@ -163,7 +164,7 @@ const countries = [
   { name: "Pakistan", flag: "https://flagcdn.com/w80/pk.png", code: "PK" },
   { name: "Bangladesh", flag: "https://flagcdn.com/w80/bd.png", code: "BD" },
   { name: "Nepal", flag: "https://flagcdn.com/w80/np.png", code: "NP" },
-  { name: "Dubai", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
+  { name: "United Arab Emirates", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
 ];
 
 // ======================================================
@@ -175,7 +176,6 @@ const getCountryCodeFromName = (countryName) => {
   const value = String(countryName).trim().toLowerCase();
   const codeMap = {
     india: "IN",
-    in: "IN",
     australia: "AU",
     au: "AU",
     pakistan: "PK",
@@ -187,6 +187,7 @@ const getCountryCodeFromName = (countryName) => {
     uae: "UAE",
     ae: "UAE",
     dubai: "UAE",
+    "united arab emirates": "UAE",
   };
   return codeMap[value] || null;
 };
@@ -358,14 +359,28 @@ const GameEntryResultPage = () => {
   // In GameEntryResultPage.jsx
 
   const handleViewResults = (entry) => {
-    // Get current country from URL or state
-    const country = activeCountryCode?.toLowerCase() || "india";
+    const countryRouteMap = {
+      IN: "india",
+      AU: "australia",
+      PK: "pakistan",
+      BD: "bangladesh",
+      NP: "nepal",
+      UAE: "uae",
+    };
+
+    const country =
+      countryRouteMap[activeCountryCode] ||
+      normalizedCountry ||
+      "india";
 
     navigate(`/${country}/game-entry-result/${entry.poolId}`, {
       state: {
         entry,
         countryCode: activeCountryCode,
-        countryName: activeCountryObject?.name || activeCountryName,
+        countryName:
+          activeCountryObject?.name ||
+          activeCountryConfig?.displayName ||
+          activeCountryName,
         currencySymbol: getCurrencySymbol(activeCountryCode),
       },
     });
