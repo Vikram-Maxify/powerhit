@@ -40,7 +40,7 @@ const countryCurrencyMap = {
   pakistan: "PKR",
   uae: "AED",
   australia: "AUD",
-  canada: "CAD",
+  bangladesh: "BDT",
 };
 
 // ==========================================
