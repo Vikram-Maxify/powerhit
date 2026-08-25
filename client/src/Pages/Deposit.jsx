@@ -14,35 +14,128 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { getDepositMethods } from "../redux/slices/depositSlice";
 
-const PRESET_AMOUNTS = [200, 500, 1000, 2000, 5000, 10000];
+const PRESET_AMOUNTS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+
+// ======================================================
+// CURRENCY SYMBOL CONFIGURATION
+// ======================================================
+
+const getCurrencyConfig = (countryCode) => {
+  const config = {
+    IN: {
+      symbol: "₹",
+      code: "INR",
+      locale: "en-IN",
+      name: "Indian Rupee",
+    },
+    NP: {
+      symbol: "रु",
+      code: "NPR",
+      locale: "ne-NP",
+      name: "Nepali Rupee",
+    },
+    PK: {
+      symbol: "Rs",
+      code: "PKR",
+      locale: "en-PK",
+      name: "Pakistani Rupee",
+    },
+    AU: {
+      symbol: "$",
+      code: "AUD",
+      locale: "en-AU",
+      name: "Australian Dollar",
+    },
+    CA: {
+      symbol: "$",
+      code: "CAD",
+      locale: "en-CA",
+      name: "Canadian Dollar",
+    },
+    AE: {
+      symbol: "د.إ",
+      code: "AED",
+      locale: "ar-AE",
+      name: "UAE Dirham",
+    },
+    default: {
+      symbol: "₹",
+      code: "INR",
+      locale: "en-IN",
+      name: "Indian Rupee",
+    },
+  };
+
+  return config[countryCode] || config.default;
+};
+
+// ======================================================
+// COMPONENT
+// ======================================================
 
 const Deposit = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const { methods, loading } = useSelector((state) => state.deposit);
+  const { user } = useSelector((state) => state.auth);
+
+  // ======================================================
+  // CURRENCY CONFIG
+  // ======================================================
+
+  const currencyConfig = getCurrencyConfig(user?.country || "IN");
+  const currencySymbol = currencyConfig.symbol;
+  const locale = currencyConfig.locale;
+
+  // ======================================================
+  // STATE
+  // ======================================================
 
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [amount, setAmount] = useState("");
   const [touched, setTouched] = useState(false);
   const [error, setError] = useState("");
 
+  // ======================================================
+  // FORMAT CURRENCY
+  // ======================================================
+
+  const formatCurrency = (value) => {
+    if (!value) return `${currencySymbol}0`;
+    const num = parseFloat(value);
+    if (isNaN(num)) return `${currencySymbol}0`;
+    return `${currencySymbol}${num.toLocaleString(locale)}`;
+  };
+
+  // ======================================================
+  // EFFECTS
+  // ======================================================
+
   useEffect(() => {
     dispatch(getDepositMethods());
   }, [dispatch]);
 
+  // ======================================================
+  // VALIDATION
+  // ======================================================
+
   const validateAmount = (value, method) => {
     const num = parseFloat(value);
-    if (!value || value === "") return "Please enter an amount";
-    if (isNaN(num) || num <= 0) return "Please enter a valid amount";
+    if (!value || value === "") return `Please enter an amount`;
+    if (isNaN(num) || num <= 0) return `Please enter a valid amount`;
     if (method) {
       const min = parseFloat(method.minimumDeposit);
       const max = parseFloat(method.maximumDeposit);
-      if (num < min) return `Minimum amount is ${method.minimumDeposit}`;
-      if (num > max) return `Maximum amount is ${method.maximumDeposit}`;
+      if (num < min) return `Minimum amount is ${formatCurrency(min)}`;
+      if (num > max) return `Maximum amount is ${formatCurrency(max)}`;
     }
     return "";
   };
+
+  // ======================================================
+  // HANDLERS
+  // ======================================================
 
   const handleMethodSelect = (method) => {
     setSelectedMethod(method);
@@ -66,6 +159,10 @@ const Deposit = () => {
     setError(validateAmount(amount, selectedMethod));
   };
 
+  // ======================================================
+  // ICON
+  // ======================================================
+
   const getMethodIcon = (type) => {
     switch (type?.toLowerCase()) {
       case "bank":
@@ -78,6 +175,10 @@ const Deposit = () => {
         return <Wallet className="w-4 h-4" />;
     }
   };
+
+  // ======================================================
+  // PROCEED
+  // ======================================================
 
   const proceedHandler = () => {
     const amountError = validateAmount(amount, selectedMethod);
@@ -100,6 +201,10 @@ const Deposit = () => {
 
   const canProceed = selectedMethod && amount && !error;
 
+  // ======================================================
+  // UI
+  // ======================================================
+
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-amber-50/50 via-white to-white overflow-hidden">
       {/* Decorative background orbs */}
@@ -120,6 +225,12 @@ const Deposit = () => {
             <p className="text-sm text-gray-400 mt-1">
               Select a payment method and amount to continue
             </p>
+            {/* Show current currency */}
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-full">
+              <span className="text-[10px] font-medium text-amber-700">
+                Currency: {currencySymbol} {currencyConfig.code}
+              </span>
+            </div>
           </div>
 
           {/* Payment Methods */}
@@ -174,8 +285,8 @@ const Deposit = () => {
 
             {selectedMethod && (
               <p className="mt-3.5 text-[11px] text-gray-400">
-                Limit: ₹{selectedMethod.minimumDeposit} – ₹
-                {selectedMethod.maximumDeposit}
+                Limit: {formatCurrency(selectedMethod.minimumDeposit)} –{" "}
+                {formatCurrency(selectedMethod.maximumDeposit)}
               </p>
             )}
           </div>
@@ -183,7 +294,7 @@ const Deposit = () => {
           {/* Amount Section */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100 p-5">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">
-              Amount
+              Amount ({currencySymbol})
             </h3>
 
             <div className="grid grid-cols-3 gap-2.5 mb-5">
@@ -198,7 +309,7 @@ const Deposit = () => {
                       : "bg-gray-50/60 text-gray-600 border-gray-200 hover:border-amber-300 hover:bg-amber-50/40"
                   }`}
                 >
-                  ₹{val.toLocaleString("en-IN")}
+                  {formatCurrency(val)}
                 </button>
               ))}
             </div>
@@ -208,7 +319,7 @@ const Deposit = () => {
             </label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">
-                ₹
+                {currencySymbol}
               </span>
               <input
                 type="number"
@@ -222,7 +333,7 @@ const Deposit = () => {
                 value={amount}
                 onChange={handleAmountChange}
                 onBlur={handleBlur}
-                placeholder="Enter amount"
+                placeholder={`Enter amount in ${currencyConfig.code}`}
                 step="0.01"
                 min="0"
               />
@@ -244,14 +355,14 @@ const Deposit = () => {
             )}
           </div>
 
-          {/* Amount summary + Proceed button (in normal flow, always visible) */}
+          {/* Amount summary + Proceed button */}
           <div className="mt-5 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100 p-5">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs text-gray-400 font-medium">
                 You'll deposit
               </span>
               <span className="text-xl font-bold text-gray-900">
-                {amount ? `₹${Number(amount).toLocaleString("en-IN")}` : "₹0"}
+                {amount ? formatCurrency(amount) : `${currencySymbol}0`}
               </span>
             </div>
             <button

@@ -2,26 +2,22 @@
 
 import {
   AlertCircle,
-  ArrowRight,
+  BarChart3,
   Calendar,
-  CheckCircle,
   ChevronDown,
-  ChevronUp,
+  ClipboardList,
   Crown,
   Diamond,
+  Flame,
   Gift,
-  Globe,
-  Grid3x3,
-  Loader2,
-  Play,
-  Plus,
-  RefreshCw,
-  ShoppingCart,
-  Shuffle,
+  Home,
+  Package,
+  ShieldCheck,
   Sparkles,
-  Star,
-  Ticket,
+  Trophy,
+  UserCircle,
   Users,
+  WalletCards,
   X,
   Zap,
 } from "lucide-react";
@@ -81,121 +77,50 @@ const CustomModal = ({ isOpen, onClose, type, title, message, details }) => {
   if (!isOpen) return null;
 
   const isSuccess = type === "success";
-  const icon = isSuccess ? "✅" : "❌";
-  const bgGradient = isSuccess
-    ? "from-green-500 to-emerald-500"
-    : "from-red-500 to-rose-500";
-  const borderColor = isSuccess ? "border-green-400" : "border-red-400";
-  const iconBg = isSuccess ? "bg-green-100" : "bg-red-100";
 
   return (
-    <>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-fadeIn"
-        onClick={onClose}
+        className="w-full max-w-md overflow-hidden rounded-3xl border-2 border-amber-300 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="relative w-full max-w-md mx-4 transform-gpu animate-scaleIn"
-          onClick={(e) => e.stopPropagation()}
+          className={`relative p-6 text-center ${isSuccess ? "bg-gradient-to-r from-emerald-500 to-green-600" : "bg-gradient-to-r from-red-500 to-rose-600"}`}
         >
-          <div
-            className={`bg-white rounded-3xl shadow-2xl overflow-hidden border-2 ${borderColor}`}
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-3 rounded-full bg-white/20 p-2 text-white transition hover:bg-white/30"
           >
-            <div
-              className={`bg-gradient-to-r ${bgGradient} p-6 text-center relative`}
-            >
-              <div className="absolute inset-0 opacity-10">
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
-                    backgroundSize: "40px 40px",
-                  }}
-                ></div>
-              </div>
-              <div className="relative z-10">
-                <div
-                  className={`w-20 h-20 rounded-full ${iconBg} flex items-center justify-center mx-auto mb-3 shadow-xl transform-gpu animate-bounce-slow`}
-                >
-                  <span className="text-4xl">{icon}</span>
-                </div>
-                <h3 className="text-2xl font-bold text-white drop-shadow-lg">
-                  {title}
-                </h3>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <p className="text-gray-700 text-center text-lg font-medium">
-                {message}
-              </p>
-
-              {details && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <p className="text-sm text-gray-600 font-mono break-all">
-                    {details}
-                  </p>
-                </div>
-              )}
-
-              <button
-                onClick={onClose}
-                className={`mt-6 w-full py-3.5 rounded-xl font-bold text-white transition-all duration-300 transform-gpu hover:scale-105 hover:shadow-xl ${isSuccess ? "bg-gradient-to-r from-green-500 to-emerald-500" : "bg-gradient-to-r from-red-500 to-rose-500"}`}
-              >
-                {isSuccess ? "🎉 Great!" : "Got it"}
-              </button>
-            </div>
-
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 text-white/80 hover:text-white bg-white/20 hover:bg-white/30 rounded-full p-2 transition-all duration-300 hover:scale-110"
-            >
-              <X size={20} />
-            </button>
+            <X size={19} />
+          </button>
+          <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl">
+            <span className="text-4xl">{isSuccess ? "✅" : "❌"}</span>
           </div>
+          <h3 className="text-2xl font-black text-white">{title}</h3>
+        </div>
+        <div className="p-6">
+          <p className="text-center text-lg font-semibold text-gray-700">
+            {message}
+          </p>
+          {details && (
+            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <p className="break-all font-mono text-xs text-gray-600">
+                {details}
+              </p>
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            className={`mt-5 w-full rounded-xl py-3.5 font-black text-white shadow-lg transition hover:-translate-y-0.5 ${isSuccess ? "bg-gradient-to-r from-emerald-500 to-green-600" : "bg-gradient-to-r from-red-500 to-rose-600"}`}
+          >
+            {isSuccess ? "🎉 Great!" : "Got it"}
+          </button>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.8) translateY(20px) rotateX(10deg);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0) rotateX(0);
-          }
-        }
-        @keyframes bounce-slow {
-          0%,
-          100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-        .animate-scaleIn {
-          animation: scaleIn 0.4s ease-out;
-        }
-        .animate-bounce-slow {
-          animation: bounce-slow 2s ease-in-out infinite;
-        }
-      `}</style>
-    </>
+    </div>
   );
 };
 
@@ -1223,1094 +1148,552 @@ const GameSelection = () => {
     return Sparkles;
   };
 
+  // Match the reference dashboard: once a valid package is selected,
+  // show a ready-to-play QuickPick selection by default.
+  useEffect(() => {
+    if (selectedCount && !selectionMode && !isInitialized) {
+      initializeGames("quickpick");
+      setSelectionMode("quickpick");
+    }
+  }, [selectedCount, selectionMode, isInitialized]);
+
   // ==========================================
   // RENDER
   // ==========================================
 
   if (ticketLoading || gameCountLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#fffaf0]">
         <div className="text-center">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 p-1 mx-auto mb-4">
-            <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
-              <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-            </div>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-4 border-amber-400 border-t-transparent animate-spin">
+            <Crown className="text-amber-500" size={28} />
           </div>
-          <p className="text-gray-600 font-medium">
-            Loading your tickets for {activeCountryName || "..."}...
+          <p className="font-semibold text-gray-600">
+            Loading your Wingox dashboard…
           </p>
         </div>
       </div>
     );
   }
 
+  const referenceGame = games[0];
+  const referenceNumbers =
+    selectionMode === "quickpick"
+      ? referenceGame?.numbers || []
+      : referenceGame?.selectedNumbers || [];
+  const referencePowerball =
+    selectionMode === "quickpick"
+      ? referenceGame?.powerball
+      : referenceGame?.selectedPowerball;
+
+  const displayNumbers = referenceNumbers.length
+    ? referenceNumbers
+    : [12, 24, 31, 45, 58, 63, 71];
+  const displayPowerball = referencePowerball || 9;
+
+  const ticketVisuals = [
+    { icon: Sparkles, title: "STANDARD", subtitle: "Most Popular" },
+    { icon: Zap, title: "POWERHIT", subtitle: "High Rewards" },
+    { icon: Gift, title: "SYSTEM", subtitle: "Smart Play" },
+    { icon: Users, title: "LOTTO PARTY", subtitle: "Group Play" },
+  ];
+
+  const selectGameType = (gameTypeId) => {
+    setSelectedGameType(gameTypeId);
+    setSelectedGameCount(null);
+    setGames([]);
+    setExpandedGame(null);
+    setIsInitialized(false);
+    setSelectionMode(null);
+    setAllGamesExpanded(false);
+  };
+
+  const selectPackage = (packageId) => {
+    setSelectedGameCount(packageId);
+    setGames([]);
+    setExpandedGame(null);
+    setIsInitialized(false);
+    setSelectionMode(null);
+    setAllGamesExpanded(false);
+  };
+
+  const quickPickReference = () => {
+    if (!selectedCount) return;
+    setSelectionMode("quickpick");
+    initializeGames("quickpick");
+    setExpandedGame(null);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
-      <CustomModal
-        isOpen={modal.isOpen}
-        onClose={closeModal}
-        type={modal.type}
-        title={modal.title}
-        message={modal.message}
-        details={modal.details}
-      />
+    <div className="min-h-screen bg-gradient-to-b from-white via-[#fffdf8] to-[#fff7e8] pb-28 text-[#111]">
+      <CustomModal {...modal} onClose={closeModal} />
 
-      {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-400 shadow-xl">
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className="w-full h-full"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
-              backgroundSize: "40px 40px",
-            }}
+      {/* HERO — supplied image */}
+      <section className="mx-auto max-w-[860px] px-3 pt-3 sm:px-5 sm:pt-4">
+        <div className="relative h-[270px] overflow-hidden rounded-[22px] border-2 border-amber-400 bg-amber-50 shadow-[0_8px_25px_rgba(168,113,0,0.12)] sm:h-[352px]">
+          <img
+            src="https://i.ibb.co/60g6N1Fp/banner1.png"
+            alt="WinLuxury Powerball"
+            className="h-full w-full object-cover"
           />
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 relative z-10">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full border border-white/30 text-white text-sm font-medium mb-3">
-                <Star size={14} /> Premium Dashboard
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                Welcome back, <span className="text-yellow-200">Plyer</span>
-              </h1>
-              <p className="text-amber-100 text-sm mt-1">
-                Select your ticket and start playing
-              </p>
-              {urlCountry && (
-                <p className="text-white/80 text-sm mt-2 flex items-center gap-2">
-                  <Globe size={16} /> Playing:{" "}
-                  <span className="font-bold uppercase">{urlCountry}</span>
-                  {activeCountryObject && (
-                    <img
-                      src={activeCountryObject.flag}
-                      alt={activeCountryObject.name}
-                      className="w-6 h-4 rounded-sm shadow-lg ml-1"
-                    />
-                  )}
-                  {activeCountryCode && (
-                    <span className="text-yellow-200 text-xs font-mono bg-white/20 px-2 py-0.5 rounded-full ml-1">
-                      {activeCountryCode}
-                    </span>
-                  )}
-                </p>
+          <div className="absolute bottom-4 left-4 flex min-w-[220px] items-center gap-3 rounded-2xl border border-amber-500 bg-black/90 px-3 py-2.5 text-white shadow-2xl sm:bottom-6 sm:left-7 sm:min-w-[240px] sm:px-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white sm:h-12 sm:w-12">
+              {activeCountryObject ? (
+                <img
+                  src={activeCountryObject.flag}
+                  alt={activeCountryObject.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-2xl">🇮🇳</span>
               )}
             </div>
-
-            <div className="bg-white/20 backdrop-blur-md rounded-2xl px-5 py-3 border border-white/30 shadow-xl shadow-orange-500/20">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center shadow-inner">
-                  {activeCountryObject ? (
-                    <img
-                      src={activeCountryObject.flag}
-                      alt={activeCountryObject.name}
-                      className="w-8 h-6 rounded-sm shadow-lg"
-                    />
-                  ) : (
-                    <Globe size={20} className="text-white" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-white/80 text-xs font-medium">
-                    {urlCountry ? "Selected Country" : "Playing from"}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-bold text-lg">
-                      {activeCountryObject?.name ||
-                        activeCountryName ||
-                        "Not Set"}
-                    </span>
-                    {activeCountryCode && (
-                      <>
-                        <span className="text-white/90 text-xs font-mono bg-white/30 px-2 py-0.5 rounded-full">
-                          {activeCountryCode}
-                        </span>
-                        <span className="text-yellow-200 text-xs font-mono bg-white/20 px-2 py-0.5 rounded-full">
-                          {getCurrencySymbol(activeCountryCode)}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
+            <div>
+              <div className="text-xs font-bold text-amber-300">
+                Playing from
+              </div>
+              <div className="text-lg font-black sm:text-xl">
+                {activeCountryObject?.name || activeCountryName || "INDIA"}
               </div>
             </div>
+            <ChevronDown size={22} className="ml-auto" />
           </div>
         </div>
-      </div>
+      </section>
 
-      {showSuccess && (
-        <div className="fixed top-4 right-4 z-50 max-w-sm w-full animate-slide-in">
-          <div className="bg-white rounded-xl shadow-2xl border border-green-100 p-4 flex items-start gap-3">
-            <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle size={20} className="text-green-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-800 text-sm">Success!</p>
-              <p className="text-gray-600 text-sm">
-                {entryMessage || "Game entry created successfully"}
-              </p>
+      {!activeCountryName && (
+        <div className="mx-auto mt-3 flex max-w-[860px] items-center gap-3 px-4">
+          <div className="flex w-full items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+            <AlertCircle size={22} />
+            <div className="flex-1">
+              <strong className="block">Country not set</strong>
+              <span className="text-sm">
+                Update your profile before playing.
+              </span>
             </div>
             <button
-              onClick={() => {
-                setShowSuccess(false);
-                dispatch(resetGameEntryState());
-              }}
-              className="flex-shrink-0 hover:bg-gray-100 p-1 rounded-full transition-colors"
+              onClick={() => (window.location.href = "/profile")}
+              className="rounded-lg bg-red-500 px-3 py-2 text-sm font-bold text-white"
             >
-              <X size={16} className="text-gray-400" />
+              Update
             </button>
           </div>
         </div>
       )}
 
-      {!activeCountryName && (
-        <div className="max-w-7xl mx-auto px-6 mt-6">
-          <div className="bg-gradient-to-r from-red-100 to-rose-100 border-2 border-red-300 rounded-2xl p-5 flex items-start gap-4 shadow-xl shadow-red-100">
-            <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-              <AlertCircle size={24} className="text-red-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-bold text-red-700 text-lg">
-                Country Not Set!
-              </h4>
-              <p className="text-red-600 text-sm mt-1">
-                Please update your profile with your country to play games. This
-                is required for currency conversion and game eligibility.
-              </p>
-              <button
-                onClick={() => (window.location.href = "/profile")}
-                className="mt-3 bg-red-500 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-red-600 transition-all duration-300 shadow-lg shadow-red-200 hover:scale-105 flex items-center gap-2"
-              >
-                Update Profile <ArrowRight size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* STEP 1: SELECT TICKET TYPE */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-amber-200">
+      <main className="mx-auto max-w-[860px] px-3 sm:px-5">
+        {/* STEP 1 */}
+        <section className="mt-3 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
               1
             </div>
             <div>
-              <h3 className="font-bold text-xl text-gray-800">
-                Select Ticket Type
-              </h3>
-              <p className="text-gray-500 text-sm">
+              <h2 className="text-[21px] font-black leading-none sm:text-[23px]">
+                SELECT TICKET TYPE
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
                 Choose your preferred ticket
               </p>
             </div>
+            <div className="ml-auto hidden items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-3 py-2 text-sm font-black text-red-600 sm:flex">
+              <Flame size={16} fill="currentColor" /> Best Value
+            </div>
           </div>
+          <div className="grid gap-3 grid-cols-4 sm:gap-4">
+            {ticketTypes.slice(0, 4).map((ticket, index) => {
+              const isActive = activeTicket === ticket._id;
+              const visual = ticketVisuals[index % ticketVisuals.length];
+              const Icon = visual.icon;
+              return (
+                <button
+                  key={ticket._id}
+                  onClick={() => setActiveTicket(ticket._id)}
+                  onMouseEnter={() => setHoveredTicket(ticket._id)}
+                  onMouseLeave={() => setHoveredTicket(null)}
+                  className={`relative flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-[17px] border-2 bg-gradient-to-b from-white to-[#fffdf8] p-3 text-center transition ${isActive ? "border-amber-500 shadow-[0_6px_15px_rgba(229,163,18,0.18)]" : "border-[#f1d7a3] hover:-translate-y-0.5 hover:shadow-lg"}`}
+                >
+                  {isActive && (
+                    <span className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-amber-500 font-black text-white shadow">
+                      ✓
+                    </span>
+                  )}
+                  {hoveredTicket === ticket._id && (
+                    <TicketInfoTooltip ticket={ticket} />
+                  )}
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#fff8d2] to-[#f4cf75] text-amber-500 shadow">
+                    {" "}
+                    <Icon size={34} />{" "}
+                  </span>
+                  <strong className="text-sm font-black sm:text-[17px]">
+                    {ticket.title || visual.title}
+                  </strong>
+                  <small className="text-xs text-amber-700 sm:text-sm">
+                    {ticket.subTitle || visual.subtitle}
+                  </small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
-          {ticketTypes.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-xl shadow-lg border border-gray-100 text-gray-500">
-              No ticket types available
-            </div>
-          ) : (
-            <div className="grid grid-cols-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-              {ticketTypes.map((ticket) => {
-                const isActive = activeTicket === ticket._id;
-                const TicketIcon = getTicketIcon(ticket.title || ticket.name);
-                const isMatchingCountry =
-                  urlCountry &&
-                  ticket.title
-                    ?.toLowerCase()
-                    .includes(urlCountry.toLowerCase());
-
-                return (
-                  <button
-                    key={ticket._id}
-                    onClick={() => setActiveTicket(ticket._id)}
-                    onMouseEnter={() => setHoveredTicket(ticket._id)}
-                    onMouseLeave={() => setHoveredTicket(null)}
-                    className={`group relative p-4 rounded-xl border-2 transition-all duration-300 text-center ${
-                      isActive
-                        ? `border-amber-400 bg-gradient-to-br from-amber-50 to-white shadow-lg shadow-amber-200`
-                        : "border-gray-200 bg-white hover:border-amber-300 hover:shadow-lg hover:-translate-y-1"
-                    }`}
-                  >
-                    {isActive && (
-                      <div className="absolute -top-2 -right-2 bg-gradient-to-r from-amber-400 to-yellow-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
-                        Selected
-                      </div>
-                    )}
-                    {isMatchingCountry && !isActive && (
-                      <div className="absolute -top-2 -left-2 bg-gradient-to-r from-green-400 to-emerald-400 text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow-2xl shadow-green-300">
-                        Recommended
-                      </div>
-                    )}
-
-                    {/* Tooltip */}
-                    {hoveredTicket === ticket._id && (
-                      <TicketInfoTooltip ticket={ticket} />
-                    )}
-
-                    <div className="flex flex-col items-center text-center gap-2 relative z-10">
-                      <div
-                        className={`p-3 rounded-xl ${isActive ? "bg-amber-100 shadow-lg shadow-amber-200" : "bg-gray-100 group-hover:bg-amber-50"} transition-all duration-300`}
-                      >
-                        <TicketIcon
-                          size={22}
-                          className={
-                            isActive ? "text-amber-600" : "text-gray-500"
-                          }
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <h4
-                          className={`font-bold text-sm capitalize transition-colors ${isActive ? "text-amber-700" : "text-gray-800 group-hover:text-amber-600"}`}
-                        >
-                          {ticket.title || ticket.name}
-                        </h4>
-                        {ticket.subTitle && (
-                          <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                            {ticket.subTitle}
-                          </p>
-                        )}
-                        {/* Show order and active status */}
-                        <div className="flex items-center justify-center gap-1 mt-1">
-                          <span className="text-[8px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                            Order: {ticket.order}
-                          </span>
-                          <span className="text-[8px]">
-                            {ticket.isActive ? "🟢" : "🔴"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    {isActive && (
-                      <div className="mt-2 h-0.5 w-full bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full"></div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* STEP 2: SELECT GAME TYPE */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-amber-200">
+        {/* STEP 2 */}
+        <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
               2
             </div>
             <div>
-              <h3 className="font-bold text-xl text-gray-800">
-                Select Game Type
-              </h3>
-              <p className="text-gray-500 text-sm">Choose your game type</p>
+              <h2 className="text-[21px] font-black leading-none sm:text-[23px]">
+                SELECT GAME TYPE
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Choose your game type
+              </p>
             </div>
           </div>
-
-          <div className="relative">
+          <div className="relative flex min-h-[105px] items-center overflow-hidden rounded-[18px] border-2 border-amber-500 bg-gradient-to-r from-[#fff6d8] via-[#fffdf6] to-[#fff0bc] p-3 shadow-[0_5px_14px_rgba(230,166,0,0.13)] sm:p-4">
+            <div className="flex h-20 w-20 shrink-0 rotate-[-8deg] flex-col items-center justify-center rounded-full border-2 border-red-900 bg-gradient-to-br from-red-400 via-red-700 to-red-950 text-xs font-black text-white shadow-lg sm:h-[88px] sm:w-[88px]">
+              <span>POWER</span>
+              <span>BALL</span>
+            </div>
+            <div className="min-w-0 px-3 sm:px-6">
+              <strong className="block text-xl font-black sm:text-[28px]">
+                {selectedGameTypeTitle || "POWERBALL"}
+              </strong>
+              <span className="text-sm text-amber-700 sm:text-lg">
+                Win Big. Dream Bigger.
+              </span>
+            </div>
+            <div className="mx-2 hidden h-20 w-px bg-amber-300 sm:block" />
+            <div className="hidden items-center gap-3 sm:flex">
+              <Trophy size={38} className="text-amber-500" />
+              <div>
+                <small className="block text-xs font-bold text-amber-900">
+                  JACKPOT
+                </small>
+                <strong className="block text-2xl font-black">
+                  {/* {jackpotAmount} */}
+                </strong>
+                <span className="text-xs text-gray-600">Estimated Jackpot</span>
+              </div>
+            </div>
             <select
               value={selectedGameType || ""}
-              onChange={(e) => {
-                setSelectedGameType(e.target.value || null);
-                setSelectedGameCount(null);
-                setGames([]);
-                setExpandedGame(null);
-                setIsInitialized(false);
-                setSelectionMode(null);
-                setAllGamesExpanded(false);
-              }}
+              onChange={(e) => selectGameType(e.target.value || null)}
               disabled={!activeTicket || availableGameTypes.length === 0}
-              className="w-full bg-white border-2 border-gray-200 rounded-xl h-12 px-4 pr-12 appearance-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed text-gray-700 font-medium transition-all duration-300 shadow-sm hover:shadow-md"
+              className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+              aria-label="Select game type"
             >
-              <option value="">
-                {!activeCountryName
-                  ? "⚠️ Please set your country first"
-                  : availableGameTypes.length === 0
-                    ? "No game types available for this ticket"
-                    : "Select Game Type"}
-              </option>
-              {availableGameTypes.map((gameType) => (
-                <option key={gameType.id} value={gameType.id}>
-                  {gameType.title}
-                  {gameType.description && ` - ${gameType.description}`}
-                  {gameType.order !== undefined &&
-                    ` (Order: ${gameType.order})`}
-                  {gameType.isActive !== undefined &&
-                    gameType.isActive &&
-                    " ✅"}
+              <option value="">Select Game Type</option>
+              {availableGameTypes.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.title}
                 </option>
               ))}
             </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              <ChevronDown size={18} className="text-gray-400" />
-            </div>
+            <ChevronDown
+              size={24}
+              className="ml-auto shrink-0 text-amber-600"
+            />
           </div>
-          {!activeCountryName && (
-            <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
-              <AlertCircle size={14} /> Please update your profile with your
-              country to select game types
-            </p>
-          )}
-        </div>
+        </section>
 
-        {/* STEP 3: SELECT GAME PACKAGE */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-amber-200">
+        {/* STEP 3 */}
+        <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
               3
             </div>
             <div>
-              <h3 className="font-bold text-xl text-gray-800">
-                Select Game Package
-              </h3>
-              <p className="text-gray-500 text-sm">Choose your game package</p>
+              <h2 className="text-[21px] font-black leading-none sm:text-[23px]">
+                SELECT GAME PACKAGE
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Choose your game package
+              </p>
+            </div>
+            <div className="ml-auto hidden bg-gradient-to-r from-red-500 to-red-700 px-4 py-2 text-xs font-black text-white sm:block [clip-path:polygon(8%_0,100%_0,93%_100%,0_100%)]">
+              BEST ODDS
             </div>
           </div>
-
-          <div className="relative">
+          <div className="relative flex min-h-[76px] items-center overflow-hidden rounded-[18px] border-2 border-amber-500 bg-[#fffdf8] px-3 shadow-[0_5px_14px_rgba(230,166,0,0.1)]">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#fff5c4] to-[#efbd38] text-amber-600 shadow">
+              <Package size={34} />
+            </div>
+            <div className="ml-4">
+              <strong className="block text-sm font-black sm:text-lg">
+                POWER PACK ({selectedCount?.totalGames || 6} GAMES)
+              </strong>
+              <span className="text-xs text-amber-700 sm:text-sm">
+                {selectedCount?.discount
+                  ? `${selectedCount.discount}% Off · Best Odds`
+                  : "Best Odds - Max Wins"}
+              </span>
+            </div>
+            <span className="ml-auto mr-4 hidden font-black text-gray-700 sm:block">
+              {selectedCount
+                ? formatPrice(selectedCount.price, activeCountryCode)
+                : "—"}
+            </span>
             <select
               value={selectedGameCount || ""}
-              onChange={(e) => {
-                setSelectedGameCount(e.target.value || null);
-                setGames([]);
-                setExpandedGame(null);
-                setIsInitialized(false);
-                setSelectionMode(null);
-                setAllGamesExpanded(false);
-              }}
+              onChange={(e) => selectPackage(e.target.value || null)}
               disabled={!selectedGameType || filteredGameCounts.length === 0}
-              className="w-full bg-white border-2 border-gray-200 rounded-xl h-12 px-4 pr-12 appearance-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed text-gray-700 font-medium transition-all duration-300 shadow-sm hover:shadow-md"
+              className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+              aria-label="Select game package"
             >
-              <option value="">
-                {!activeCountryName
-                  ? "⚠️ Please set your country first"
-                  : filteredGameCounts.length === 0
-                    ? "No game packages available"
-                    : "Select Game Package"}
-              </option>
-              {filteredGameCounts.map((item) => {
-                const currencySymbol = getCurrencySymbol(activeCountryCode);
-                return (
-                  <option key={item._id} value={item._id}>
-                    {item.totalGames} Games - {currencySymbol}
-                    {item.price}
-                    {item.label && ` (${item.label})`}
-                    {item.discount && ` - ${item.discount}% off`}
-                    {item.isActive !== undefined &&
-                      !item.isActive &&
-                      " (Inactive)"}
-                  </option>
-                );
-              })}
+              <option value="">Select Game Package</option>
+              {filteredGameCounts.map((item) => (
+                <option key={item._id} value={item._id}>
+                  {item.totalGames} Games -{" "}
+                  {getCurrencySymbol(activeCountryCode)}
+                  {item.price}
+                </option>
+              ))}
             </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              <ChevronDown size={18} className="text-gray-400" />
-            </div>
+            <ChevronDown size={24} className="text-amber-600" />
           </div>
-        </div>
+        </section>
 
-        {/* STEP 4: SELECT NUMBERS */}
+        {/* STEP 4 */}
         {activeTicket && activeCountryName && (
-          <div className="mt-10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-white flex items-center justify-center font-bold text-xl shadow-2xl shadow-amber-200">
+          <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
+            <div className="mb-2 flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
                 4
               </div>
               <div>
-                <h3 className="font-bold text-xl text-gray-800">
-                  Select Numbers
-                </h3>
-                <p className="text-gray-500 text-sm">
-                  Choose 7 numbers + 1 Powerball for{" "}
-                  {selectedCount?.totalGames || 6} games
+                <h2 className="text-[21px] font-black leading-none sm:text-[23px]">
+                  SELECT NUMBERS
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Choose 5 numbers + 1 Powerball
                 </p>
-                {activeCountryName && activeCountryObject && (
-                  <p className="text-xs text-green-600 mt-1 flex items-center gap-2">
-                    <img
-                      src={activeCountryObject.flag}
-                      alt={activeCountryObject.name}
-                      className="w-5 h-3 rounded-sm shadow-md"
-                    />
-                    <CheckCircle size={14} /> Playing from:{" "}
-                    {activeCountryObject.name}
-                    <span className="text-amber-600 font-mono bg-amber-50 px-2 py-0.5 rounded-full text-[10px]">
-                      {activeCountryCode}
+              </div>
+              <button
+                onClick={quickPickReference}
+                disabled={!selectedCount}
+                className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-[#ffe28a] to-[#f4b82c] px-3 py-2 text-xs font-black text-amber-900 shadow sm:px-5 sm:text-sm"
+              >
+                <Zap size={17} fill="currentColor" /> QUICK PICK
+              </button>
+            </div>
+            <div className="mb-2 flex justify-between px-2 text-xs font-black text-amber-700 sm:text-sm">
+              <span>PICK 5 NUMBERS</span>
+              <span className="mr-24 sm:mr-40">POWERBALL</span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:gap-3">
+              <div className="flex shrink-0 gap-2 sm:gap-3">
+                {displayNumbers.slice(0, 5).map((num, index) => (
+                  <button
+                    key={`${num}-${index}`}
+                    onClick={() =>
+                      selectionMode === "pick" &&
+                      referenceGame &&
+                      toggleNumber(0, num)
+                    }
+                    className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[3px] border-amber-500 bg-white text-lg font-black shadow sm:h-[67px] sm:w-[67px] sm:text-[23px]"
+                  >
+                    {num}
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-green-600 text-[10px] text-white">
+                      ✓
                     </span>
-                    {urlCountry && (
-                      <span className="text-amber-600"> (via URL)</span>
-                    )}
-                  </p>
-                )}
+                  </button>
+                ))}
+              </div>
+              <span className="text-xl font-black">+</span>
+              <button
+                onClick={quickPickReference}
+                className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-400 to-red-800 text-lg font-black text-white shadow sm:h-[69px] sm:w-[69px] sm:text-[22px]"
+              >
+                {String(displayPowerball).padStart(2, "0")}
+                <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-green-600 text-[10px]">
+                  ✓
+                </span>
+              </button>
+              <div className="ml-auto hidden min-h-[105px] w-[170px] shrink-0 grid-cols-2 items-center rounded-2xl bg-gradient-to-br from-[#090807] to-[#252015] px-3 py-2 text-white shadow-lg sm:grid">
+                <div className="col-span-1 text-center">
+                  <small className="text-[10px]">TOTAL GAMES</small>
+                  <strong className="block text-2xl text-amber-400">
+                    {selectedCount?.totalGames || 6}
+                  </strong>
+                  <i className="my-1 block h-px bg-amber-900" />
+                  <small className="text-[10px]">POTENTIAL WINS</small>
+                  <strong className="block text-2xl text-amber-400">X10</strong>
+                </div>
+                <div className="flex h-12 items-end gap-1">
+                  {[14, 22, 29, 37, 46].map((h, i) => (
+                    <b
+                      key={i}
+                      className="w-1.5 rounded-t bg-amber-400"
+                      style={{ height: h }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Selection Mode Toggle */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              <button
-                onClick={() => {
-                  setSelectionMode("pick");
-                  setExpandedGame(null);
-                  initializeGames("pick");
-                }}
-                disabled={!selectedCount}
-                className={`group p-5 rounded-xl border-2 transition-all duration-300 text-left ${
-                  !selectedCount
-                    ? "opacity-50 cursor-not-allowed"
-                    : selectionMode === "pick"
-                      ? "border-amber-400 bg-gradient-to-br from-amber-50 to-white shadow-lg shadow-amber-100"
-                      : "border-gray-200 bg-white hover:border-amber-300 hover:shadow-lg hover:-translate-y-1"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`p-2 rounded-lg ${
-                      selectionMode === "pick"
-                        ? "bg-amber-100"
-                        : "bg-gray-100 group-hover:bg-amber-50"
-                    } transition-colors duration-300`}
-                  >
-                    <Grid3x3
-                      size={22}
-                      className={
-                        selectionMode === "pick"
-                          ? "text-amber-600"
-                          : "text-gray-500"
-                      }
-                    />
-                  </div>
-                  <div>
-                    <span
-                      className={`font-semibold block text-base ${
-                        selectionMode === "pick"
-                          ? "text-amber-700"
-                          : "text-gray-700 group-hover:text-amber-600"
-                      }`}
-                    >
-                      Pick Your Numbers
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      Choose your favourite numbers manually
-                    </span>
-                  </div>
+            {selectionMode === "pick" && referenceGame && (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-3 sm:p-4">
+                <div className="mb-3 flex items-center gap-2 font-black text-amber-900">
+                  <ClipboardList size={18} /> Pick your numbers manually
                 </div>
-                {selectionMode === "pick" && (
-                  <div className="mt-2 h-0.5 w-full bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full"></div>
-                )}
-                {!selectedCount && (
-                  <p className="text-xs text-red-500 mt-2">
-                    Select a game package first
-                  </p>
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  setSelectionMode("quickpick");
-                  setExpandedGame(null);
-                  initializeGames("quickpick");
-                }}
-                disabled={!selectedCount}
-                className={`group p-5 rounded-xl border-2 transition-all duration-300 text-left ${
-                  !selectedCount
-                    ? "opacity-50 cursor-not-allowed"
-                    : selectionMode === "quickpick"
-                      ? "border-amber-400 bg-gradient-to-br from-amber-50 to-white shadow-lg shadow-amber-100"
-                      : "border-gray-200 bg-white hover:border-amber-300 hover:shadow-lg hover:-translate-y-1"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`p-2 rounded-lg ${
-                      selectionMode === "quickpick"
-                        ? "bg-amber-100"
-                        : "bg-gray-100 group-hover:bg-amber-50"
-                    } transition-colors duration-300`}
-                  >
-                    <RefreshCw
-                      size={22}
-                      className={
-                        selectionMode === "quickpick"
-                          ? "text-amber-600"
-                          : "text-gray-500"
-                      }
-                    />
-                  </div>
-                  <div>
-                    <span
-                      className={`font-semibold block text-base ${
-                        selectionMode === "quickpick"
-                          ? "text-amber-700"
-                          : "text-gray-700 group-hover:text-amber-600"
-                      }`}
-                    >
-                      QuickPick
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      Numbers are generated randomly
-                    </span>
-                  </div>
-                </div>
-                {selectionMode === "quickpick" && (
-                  <div className="mt-2 h-0.5 w-full bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full"></div>
-                )}
-                {!selectedCount && (
-                  <p className="text-xs text-red-500 mt-2">
-                    Select a game package first
-                  </p>
-                )}
-              </button>
-            </div>
-
-            {/* Games Grid */}
-            {selectionMode !== null && (
-              <>
-                <div className="space-y-4">
-                  {games.length > 0 ? (
-                    games.map((game, gameIndex) => {
-                      const isComplete =
-                        selectionMode === "quickpick"
-                          ? game.numbers?.length === 7 && game.powerball
-                          : game.selectedNumbers?.length === 7 &&
-                            game.selectedPowerball;
-
-                      const currentNumbers =
-                        selectionMode === "quickpick"
-                          ? game.numbers || []
-                          : game.selectedNumbers || [];
-                      const currentPowerball =
-                        selectionMode === "quickpick"
-                          ? game.powerball
-                          : game.selectedPowerball;
-
-                      const isExpanded =
-                        allGamesExpanded || expandedGame === gameIndex;
-
-                      return (
-                        <div
-                          key={game.id}
-                          className={`bg-white rounded-xl border-2 transition-all duration-300 overflow-hidden ${
-                            isComplete
-                              ? "border-green-400 shadow-lg shadow-green-100"
-                              : "border-gray-200 hover:border-amber-200 hover:shadow-lg"
-                          }`}
-                        >
-                          {/* Game Header */}
-                          <div
-                            className="p-4 cursor-pointer hover:bg-amber-50/30 transition-colors duration-200"
-                            onClick={() => {
-                              if (selectionMode === "pick") {
-                                const game = games[gameIndex];
-                                if (
-                                  !game.selectedNumbers ||
-                                  game.selectedNumbers.length === 0
-                                ) {
-                                  autoFillGame(gameIndex);
-                                }
-                                toggleExpand(gameIndex);
-                              }
-                            }}
-                          >
-                            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
-                              <div className="flex items-center gap-3 flex-wrap">
-                                <span
-                                  className={`font-bold text-base min-w-[32px] ${
-                                    isComplete
-                                      ? "text-green-600"
-                                      : "text-gray-700"
-                                  }`}
-                                >
-                                  #{game.id}
-                                </span>
-
-                                {currentNumbers.length > 0 ||
-                                currentPowerball ? (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {currentNumbers.map((num, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-yellow-400 text-white flex items-center justify-center text-xs font-bold shadow-md"
-                                      >
-                                        {num}
-                                      </span>
-                                    ))}
-                                    {currentNumbers.length > 0 &&
-                                      currentNumbers.length < 7 && (
-                                        <span className="text-xs text-gray-400 font-medium">
-                                          ({currentNumbers.length}/7)
-                                        </span>
-                                      )}
-                                    {currentPowerball && (
-                                      <>
-                                        <span className="text-gray-300 font-bold">
-                                          |
-                                        </span>
-                                        <span className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-red-400 text-white flex items-center justify-center text-xs font-bold shadow-md">
-                                          {currentPowerball}
-                                        </span>
-                                      </>
-                                    )}
-                                    {isComplete && (
-                                      <span className="ml-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                                        Complete
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 text-xs flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></span>
-                                    Click to auto-fill
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {selectionMode === "pick" && (
-                                  <>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        quickPickGame(gameIndex);
-                                      }}
-                                      className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg transition-colors duration-200 flex items-center gap-1 font-medium"
-                                    >
-                                      <RefreshCw size={12} />
-                                      Quick
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        autoFillGame(gameIndex);
-                                      }}
-                                      className="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2.5 py-1 rounded-lg transition-colors duration-200 flex items-center gap-1 font-medium"
-                                    >
-                                      <Plus size={12} />
-                                      Fill
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        clearGame(gameIndex);
-                                      }}
-                                      className="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-2.5 py-1 rounded-lg transition-colors duration-200 flex items-center gap-1 font-medium"
-                                    >
-                                      <X size={12} />
-                                      Clear
-                                    </button>
-                                  </>
-                                )}
-                                {selectionMode === "quickpick" && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const numbers =
-                                        generateRandomGameNumbers();
-                                      setGames((prev) => {
-                                        const newGames = [...prev];
-                                        const game = newGames[gameIndex];
-                                        game.numbers = numbers;
-                                        game.powerball =
-                                          generateRandomPowerball();
-                                        return newGames;
-                                      });
-                                    }}
-                                    className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg transition-colors duration-200 flex items-center gap-1 font-medium"
-                                  >
-                                    <RefreshCw size={12} />
-                                    Re-Generate
-                                  </button>
-                                )}
-
-                                {selectionMode === "pick" && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleExpand(gameIndex);
-                                    }}
-                                    className="p-1 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronUp
-                                        size={18}
-                                        className="text-amber-600"
-                                      />
-                                    ) : (
-                                      <ChevronDown
-                                        size={18}
-                                        className="text-gray-400"
-                                      />
-                                    )}
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Expanded Content */}
-                          {selectionMode === "pick" && isExpanded && (
-                            <div className="p-5 border-t border-gray-100 bg-amber-50/20">
-                              <div className="mb-5">
-                                <p className="text-xs font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full"></span>
-                                  Select 7 numbers (1-35)
-                                </p>
-                                <div className="grid grid-cols-7 sm:grid-cols-10 gap-2">
-                                  {Array.from(
-                                    { length: 35 },
-                                    (_, i) => i + 1,
-                                  ).map((num) => {
-                                    const isSelected =
-                                      currentNumbers.includes(num);
-
-                                    return (
-                                      <button
-                                        key={num}
-                                        onClick={() =>
-                                          toggleNumber(gameIndex, num)
-                                        }
-                                        className={`h-10 rounded-full font-semibold transition-all duration-200 text-sm ${
-                                          isSelected
-                                            ? "bg-gradient-to-br from-amber-400 to-yellow-400 text-white shadow-md scale-105"
-                                            : "bg-white hover:bg-gray-100 text-gray-700 border-2 border-gray-200 hover:border-amber-300"
-                                        }`}
-                                      >
-                                        {num}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-
-                              <div>
-                                <p className="text-xs font-semibold text-gray-700 mb-2.5 flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-gradient-to-r from-red-500 to-red-300 rounded-full"></span>
-                                  Select Powerball (1-20)
-                                </p>
-                                <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                                  {Array.from(
-                                    { length: 20 },
-                                    (_, i) => i + 1,
-                                  ).map((num) => {
-                                    const isSelected = currentPowerball === num;
-
-                                    return (
-                                      <button
-                                        key={num}
-                                        onClick={() =>
-                                          togglePowerball(gameIndex, num)
-                                        }
-                                        className={`h-10 rounded-full font-semibold transition-all duration-200 text-sm ${
-                                          isSelected
-                                            ? "bg-gradient-to-br from-red-500 to-red-400 text-white shadow-md scale-105"
-                                            : "bg-white hover:bg-red-50 text-red-600 border-2 border-red-200 hover:border-red-400"
-                                        }`}
-                                      >
-                                        {num}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-center py-12 bg-white rounded-xl shadow-lg border-2 border-gray-100">
-                      <p className="text-gray-500">
-                        No games available. Please select a game package first.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                {games.length > 0 && (
-                  <div className="flex flex-wrap justify-between items-center gap-3 mt-4">
+                <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-10 sm:gap-2">
+                  {Array.from({ length: 35 }, (_, i) => i + 1).map((num) => (
                     <button
-                      onClick={handleReshuffleAll}
-                      className="text-amber-600 hover:text-amber-800 font-medium flex items-center gap-2 px-4 py-2 hover:bg-amber-50 rounded-lg transition-all duration-200 border-2 border-amber-100 hover:border-amber-300"
+                      key={num}
+                      onClick={() => toggleNumber(0, num)}
+                      className={`h-9 rounded-full border text-xs font-bold ${referenceNumbers.includes(num) ? "border-amber-600 bg-amber-500 text-white" : "border-amber-100 bg-white text-gray-700 hover:border-amber-400"}`}
                     >
-                      <Shuffle size={16} />
-                      Reshuffle All
+                      {num}
                     </button>
-                    <div className="text-xs text-gray-500 bg-white px-4 py-2 rounded-lg border-2 border-gray-100 shadow-sm flex items-center gap-3">
-                      <span>{games.length} games</span>
-                      <span className="w-px h-4 bg-gray-200"></span>
-                      <span className="capitalize">
-                        {selectionMode === "quickpick"
-                          ? "QuickPick"
-                          : "Pick mode"}
-                      </span>
-                      <span className="w-px h-4 bg-gray-200"></span>
-                      <span className="text-green-600 font-medium">
-                        {
-                          games.filter((g) => {
-                            if (selectionMode === "quickpick") {
-                              return g.numbers?.length === 7 && g.powerball;
-                            }
-                            return (
-                              g.selectedNumbers?.length === 7 &&
-                              g.selectedPowerball
-                            );
-                          }).length
-                        }
-                        /{games.length} complete
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </>
+                  ))}
+                </div>
+                <div className="mt-3 grid grid-cols-5 gap-1.5 sm:grid-cols-10 sm:gap-2">
+                  {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => togglePowerball(0, num)}
+                      className={`h-9 rounded-full border text-xs font-bold ${referencePowerball === num ? "border-red-700 bg-red-600 text-white" : "border-red-100 bg-white text-red-600 hover:border-red-400"}`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
-          </div>
+          </section>
         )}
 
-        {/* STEP 5: AUTOPLAY */}
+        {/* SUMMARY */}
         {selectedCount &&
-          allGamesFilled &&
-          selectionMode !== null &&
           games.length > 0 &&
+          allGamesFilled &&
           activeCountryName && (
-            <div className="mt-10">
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 text-white flex items-center justify-center font-bold text-xl shadow-2xl shadow-amber-200">
-                  5
-                </div>
-                <div>
-                  <h3 className="font-bold text-2xl text-gray-800">
-                    Play more than once?
+            <section className="mt-2 rounded-2xl border-2 border-amber-500 bg-gradient-to-br from-[#080807] to-[#211d15] p-4 text-white shadow-xl sm:p-5">
+              <div className="flex gap-3">
+                <ClipboardList className="shrink-0 text-amber-400" size={32} />
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-black sm:text-lg">
+                    YOUR SELECTION SUMMARY
                   </h3>
-                  <p className="text-gray-500">
-                    Optional. Play for multiple draws
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl p-5 shadow-lg border-2 border-gray-100 hover:border-amber-200 transition-all duration-300">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <button
-                      onClick={() => setAutoPlay(!autoPlay)}
-                      className={`w-full p-4 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-3 ${
-                        autoPlay
-                          ? "border-amber-400 bg-amber-50 shadow-md"
-                          : "border-gray-200 hover:border-amber-300 hover:bg-gray-50 bg-white"
-                      }`}
-                    >
-                      <Play
-                        size={20}
-                        className={
-                          autoPlay ? "text-amber-600" : "text-gray-500"
-                        }
-                      />
-                      <span
-                        className={`font-semibold ${autoPlay ? "text-amber-700" : "text-gray-700"}`}
-                      >
-                        AutoPlay
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        Cancel anytime
-                      </span>
-                    </button>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 border-b border-amber-900 pb-2">
+                    <span className="text-xs font-bold text-amber-400">
+                      Numbers
+                    </span>
+                    <span className="text-sm font-bold">
+                      {displayNumbers.slice(0, 5).join("  ")}
+                    </span>
+                    <span>|</span>
+                    <span className="text-sm font-bold">
+                      Powerball: {String(displayPowerball).padStart(2, "0")}
+                    </span>
                   </div>
-
-                  {autoPlay && (
-                    <div className="flex-1 flex flex-col gap-2">
-                      <label className="text-xs font-medium text-gray-700">
-                        Play for multiple draws
-                      </label>
-                      <div className="flex gap-2">
-                        {[2, 5, 10].map((num) => (
-                          <button
-                            key={num}
-                            onClick={() => setDrawCount(num)}
-                            className={`flex-1 p-3 rounded-xl border-2 transition-all duration-300 text-center ${
-                              drawCount === num
-                                ? "border-amber-400 bg-amber-50 shadow-md"
-                                : "border-gray-200 hover:border-amber-300 bg-white hover:shadow-md"
-                            }`}
-                          >
-                            <Calendar
-                              size={16}
-                              className={`mx-auto mb-1 ${drawCount === num ? "text-amber-600" : "text-gray-500"}`}
-                            />
-                            <span
-                              className={`text-xs font-medium block ${drawCount === num ? "text-amber-700" : "text-gray-700"}`}
-                            >
-                              {num} draws
-                            </span>
-                          </button>
-                        ))}
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {[
+                      ["Game Type", selectedGameTypeTitle || "POWERBALL"],
+                      ["Package", `POWER PACK (${selectedCount.totalGames})`],
+                      ["Total Games", selectedCount.totalGames],
+                      // ["Estimated Jackpot", jackpotAmount],
+                    ].map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <small className="block text-[10px] font-bold text-amber-400">
+                          {label}
+                        </small>
+                        <strong className="block truncate text-xs sm:text-sm">
+                          {value}
+                        </strong>
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
-        {/* Summary Card */}
+        {/* PLAY NOW — supplied button image */}
         {selectedCount &&
           allGamesFilled &&
           selectionMode !== null &&
           games.length > 0 &&
           activeCountryName && (
-            <div className="mt-8 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-yellow-400 p-6 md:p-8 text-white shadow-2xl shadow-amber-200 relative overflow-hidden">
-              <div className="absolute inset-0 opacity-10">
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
-                    backgroundSize: "40px 40px",
-                  }}
-                ></div>
-              </div>
-              <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/20 rounded-full blur-3xl animate-pulse"></div>
-              <div
-                className="absolute -bottom-20 -left-20 w-64 h-64 bg-yellow-300/20 rounded-full blur-3xl animate-pulse"
-                style={{ animationDelay: "1s" }}
-              ></div>
-
-              <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div className="w-full">
-                  <p className="text-white/90 text-sm font-medium flex items-center gap-2">
-                    <Ticket size={16} /> Selected Package
-                  </p>
-                  <div className="flex items-baseline gap-3 mt-2">
-                    <span className="text-4xl md:text-5xl font-bold drop-shadow-2xl">
-                      {formatPrice(totalPrice, activeCountryCode)}
-                    </span>
-                    <span className="text-white/80 text-sm">/ total</span>
-                  </div>
-
-                  {/* Full Details Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
-                      <p className="text-[10px] text-white/70">Ticket</p>
-                      <p className="font-bold text-sm truncate">
-                        {activeTicketTitle}
-                      </p>
-                    </div>
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
-                      <p className="text-[10px] text-white/70">Game Type</p>
-                      <p className="font-bold text-sm truncate">
-                        {selectedGameTypeTitle || "Standard"}
-                      </p>
-                    </div>
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
-                      <p className="text-[10px] text-white/70">Package</p>
-                      <p className="font-bold text-sm">
-                        {selectedCount.totalGames} Games
-                      </p>
-                      <p className="text-[8px] text-white/50">
-                        {formatPrice(selectedCount.price, activeCountryCode)}
-                      </p>
-                    </div>
-                    <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
-                      <p className="text-[10px] text-white/70">Mode</p>
-                      <p className="font-bold text-sm capitalize">
-                        {selectionMode === "quickpick" ? "QuickPick" : "Manual"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3 mt-3">
-                    <span className="text-xs bg-white/30 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg shadow-black/10">
-                      {selectedCount.totalGames} Games
-                    </span>
-                    <span className="text-xs bg-white/30 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg shadow-black/10">
-                      {activeTicketTitle}
-                    </span>
-                    <span className="text-xs bg-white/30 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg shadow-black/10 capitalize">
-                      {selectionMode === "quickpick"
-                        ? "QuickPick"
-                        : "Pick your numbers"}
-                    </span>
-                    {autoPlay && (
-                      <span className="text-xs bg-white/30 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg shadow-black/10">
-                        {drawCount} draws
-                      </span>
-                    )}
-                    <span className="text-xs bg-green-500/40 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg shadow-black/10 flex items-center gap-2">
-                      <Globe size={12} />
-                      {activeCountryObject?.name || activeCountryName}
-                      <img
-                        src={activeCountryObject?.flag}
-                        alt={activeCountryObject?.name}
-                        className="w-5 h-3 rounded-sm shadow-md"
-                      />
-                      <span className="text-yellow-300 text-[10px] font-mono font-bold">
-                        {activeCountryCode}
-                      </span>
-                      <span className="text-yellow-200 text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded-full">
-                        {getCurrencySymbol(activeCountryCode)}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={handleAddToCart}
-                  disabled={entryLoading || !activeCountryName}
-                  className="group bg-white text-amber-600 px-10 py-4 rounded-xl font-bold hover:scale-110 transition-all duration-500 w-full md:w-auto shadow-2xl flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
+            <>
+              <button
+                onClick={handleAddToCart}
+                disabled={entryLoading}
+                className="group relative mt-3 block h-[86px] w-full overflow-hidden rounded-2xl border-2 border-amber-500 shadow-xl disabled:opacity-70"
+              >
+                <img
+                  src="https://i.ibb.co/39SJT6f1/banner6.png"
+                  alt="Play Now"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <span className="absolute inset-0 flex items-center justify-center gap-5 text-3xl font-black tracking-wide text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.55)] sm:text-4xl">
                   {entryLoading ? (
-                    <>
-                      <Loader2 size={20} className="animate-spin" />
-                      Processing...
-                    </>
-                  ) : !activeCountryName ? (
-                    <>
-                      <AlertCircle size={20} />
-                      Set Country First
-                    </>
+                    "PROCESSING…"
                   ) : (
                     <>
-                      <ShoppingCart
-                        size={20}
-                        className="group-hover:rotate-12 transition-transform duration-300"
-                      />
-                      Add to Cart
-                      <ArrowRight
-                        size={18}
-                        className="group-hover:translate-x-2 transition-transform duration-300"
-                      />
+                      <span>»</span> PLAY NOW <span>«</span>
                     </>
                   )}
-                </button>
-              </div>
-            </div>
-          )}
-      </div>
+                </span>
+                {!entryLoading && (
+                  <small className="absolute bottom-1 left-0 right-0 text-xs font-bold text-white drop-shadow">
+                    GOOD LUCK! MAY FORTUNE BE WITH YOU!
+                  </small>
+                )}
+              </button>
 
-      <style jsx>{`
-        @keyframes slide-in {
-          from {
-            opacity: 0;
-            transform: translateX(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 0.5;
-          }
-          50% {
-            opacity: 1;
-          }
-        }
-        .animate-pulse-slow {
-          animation: pulse 2s ease-in-out infinite;
-        }
-      `}</style>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                {[
+                  [Calendar, "DRAW TIME", "Today", "10:30 PM"],
+                  [BarChart3, "ODDS", "1 in 292M", "Win Probability"],
+                  [ShieldCheck, "SECURE PLAY", "100% Safe", "Secure & Fair"],
+                  [Trophy, "JACKPOT", "Est. Jackpot"],
+                ].map(([Icon, label, value, sub]) => (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-amber-100 bg-white p-3 shadow-sm"
+                  >
+                    <Icon size={21} className="mb-1 text-amber-500" />
+                    <small className="block text-[9px] font-bold text-gray-500">
+                      {label}
+                    </small>
+                    <strong className="block text-sm sm:text-base">
+                      {value}
+                    </strong>
+                    <span className="text-[9px] text-gray-500">{sub}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+      </main>
+
+      {/* FIXED BOTTOM NAV */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 mx-auto flex h-[78px] max-w-[860px] items-center justify-around rounded-t-[26px] border border-amber-100 bg-white/95 px-2 shadow-[0_-6px_25px_rgba(0,0,0,0.08)] backdrop-blur">
+        <button className="flex flex-col items-center gap-1 text-amber-600">
+          <Home size={24} />
+          <span className="text-xs font-bold">Home</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-gray-500">
+          <BarChart3 size={24} />
+          <span className="text-xs font-bold">Activity</span>
+        </button>
+        <button className="-mt-9 flex h-16 w-16 flex-col items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-yellow-300 to-amber-500 text-black shadow-[0_5px_20px_rgba(218,151,0,0.4)]">
+          <Gift size={24} />
+          <span className="text-[9px] font-black">PROMO</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-gray-500">
+          <WalletCards size={24} />
+          <span className="text-xs font-bold">Wallet</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-gray-500">
+          <UserCircle size={24} />
+          <span className="text-xs font-bold">Account</span>
+        </button>
+      </nav>
     </div>
   );
 };

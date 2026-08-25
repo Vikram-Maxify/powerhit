@@ -95,7 +95,7 @@ const LiveResults = () => {
             </div>
             <Link
               to={"/publicresult"}
-              className="text-[11px] font-bold text-white px-3 py-1.5 rounded-lg shrink-0
+              className="text-[11px] font-bold text-black px-3 py-1.5 rounded-lg shrink-0
   bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
   border border-[#FFD75A]
   shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
@@ -179,7 +179,7 @@ const LiveResults = () => {
             </div>
             <Link
               to={"/powerball/result"}
-              className="text-[11px] font-bold text-white px-3 py-1.5 rounded-lg shrink-0
+              className="text-[11px] font-bold text-black px-3 py-1.5 rounded-lg shrink-0
   bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
   border border-[#FFD75A]
   shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"

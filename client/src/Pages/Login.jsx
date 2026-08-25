@@ -17,7 +17,7 @@ const HERO_IMAGE = "https://i.ibb.co/DffFKgD0/imagepng1.png";
 const countries = [
   { code: "IN", name: "India", flag: "🇮🇳", dialCode: "+91" },
   { code: "AE", name: "UAE", flag: "🇦🇪", dialCode: "+971" },
-  { code: "BD", name: "Bangladesh", flag: "🇧🇩", dialCode: "+880" },
+  { code: "CA", name: "Canada", flag: "🇨🇦", dialCode: "+1" },
   { code: "PK", name: "Pakistan", flag: "🇵🇰", dialCode: "+92" },
   { code: "NP", name: "Nepal", flag: "🇳🇵", dialCode: "+977" },
   { code: "AU", name: "Australia", flag: "🇦🇺", dialCode: "+61" },
@@ -77,10 +77,10 @@ const Login = () => {
       // Get max length based on country
       const maxLengths = {
         IN: 10,
-        AE: 9,
-        BD: 11,
-        PK: 10,
         NP: 10,
+        UAE: 9,
+        CA: 10,
+        PK: 10,
         AU: 9,
       };
       const maxLength = maxLengths[formData.country] || 10;
@@ -118,33 +118,47 @@ const Login = () => {
     } else {
       // Validate based on country
       const mobileDigits = formData.mobile.replace(/\D/g, "");
-      if (formData.country === "IN" && !/^[0-9]{10}$/.test(mobileDigits)) {
-        errors.mobile = "Please enter a valid 10-digit mobile number";
+
+      // UAE: country code +971 already selected, so don't enter leading 0
+      if (formData.country === "AE" && mobileDigits.startsWith("0")) {
+        errors.mobile =
+          "Please don't enter 0 at the beginning. Enter your 9-digit mobile number without 0";
       } else if (
         formData.country === "AE" &&
         !/^[0-9]{9}$/.test(mobileDigits)
       ) {
         errors.mobile = "Please enter a valid 9-digit mobile number";
-      } else if (
-        formData.country === "BD" &&
-        !/^[0-9]{10,11}$/.test(mobileDigits)
-      ) {
-        errors.mobile = "Please enter a valid 10-11 digit mobile number";
-      } else if (
-        formData.country === "PK" &&
-        !/^[0-9]{10}$/.test(mobileDigits)
-      ) {
-        errors.mobile = "Please enter a valid 10-digit mobile number";
-      } else if (
-        formData.country === "NP" &&
-        !/^[0-9]{10}$/.test(mobileDigits)
-      ) {
-        errors.mobile = "Please enter a valid 10-digit mobile number";
+      }
+
+      // Australia: country code +61 already selected, so don't enter leading 0
+      else if (formData.country === "AU" && mobileDigits.startsWith("0")) {
+        errors.mobile =
+          "Please don't enter 0 at the beginning. Enter your 9-digit mobile number without 0";
       } else if (
         formData.country === "AU" &&
         !/^[0-9]{9}$/.test(mobileDigits)
       ) {
         errors.mobile = "Please enter a valid 9-digit mobile number";
+      }
+
+      // India
+      else if (formData.country === "IN" && !/^[0-9]{10}$/.test(mobileDigits)) {
+        errors.mobile = "Please enter a valid 10-digit mobile number";
+      }
+
+      // Canada
+      else if (formData.country === "CA" && !/^[0-9]{10}$/.test(mobileDigits)) {
+        errors.mobile = "Please enter a valid 10-digit mobile number";
+      }
+
+      // Pakistan
+      else if (formData.country === "PK" && !/^[0-9]{10}$/.test(mobileDigits)) {
+        errors.mobile = "Please enter a valid 10-digit mobile number";
+      }
+
+      // Nepal
+      else if (formData.country === "NP" && !/^[0-9]{10}$/.test(mobileDigits)) {
+        errors.mobile = "Please enter a valid 10-digit mobile number";
       }
     }
 

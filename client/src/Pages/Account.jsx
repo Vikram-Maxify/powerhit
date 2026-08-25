@@ -23,6 +23,40 @@ import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../redux/slices/authSlice";
 
+// ======================================================
+// COUNTRY CONFIGURATION
+// ======================================================
+
+const countryAliases = {
+  india: "india",
+  in: "india",
+  australia: "australia",
+  au: "australia",
+  pakistan: "pakistan",
+  pk: "pakistan",
+  canada: "canada",
+  ca: "canada",
+  nepal: "nepal",
+  np: "nepal",
+  uae: "uae",
+  ae: "uae",
+  dubai: "uae",
+};
+
+const getCountryPath = (countryCode) => {
+  const countryMap = {
+    IN: "india",
+    AU: "australia",
+    PK: "pakistan",
+    CA: "canada",
+    NP: "nepal",
+    UAE: "uae",
+  };
+
+  const country = countryCode?.toUpperCase();
+  return countryMap[country] || "india";
+};
+
 const Account = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -31,7 +65,17 @@ const Account = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Same items as before — just grouped to match the reference layout
+  // ======================================================
+  // Get user's country for dynamic routing
+  // ======================================================
+
+  const userCountry = user?.country || "IN";
+  const countryPath = getCountryPath(userCountry);
+
+  // ======================================================
+  // ACCOUNT MENU ITEMS WITH DYNAMIC PATHS
+  // ======================================================
+
   const accountMenuItems = [
     {
       icon: User,
@@ -60,7 +104,8 @@ const Account = () => {
     {
       icon: HistoryIcon,
       label: "Powerhit History",
-      path: "/powerhit/history",
+      // 👇 Dynamic country-wise path
+      path: `/${countryPath}/powerhit/history`,
       iconColor: "text-purple-500",
       description: "Check your powerhit history",
       group: "history",
@@ -152,10 +197,13 @@ const Account = () => {
     }
   };
 
+  // ======================================================
+  // RENDER
+  // ======================================================
+
   return (
     <div className="min-h-screen bg-white pb-24">
       <div className="max-w-2xl mx-auto px-4 py-4">
-        {/* Profile Card */}
         {/* Profile Card */}
         <Link
           to="/profile"
@@ -169,14 +217,13 @@ const Account = () => {
                 alt={getUserDisplayName()}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  // Agar image load na ho toh default icon dikhao
                   e.target.style.display = "none";
                   e.target.parentElement.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-400">
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-          `;
+                    <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-400">
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  `;
                 }}
               />
             ) : (
@@ -217,6 +264,11 @@ const Account = () => {
               <span className="flex items-center gap-1 text-xs font-bold text-amber-600 border border-amber-300 rounded-full px-2.5 py-0.5">
                 Verified
                 <ShieldCheck size={12} />
+              </span>
+
+              {/* 👇 Country Badge */}
+              <span className="flex items-center gap-1 text-xs font-bold text-blue-600 border border-blue-300 rounded-full px-2.5 py-0.5">
+                {user?.country || "IN"}
               </span>
             </div>
           </div>
@@ -260,6 +312,10 @@ const Account = () => {
         <div className="rounded-2xl bg-white border border-amber-200 mb-5 overflow-hidden">
           {historyItems.map((item, i) => {
             const Icon = item.icon;
+
+            // 👇 Check if it's Powerhit History to show country badge
+            const isPowerhitHistory = item.label === "Powerhit History";
+
             return (
               <Link
                 key={item.label}
@@ -274,9 +330,16 @@ const Account = () => {
                   <Icon size={19} className={item.iconColor} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-900">
-                    {item.label}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-gray-900">
+                      {item.label}
+                    </p>
+                    {isPowerhitHistory && (
+                      <span className="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                        {countryPath.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500">{item.description}</p>
                 </div>
                 <ChevronRight
