@@ -61,6 +61,10 @@ const validateNumber = (gameType, number) => {
       return /^[0-9]$/.test(str);
     case "jodi":
       return /^[0-9]{2}$/.test(str);
+    case "panna":
+      return /^[0-9]{3}$/.test(str);
+    case "half-sangam":
+      return /^[0-9]{1}$/.test(str) || /^[0-9]{3}$/.test(str);
     case "full-sangam":
       return /^[0-9]{2}$/.test(str);
     case "last-digit":
