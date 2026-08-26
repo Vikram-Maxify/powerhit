@@ -7,13 +7,11 @@ import {
   Check,
   ChevronRight,
   Clock,
-  Coins,
   Crown,
   Dice5,
   Gem,
   Grid3x3,
   History,
-  Info,
   Landmark,
   Moon,
   Sparkles,
@@ -25,7 +23,7 @@ import {
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { getActiveMarkets } from "../../redux/slices/marketSlice";
 
 /* ============================================================
@@ -41,14 +39,12 @@ const GAME_TYPE_IMAGES = {
   single:
     "https://images.unsplash.com/photo-1518544801976-3e159e50e5bb?auto=format&fit=crop&w=500&q=80",
 
-  jodi:
-    "https://images.unsplash.com/photo-1518893883800-45cd0954574b?auto=format&fit=crop&w=500&q=80",
+  jodi: "https://images.unsplash.com/photo-1518893883800-45cd0954574b?auto=format&fit=crop&w=500&q=80",
 
   panna:
     "https://images.unsplash.com/photo-1605870445919-838d190e8e1b?auto=format&fit=crop&w=500&q=80",
 
-  spot:
-    "https://images.unsplash.com/photo-1518544889287-6d7a6d3f0f4a?auto=format&fit=crop&w=500&q=80",
+  spot: "https://images.unsplash.com/photo-1518544889287-6d7a6d3f0f4a?auto=format&fit=crop&w=500&q=80",
 
   "half-sangam":
     "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=500&q=80",
@@ -73,17 +69,14 @@ const seededDigit = (seed) => {
   let hash = 0;
 
   for (let i = 0; i < seed.length; i++) {
-    hash =
-      (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
 
   return hash % 10;
 };
 
 const mockTriplet = (marketId, salt = "") =>
-  [0, 1, 2].map((i) =>
-    seededDigit(`${marketId}-${salt}-${i}`)
-  );
+  [0, 1, 2].map((i) => seededDigit(`${marketId}-${salt}-${i}`));
 
 const toMinutes = (t) => {
   if (!t) return 0;
@@ -108,7 +101,7 @@ const formatTime12 = (t) => {
 
   return `${String(hour12).padStart(
     2,
-    "0"
+    "0",
   )}:${String(m).padStart(2, "0")} ${period}`;
 };
 
@@ -116,23 +109,16 @@ const formatTime12 = (t) => {
    MARKET STATUS
    ============================================================ */
 
-const getMarketStatus = (
-  openTime,
-  closeTime
-) => {
+const getMarketStatus = (openTime, closeTime) => {
   const now = new Date();
 
-  const nowMin =
-    now.getHours() * 60 + now.getMinutes();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
 
   const openMin = toMinutes(openTime);
   const closeMin = toMinutes(closeTime);
 
   if (closeMin < openMin) {
-    if (
-      nowMin >= openMin ||
-      nowMin <= closeMin
-    ) {
+    if (nowMin >= openMin || nowMin <= closeMin) {
       return "live";
     }
 
@@ -273,25 +259,20 @@ const MockTag = () => (
 /* ============================================================
    SAFE IMAGE
    ============================================================ */
-
 const SafeImage = ({
   src,
   alt,
   className = "",
   fallbackIcon: FallbackIcon = Gem,
 }) => {
-  const [imageError, setImageError] =
-    useState(false);
+  const [imageError, setImageError] = useState(false);
 
   if (!src || imageError) {
     return (
       <div
         className={`flex items-center justify-center bg-gradient-to-br from-amber-300 to-yellow-500 ${className}`}
       >
-        <FallbackIcon
-          className="text-white"
-          size={28}
-        />
+        <FallbackIcon className="text-white" size={28} />
       </div>
     );
   }
@@ -315,27 +296,20 @@ const MatkaMarkets = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const {
-    activeMarkets,
-    loading,
-  } = useSelector(
-    (state) => state.market
-  );
+  const { activeMarkets, loading } = useSelector((state) => state.market);
+  const { user } = useSelector((state) => state.auth); // adjust slice name if different
 
-  const [activeTab, setActiveTab] =
-    useState("live");
+  const walletBalance = user?.balance?.local ?? 0;
 
-  const [selectedMarketId, setSelectedMarketId] =
-    useState(null);
+  const [activeTab, setActiveTab] = useState("live");
 
-  const [justOpened, setJustOpened] =
-    useState(false);
+  const [selectedMarketId, setSelectedMarketId] = useState(null);
 
-  const [showAllGameTypes, setShowAllGameTypes] =
-    useState(false);
+  const [justOpened, setJustOpened] = useState(false);
 
-  const [selectedGameType, setSelectedGameType] =
-    useState(null);
+  const [showAllGameTypes, setShowAllGameTypes] = useState(false);
+
+  const [selectedGameType, setSelectedGameType] = useState(null);
 
   const detailRef = useRef(null);
 
@@ -354,28 +328,17 @@ const MatkaMarkets = () => {
      ============================================================ */
 
   useEffect(() => {
-    if (
-      activeMarkets?.length &&
-      !selectedMarketId
-    ) {
-      setSelectedMarketId(
-        activeMarkets[0]._id
-      );
+    if (activeMarkets?.length && !selectedMarketId) {
+      setSelectedMarketId(activeMarkets[0]._id);
     }
-  }, [
-    activeMarkets,
-    selectedMarketId,
-  ]);
+  }, [activeMarkets, selectedMarketId]);
 
   /* ============================================================
      CLEANUP
      ============================================================ */
 
   useEffect(() => {
-    return () =>
-      clearTimeout(
-        openedTimeoutRef.current
-      );
+    return () => clearTimeout(openedTimeoutRef.current);
   }, []);
 
   /* ============================================================
@@ -386,12 +349,9 @@ const MatkaMarkets = () => {
     () =>
       (activeMarkets || []).map((m) => ({
         ...m,
-        status: getMarketStatus(
-          m.openTime,
-          m.closeTime
-        ),
+        status: getMarketStatus(m.openTime, m.closeTime),
       })),
-    [activeMarkets]
+    [activeMarkets],
   );
 
   /* ============================================================
@@ -400,34 +360,23 @@ const MatkaMarkets = () => {
 
   const filteredMarkets = useMemo(() => {
     if (activeTab === "live") {
-      return marketsWithStatus.filter(
-        (m) => m.status === "live"
-      );
+      return marketsWithStatus.filter((m) => m.status === "live");
     }
 
     if (activeTab === "upcoming") {
-      return marketsWithStatus.filter(
-        (m) => m.status === "upcoming"
-      );
+      return marketsWithStatus.filter((m) => m.status === "upcoming");
     }
 
-    return marketsWithStatus.filter(
-      (m) => m.status !== "closed"
-    );
-  }, [
-    marketsWithStatus,
-    activeTab,
-  ]);
+    return marketsWithStatus.filter((m) => m.status !== "closed");
+  }, [marketsWithStatus, activeTab]);
 
   /* ============================================================
      SELECTED MARKET
      ============================================================ */
 
-  const selectedMarket =
-    marketsWithStatus.find(
-      (m) =>
-        m._id === selectedMarketId
-    );
+  const selectedMarket = marketsWithStatus.find(
+    (m) => m._id === selectedMarketId,
+  );
 
   /* ============================================================
      OPEN MARKET
@@ -445,52 +394,35 @@ const MatkaMarkets = () => {
       });
     });
 
-    clearTimeout(
-      openedTimeoutRef.current
-    );
+    clearTimeout(openedTimeoutRef.current);
 
-    openedTimeoutRef.current =
-      setTimeout(
-        () => setJustOpened(false),
-        1200
-      );
+    openedTimeoutRef.current = setTimeout(() => setJustOpened(false), 1200);
   };
 
   /* ============================================================
      PLACE BID
      ============================================================ */
 
-  const handlePlaceBid = (
-    marketId,
-    gameType
-  ) => {
-    navigate(
-      `/matka/place-bid/${marketId}`,
-      {
-        state: {
-          gameType,
-          marketId,
-        },
-      }
-    );
+  const handlePlaceBid = (marketId, gameType) => {
+    navigate(`/matka/place-bid/${marketId}`, {
+      state: {
+        gameType,
+        marketId,
+      },
+    });
   };
 
   /* ============================================================
      SELECT GAME TYPE
      ============================================================ */
 
-  const handleSelectGameType = (
-    gameType
-  ) => {
+  const handleSelectGameType = (gameType) => {
     setSelectedGameType(gameType);
 
     setShowAllGameTypes(false);
 
     if (selectedMarket) {
-      handlePlaceBid(
-        selectedMarket._id,
-        gameType
-      );
+      handlePlaceBid(selectedMarket._id, gameType);
     }
   };
 
@@ -544,17 +476,9 @@ const MatkaMarkets = () => {
 
           <div className="flex-1 text-center">
             <h1 className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-tight text-amber-700 sm:text-2xl">
-              <Crown
-                size={20}
-                className="text-amber-400"
-              />
-
+              <Crown size={20} className="text-amber-400" />
               MATKA PLAY
-
-              <Crown
-                size={20}
-                className="text-amber-400"
-              />
+              <Crown size={20} className="text-amber-400" />
             </h1>
 
             <p className="text-[10px] font-semibold tracking-[0.25em] text-amber-400">
@@ -571,44 +495,26 @@ const MatkaMarkets = () => {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="h-4 w-1 rounded-full bg-amber-500" />
-
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
                 Choose Market
               </h2>
             </div>
 
             <div className="flex overflow-hidden rounded-full border border-amber-100 bg-amber-50/40 p-1 text-xs font-bold">
-              {[
-                "live",
-                "open",
-                "upcoming",
-              ].map((tab) => {
-                const style =
-                  STATUS_STYLES[
-                    tab === "open"
-                      ? "live"
-                      : tab
-                  ];
-
-                const isActive =
-                  activeTab === tab;
-
+              {["live", "open", "upcoming"].map((tab) => {
+                const style = STATUS_STYLES[tab === "open" ? "live" : tab];
+                const isActive = activeTab === tab;
                 return (
                   <button
                     key={tab}
-                    onClick={() =>
-                      setActiveTab(tab)
-                    }
+                    onClick={() => setActiveTab(tab)}
                     className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition ${
                       isActive
                         ? "border border-amber-300 bg-white text-amber-700 shadow"
                         : "text-gray-400"
                     }`}
                   >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${style.dot}`}
-                    />
-
+                    <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
                     {tab.toUpperCase()}
                   </button>
                 );
@@ -617,164 +523,110 @@ const MatkaMarkets = () => {
           </div>
 
           {/* MARKET CARDS */}
-
           {filteredMarkets.length > 0 ? (
-            <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-2">
-              {filteredMarkets.map(
-                (market, idx) => {
-                  const Avatar =
-                    MOCK_AVATARS[
-                      idx %
-                        MOCK_AVATARS.length
-                    ];
+            <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-2">
+              {filteredMarkets.map((market, idx) => {
+                const Avatar = MOCK_AVATARS[idx % MOCK_AVATARS.length];
+                const style = STATUS_STYLES[market.status];
+                const isSelected = market._id === selectedMarketId;
 
-                  const style =
-                    STATUS_STYLES[
-                      market.status
-                    ];
+                const marketImage =
+                  market.image ||
+                  market.imageUrl ||
+                  market.logo ||
+                  DEFAULT_MARKET_IMAGE;
 
-                  const isSelected =
-                    market._id ===
-                    selectedMarketId;
-
-                  const marketImage =
-                    market.image ||
-                    market.imageUrl ||
-                    market.logo ||
-                    DEFAULT_MARKET_IMAGE;
-
-                  return (
-                    <div
-                      key={market._id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() =>
-                        openMarket(
-                          market._id
-                        )
-                      }
-                      onKeyDown={(e) =>
-                        e.key === "Enter" &&
-                        openMarket(
-                          market._id
-                        )
-                      }
-                      className={`w-44 flex-shrink-0 cursor-pointer overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition ${
-                        isSelected
-                          ? "border-amber-400 ring-2 ring-amber-200"
-                          : "border-gray-100"
-                      }`}
+                return (
+                  <div
+                    key={market._id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openMarket(market._id)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && openMarket(market._id)
+                    }
+                    className={`relative w-[7rem] flex-shrink-0 cursor-pointer rounded-2xl border bg-white p-2 text-center shadow-sm transition ${
+                      isSelected
+                        ? "border-amber-400 ring-2 ring-amber-200"
+                        : "border-gray-100"
+                    }`}
+                  >
+                    {/* STATUS BADGE - top right, ab card ke corner pe, image ke upar nhi */}
+                    <span
+                      className={`absolute right-3 top-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${style.bg} ${style.text}`}
                     >
-                      {/* MARKET IMAGE */}
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${style.dot}`}
+                      />
+                      {style.label}
+                    </span>
 
-                      <div className="relative h-28 w-full overflow-hidden bg-amber-100">
-                        <SafeImage
-                          src={marketImage}
-                          alt={
-                            market.name ||
-                            "Market"
-                          }
-                          fallbackIcon={
-                            Avatar
-                          }
-                          className="h-full w-full object-cover transition duration-500 hover:scale-105"
-                        />
-
-                        {/* Image overlay */}
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-                        {/* Status */}
-
-                        <span
-                          className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold backdrop-blur-sm ${style.bg} ${style.text}`}
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${style.dot}`}
-                          />
-
-                          {style.label}
-                        </span>
-
-                        {/* Mock */}
-
-                        <span className="absolute bottom-2 right-2 rounded-full border border-amber-300 bg-white/90 px-1.5 py-0.5 text-[7px] font-bold text-amber-500">
-                          IMAGE
-                        </span>
-                      </div>
-
-                      <div className="p-3">
-                        <p className="text-center text-sm font-extrabold text-amber-800">
-                          {market.name}
-                        </p>
-
-                        <p className="text-center text-[11px] text-gray-500">
-                          Open{" "}
-                          <span className="font-semibold text-gray-700">
-                            {formatTime12(
-                              market.openTime
-                            )}
-                          </span>
-                        </p>
-
-                        <p className="text-center text-[11px] text-gray-500">
-                          Close{" "}
-                          <span className="font-semibold text-gray-700">
-                            {formatTime12(
-                              market.closeTime
-                            )}
-                          </span>
-                        </p>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-
-                            openMarket(
-                              market._id
-                            );
-                          }}
-                          className={`mt-2 w-full rounded-lg py-1.5 text-center text-xs font-bold text-white shadow ${
-                            market.status ===
-                            "live"
-                              ? "bg-gradient-to-r from-amber-500 to-yellow-500"
-                              : "bg-gradient-to-r from-amber-300 to-yellow-300"
-                          }`}
-                        >
-                          {market.status ===
-                          "live"
-                            ? "PLAY NOW →"
-                            : "VIEW →"}
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-
-                            openMarket(
-                              market._id
-                            );
-                          }}
-                          className="mt-1 w-full text-center text-[11px] font-semibold text-amber-700"
-                        >
-                          RESULTS →
-                        </button>
-                      </div>
+                    {/* CIRCULAR AVATAR - ab rounded-full, image ki tarah */}
+                    <div className="mx-auto mt-2 h-16 w-16 overflow-hidden rounded-full ring-2 ring-amber-100">
+                      <SafeImage
+                        src={marketImage}
+                        alt={market.name || "Market"}
+                        fallbackIcon={Avatar}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
-                  );
-                }
-              )}
+
+                    <div className="mt-3">
+                      <p className="text-center text-sm font-extrabold text-amber-800">
+                        {market.name}
+                      </p>
+
+                      <p className="mt-2 text-center text-[11px] text-gray-500">
+                        Open{" "}
+                        <span className="font-semibold text-gray-700">
+                          {formatTime12(market.openTime)}
+                        </span>
+                      </p>
+
+                      <p className="text-center text-[11px] text-gray-500">
+                        Close{" "}
+                        <span className="font-semibold text-gray-700">
+                          {formatTime12(market.closeTime)}
+                        </span>
+                      </p>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMarket(market._id);
+                        }}
+                        className={`mt-3 w-full rounded-lg py-1.5 text-center text-xs font-bold text-black shadow ${
+                          market.status === "live"
+                            ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
+                            : "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
+                        }`}
+                      >
+                        {market.status === "live" ? "PLAY →" : "VIEW →"}
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMarket(market._id);
+                        }}
+                        className="mt-1 w-full text-center text-[11px] font-semibold text-amber-700"
+                      >
+                        RESULTS →
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-2xl border border-amber-100 bg-amber-50/40 py-10 text-center text-sm text-gray-400">
-              No markets in this tab
-              right now
+              No markets in this tab right now
             </div>
           )}
         </div>
 
         {/* ======================================================
-           SELECTED MARKET DETAIL
+          SELECTED MARKET DETAIL
         ====================================================== */}
 
         {selectedMarket && (
@@ -796,10 +648,7 @@ const MatkaMarkets = () => {
                   selectedMarket.logo ||
                   DEFAULT_MARKET_IMAGE
                 }
-                alt={
-                  selectedMarket.name ||
-                  "Market"
-                }
+                alt={selectedMarket.name || "Market"}
                 fallbackIcon={Crown}
                 className="h-full w-full object-cover"
               />
@@ -814,34 +663,32 @@ const MatkaMarkets = () => {
 
                   <span
                     className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${
-                      selectedMarket.status ===
-                      "live"
-                        ? "border-amber-300 bg-amber-100 text-amber-700"
+                      selectedMarket.status === "live"
+                        ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
                         : "border-amber-100 bg-amber-50 text-amber-500"
                     }`}
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        selectedMarket.status ===
-                        "live"
+                        selectedMarket.status === "live"
                           ? "bg-amber-500"
                           : "bg-amber-300"
                       }`}
                     />
-
                     {selectedMarket.status.toUpperCase()}
                   </span>
                 </div>
 
                 <div className="rounded-full border border-amber-200 bg-white/90 px-3 py-1 backdrop-blur">
                   <div className="flex items-center gap-1">
-                    <Coins
-                      size={13}
-                      className="text-amber-500"
-                    />
-
+                    <span size={13} className="text-amber-500">
+                      {" "}
+                      ₹{" "}
+                    </span>
                     <span className="text-xs font-bold text-gray-800">
-                      12,500
+                      {walletBalance.toLocaleString("en-IN", {
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                 </div>
@@ -852,9 +699,7 @@ const MatkaMarkets = () => {
 
             <div
               className={`pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-bold text-white shadow transition-opacity duration-500 ${
-                justOpened
-                  ? "opacity-100"
-                  : "opacity-0"
+                justOpened ? "opacity-100" : "opacity-0"
               }`}
             >
               {selectedMarket.name} opened
@@ -876,13 +721,14 @@ const MatkaMarkets = () => {
 
                 <div className="flex justify-center gap-1.5 sm:gap-3">
                   {mockTriplet(
-                    selectedMarket.marketId ||
-                      selectedMarket._id,
-                    "today"
+                    selectedMarket.marketId || selectedMarket._id,
+                    "today",
                   ).map((d, i) => (
                     <div
                       key={i}
-                      className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-amber-200 bg-amber-50 text-lg font-extrabold text-amber-800 shadow-sm sm:h-14 sm:w-14 sm:rounded-xl sm:text-2xl"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
+border border-[#FFD75A]
+shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-lg font-extrabold text-amber-800 sm:h-14 sm:w-14 sm:rounded-xl sm:text-2xl"
                     >
                       {d}
                     </div>
@@ -899,10 +745,7 @@ const MatkaMarkets = () => {
 
               <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-2 sm:rounded-2xl sm:p-4">
                 <p className="mb-1 flex items-center gap-1 text-[9px] font-bold text-amber-700 sm:mb-2 sm:text-xs">
-                  <Clock
-                    size={10}
-                    className="sm:h-[13px] sm:w-[13px]"
-                  />
+                  <Clock size={10} className="sm:h-[13px] sm:w-[13px]" />
                   TIMING
                 </p>
 
@@ -913,9 +756,7 @@ const MatkaMarkets = () => {
                     </p>
 
                     <p className="text-[10px] font-extrabold text-gray-800 sm:text-sm">
-                      {formatTime12(
-                        selectedMarket.openTime
-                      )}
+                      {formatTime12(selectedMarket.openTime)}
                     </p>
                   </div>
 
@@ -927,9 +768,7 @@ const MatkaMarkets = () => {
                     </p>
 
                     <p className="text-[10px] font-extrabold text-gray-800 sm:text-sm">
-                      {formatTime12(
-                        selectedMarket.closeTime
-                      )}
+                      {formatTime12(selectedMarket.closeTime)}
                     </p>
                   </div>
                 </div>
@@ -937,26 +776,15 @@ const MatkaMarkets = () => {
                 <div className="my-1.5 h-px bg-amber-200 sm:my-3" />
 
                 <p className="mb-1 flex items-center gap-1 text-[9px] font-bold text-amber-700 sm:mb-2 sm:text-xs">
-                  <Timer
-                    size={10}
-                    className="sm:h-[13px] sm:w-[13px]"
-                  />
-
+                  <Timer size={10} className="sm:h-[13px] sm:w-[13px]" />
                   LAST
-
                   <span className="text-[7px] font-normal text-amber-400 sm:text-[10px]">
                     (
-                    {new Date(
-                      Date.now() -
-                        86400000
-                    )
-                      .toLocaleDateString(
-                        "en-GB",
-                        {
-                          day: "2-digit",
-                          month: "short",
-                        }
-                      )
+                    {new Date(Date.now() - 86400000)
+                      .toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                      })
                       .toUpperCase()}
                     )
                   </span>
@@ -964,9 +792,8 @@ const MatkaMarkets = () => {
 
                 <div className="flex justify-center gap-1.5 sm:gap-2.5">
                   {mockTriplet(
-                    selectedMarket.marketId ||
-                      selectedMarket._id,
-                    "last"
+                    selectedMarket.marketId || selectedMarket._id,
+                    "last",
                   ).map((d, i) => (
                     <div
                       key={i}
@@ -988,10 +815,7 @@ const MatkaMarkets = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Grid3x3
-                size={16}
-                className="text-amber-600"
-              />
+              <Grid3x3 size={16} className="text-amber-600" />
 
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
                 Choose Game Type
@@ -999,23 +823,15 @@ const MatkaMarkets = () => {
             </div>
 
             <button
-              onClick={() =>
-                setShowAllGameTypes(
-                  (prev) => !prev
-                )
-              }
+              onClick={() => setShowAllGameTypes((prev) => !prev)}
               className="flex items-center gap-0.5 text-xs font-bold text-amber-700"
             >
-              {showAllGameTypes
-                ? "SHOW LESS"
-                : "VIEW ALL"}
+              {showAllGameTypes ? "SHOW LESS" : "VIEW ALL"}
 
               <ChevronRight
                 size={14}
                 className={`transition-transform duration-200 ${
-                  showAllGameTypes
-                    ? "rotate-90"
-                    : ""
+                  showAllGameTypes ? "rotate-90" : ""
                 }`}
               />
             </button>
@@ -1024,15 +840,11 @@ const MatkaMarkets = () => {
           <div className="grid grid-cols-3 gap-1 sm:gap-3">
             {GAME_TYPES.slice(
               0,
-              showAllGameTypes
-                ? GAME_TYPES.length
-                : DEFAULT_VISIBLE_GAME_TYPES
+              showAllGameTypes ? GAME_TYPES.length : DEFAULT_VISIBLE_GAME_TYPES,
             ).map((gt) => {
               const Icon = gt.icon;
 
-              const isSelected =
-                selectedGameType ===
-                gt.key;
+              const isSelected = selectedGameType === gt.key;
 
               return (
                 <div
@@ -1060,10 +872,7 @@ const MatkaMarkets = () => {
                         {gt.label}
 
                         {isSelected && (
-                          <Check
-                            size={12}
-                            className="text-amber-300"
-                          />
+                          <Check size={12} className="text-amber-300" />
                         )}
                       </p>
                     </div>
@@ -1073,19 +882,16 @@ const MatkaMarkets = () => {
                     {/* DIGIT BADGE */}
 
                     <div className="mx-auto mb-2 flex min-h-[36px] items-center justify-center">
-                      {gt.mode ===
-                      "digits" ? (
+                      {gt.mode === "digits" ? (
                         <div className="flex items-center justify-center gap-1">
-                          {gt.digits.map(
-                            (d, i) => (
-                              <span
-                                key={i}
-                                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-sm font-extrabold text-white ring-2 ring-amber-200"
-                              >
-                                {d}
-                              </span>
-                            )
-                          )}
+                          {gt.digits.map((d, i) => (
+                            <span
+                              key={i}
+                              className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-sm font-extrabold text-white ring-2 ring-amber-200"
+                            >
+                              {d}
+                            </span>
+                          ))}
                         </div>
                       ) : (
                         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-white ring-2 ring-amber-200">
@@ -1100,17 +906,12 @@ const MatkaMarkets = () => {
 
                     <button
                       onClick={() =>
-                        selectedMarket &&
-                        handleSelectGameType(
-                          gt.key
-                        )
+                        selectedMarket && handleSelectGameType(gt.key)
                       }
-                      className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 py-1.5 text-[10px] font-bold text-white shadow transition-all hover:shadow-md sm:py-2 sm:text-xs"
+                      className="w-full rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] py-1.5 text-[10px] font-bold text-black transition-all hover:shadow-md sm:py-2 sm:text-xs"
                       disabled={!selectedMarket}
                     >
-                      {selectedMarket
-                        ? "PLAY →"
-                        : "SELECT MARKET"}
+                      {selectedMarket ? "PLAY →" : "SELECT MARKET"}
                     </button>
                   </div>
                 </div>
@@ -1125,10 +926,7 @@ const MatkaMarkets = () => {
 
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Sparkles
-              size={16}
-              className="text-amber-500"
-            />
+            <Sparkles size={16} className="text-amber-500" />
 
             <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
               Quick Access
@@ -1158,10 +956,7 @@ const MatkaMarkets = () => {
                 key={item.label}
                 className="flex items-center justify-center gap-1 rounded-xl border border-amber-100 bg-white py-2 text-[9px] font-medium text-gray-700 shadow-sm"
               >
-                <item.icon
-                  size={10}
-                  className="text-amber-500"
-                />
+                <item.icon size={10} className="text-amber-500" />
 
                 {item.label}
               </button>
@@ -1176,10 +971,7 @@ const MatkaMarkets = () => {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Calendar
-                size={16}
-                className="text-amber-600"
-              />
+              <Calendar size={16} className="text-amber-600" />
 
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
                 Recent Results
@@ -1188,74 +980,45 @@ const MatkaMarkets = () => {
 
             <button className="flex items-center gap-0.5 text-xs font-bold text-amber-700">
               VIEW ALL
-
               <ChevronRight size={14} />
             </button>
           </div>
 
           <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-2">
-            {marketsWithStatus.map(
-              (market) => (
-                <div
-                  key={market._id}
-                  className="w-36 flex-shrink-0 overflow-hidden rounded-xl border border-amber-100 bg-white text-center shadow-sm"
-                >
-                  {/* RESULT IMAGE */}
+            {marketsWithStatus.map((market) => (
+              <div
+                key={market._id}
+                className="w-36 flex-shrink-0 overflow-hidden rounded-xl border border-amber-100 bg-white text-center shadow-sm"
+              >
+                <div className="p-2">
+                  <p className="text-[9px] font-semibold text-gray-400">
+                    {new Date()
+                      .toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                      })
+                      .toUpperCase()}
+                  </p>
 
-                  <div className="relative h-20 w-full overflow-hidden">
-                    <SafeImage
-                      src={
-                        market.image ||
-                        market.imageUrl ||
-                        market.logo ||
-                        DEFAULT_MARKET_IMAGE
-                      }
-                      alt={
-                        market.name ||
-                        "Market"
-                      }
-                      fallbackIcon={Trophy}
-                      className="h-full w-full object-cover"
-                    />
+                  <p className="mb-2 truncate text-[11px] font-extrabold text-amber-800">
+                    {market.name?.toUpperCase()}
+                  </p>
 
-                    <div className="absolute inset-0 bg-black/30" />
-                  </div>
-
-                  <div className="p-2">
-                    <p className="text-[9px] font-semibold text-gray-400">
-                      {new Date()
-                        .toLocaleDateString(
-                          "en-GB",
-                          {
-                            day: "2-digit",
-                            month: "short",
-                          }
-                        )
-                        .toUpperCase()}
-                    </p>
-
-                    <p className="mb-2 truncate text-[11px] font-extrabold text-amber-800">
-                      {market.name?.toUpperCase()}
-                    </p>
-
-                    <div className="flex justify-center gap-1">
-                      {mockTriplet(
-                        market.marketId ||
-                          market._id,
-                        "recent"
-                      ).map((d, i) => (
+                  <div className="flex justify-center gap-1">
+                    {mockTriplet(market.marketId || market._id, "recent").map(
+                      (d, i) => (
                         <span
                           key={i}
                           className="flex h-6 w-6 items-center justify-center rounded bg-amber-50 text-xs font-bold text-amber-800"
                         >
                           {d}
                         </span>
-                      ))}
-                    </div>
+                      ),
+                    )}
                   </div>
                 </div>
-              )
-            )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
