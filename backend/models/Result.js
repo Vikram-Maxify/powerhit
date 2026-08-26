@@ -4,8 +4,15 @@ const mongoose = require("mongoose");
 // GAME TYPES
 // ==========================================================
 
-const GAME_TYPES = [
-  "single",
+// 2-digit market
+const TWO_DIGIT_GAME_TYPES = [
+  "jodi",
+  "last-digit",
+  "first-digit",
+];
+
+// 3-digit market
+const THREE_DIGIT_GAME_TYPES = [
   "jodi",
   "panna",
   "half-sangam",
@@ -14,51 +21,60 @@ const GAME_TYPES = [
   "first-digit",
 ];
 
+const GAME_TYPES = [
+  ...new Set([
+    ...TWO_DIGIT_GAME_TYPES,
+    ...THREE_DIGIT_GAME_TYPES,
+  ]),
+];
+
 // ==========================================================
 // WINNING NUMBERS SCHEMA
 // ==========================================================
 
-const winningNumbersSchema = new mongoose.Schema(
-  {
-    single: {
-      type: String,
-      default: null,
-    },
+const winningNumbersSchema =
+  new mongoose.Schema(
+    {
+      jodi: {
+        type: String,
+        default: null,
+        trim: true,
+      },
 
-    jodi: {
-      type: String,
-      default: null,
-    },
+      panna: {
+        type: String,
+        default: null,
+        trim: true,
+      },
 
-    panna: {
-      type: String,
-      default: null,
-    },
+      "half-sangam": {
+        type: String,
+        default: null,
+        trim: true,
+      },
 
-    "half-sangam": {
-      type: String,
-      default: null,
-    },
+      "full-sangam": {
+        type: String,
+        default: null,
+        trim: true,
+      },
 
-    "full-sangam": {
-      type: String,
-      default: null,
-    },
+      "last-digit": {
+        type: String,
+        default: null,
+        trim: true,
+      },
 
-    "last-digit": {
-      type: String,
-      default: null,
+      "first-digit": {
+        type: String,
+        default: null,
+        trim: true,
+      },
     },
-
-    "first-digit": {
-      type: String,
-      default: null,
-    },
-  },
-  {
-    _id: false,
-  }
-);
+    {
+      _id: false,
+    }
+  );
 
 // ==========================================================
 // RESULT SCHEMA
@@ -81,6 +97,17 @@ const resultSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+
+    // ======================================================
+    // MARKET DIGIT TYPE
+    // ======================================================
+
+    digitType: {
+      type: String,
+      enum: ["2-digit", "3-digit"],
+      required: true,
+      index: true,
     },
 
     // ======================================================
@@ -198,101 +225,260 @@ resultSchema.index({
   status: 1,
 });
 
+resultSchema.index({
+  digitType: 1,
+  resultDate: -1,
+});
+
+// ==========================================================
+// STATIC: GET ALLOWED GAME TYPES
+// ==========================================================
+
+resultSchema.statics.getGameTypesForDigitType =
+  function (digitType) {
+    if (digitType === "2-digit") {
+      return [...TWO_DIGIT_GAME_TYPES];
+    }
+
+    if (digitType === "3-digit") {
+      return [...THREE_DIGIT_GAME_TYPES];
+    }
+
+    return [];
+  };
+
+// ==========================================================
+// STATIC: CHECK GAME TYPE
+// ==========================================================
+
+resultSchema.statics.isGameTypeAllowed =
+  function (
+    digitType,
+    gameType
+  ) {
+    const gameTypes =
+      this.getGameTypesForDigitType(
+        digitType
+      );
+
+    return gameTypes.includes(
+      gameType
+    );
+  };
+
 // ==========================================================
 // STATIC: FORMAT WINNING NUMBER
 // ==========================================================
 
-resultSchema.statics.formatWinningNumber = function (
-  value,
-  gameType
-) {
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
+resultSchema.statics.formatWinningNumber =
+  function (
+    value,
+    gameType
   ) {
-    return null;
-  }
+    if (
+      value === undefined ||
+      value === null ||
+      value === ""
+    ) {
+      return null;
+    }
 
-  let number = String(value).trim();
+    let number =
+      String(value).trim();
 
-  switch (gameType) {
-    case "single":
-      if (!/^[0-9]$/.test(number)) {
-        throw new Error(
-          "Single winning number must be 0-9"
+    switch (gameType) {
+      // ====================================================
+      // JODI
+      // ====================================================
+
+      case "jodi":
+        if (
+          !/^[0-9]{1,2}$/.test(
+            number
+          )
+        ) {
+          throw new Error(
+            "Jodi winning number must be 00-99"
+          );
+        }
+
+        return number.padStart(
+          2,
+          "0"
         );
+
+      // ====================================================
+      // PANNA
+      // ====================================================
+
+      case "panna":
+        if (
+          !/^[0-9]{1,3}$/.test(
+            number
+          )
+        ) {
+          throw new Error(
+            "Panna winning number must be 000-999"
+          );
+        }
+
+        return number.padStart(
+          3,
+          "0"
+        );
+
+      // ====================================================
+      // HALF SANGAM
+      // ====================================================
+
+      case "half-sangam": {
+        // Panna + Digit, e.g. 123-6
+        if (
+          !/^[0-9]{3}-[0-9]$/.test(number) &&
+          !/^[0-9]-[0-9]{3}$/.test(number)
+        ) {
+          throw new Error(
+            "Half Sangam winning number must be Panna + Digit (123-6) or Digit + Panna (6-123)"
+          );
+        }
+
+        return number;
       }
 
-      return number;
+      // ====================================================
+      // FULL SANGAM
+      // ====================================================
 
-    case "jodi":
-      if (!/^[0-9]{1,2}$/.test(number)) {
-        throw new Error(
-          "Jodi winning number must be 00-99"
+      case "full-sangam":
+        // Panna + Panna, e.g. 123-456
+        if (!/^[0-9]{3}-[0-9]{3}$/.test(number)) {
+          throw new Error(
+            "Full Sangam winning number must be Panna + Panna (123-456)"
+          );
+        }
+
+        return number;
+
+      // ====================================================
+      // LAST DIGIT
+      // ====================================================
+
+      case "last-digit":
+        if (
+          !/^[0-9]{1,2}$/.test(
+            number
+          )
+        ) {
+          throw new Error(
+            "Last digit winning number must be 00-99"
+          );
+        }
+
+        return number.padStart(
+          2,
+          "0"
         );
-      }
 
-      return number.padStart(2, "0");
+      // ====================================================
+      // FIRST DIGIT
+      // ====================================================
 
-    case "panna":
-      if (!/^[0-9]{1,3}$/.test(number)) {
-        throw new Error(
-          "Panna winning number must be 000-999"
+      case "first-digit":
+        if (
+          !/^[0-9]{1,2}$/.test(
+            number
+          )
+        ) {
+          throw new Error(
+            "First digit winning number must be 00-99"
+          );
+        }
+
+        return number.padStart(
+          2,
+          "0"
         );
-      }
 
-      return number.padStart(3, "0");
-
-    case "half-sangam":
-      if (!/^[0-9]{1,3}$/.test(number)) {
+      default:
         throw new Error(
-          "Half Sangam winning number must be 1-3 digits"
+          `Invalid game type: ${gameType}`
         );
-      }
+    }
+  };
 
-      return number;
+// ==========================================================
+// STATIC: FORMAT ALL WINNING NUMBERS
+// ==========================================================
 
-    case "full-sangam":
-      if (!/^[0-9]{1,2}$/.test(number)) {
-        throw new Error(
-          "Full Sangam winning number must be 00-99"
-        );
-      }
-
-      return number.padStart(2, "0");
-
-    case "last-digit":
-      if (!/^[0-9]{1,2}$/.test(number)) {
-        throw new Error(
-          "Last digit winning number must be 00-99"
-        );
-      }
-
-      return number.padStart(2, "0");
-
-    case "first-digit":
-      if (!/^[0-9]{1,2}$/.test(number)) {
-        throw new Error(
-          "First digit winning number must be 00-99"
-        );
-      }
-
-      return number.padStart(2, "0");
-
-    default:
+resultSchema.statics.formatWinningNumbers =
+  function (
+    winningNumbers,
+    digitType
+  ) {
+    if (
+      !winningNumbers ||
+      typeof winningNumbers !==
+        "object"
+    ) {
       throw new Error(
-        `Invalid game type: ${gameType}`
+        "Winning numbers object is required"
       );
-  }
-};
+    }
+
+    const allowedGames =
+      this.getGameTypesForDigitType(
+        digitType
+      );
+
+    if (
+      !["2-digit", "3-digit"].includes(
+        digitType
+      )
+    ) {
+      throw new Error(
+        "digitType must be 2-digit or 3-digit"
+      );
+    }
+
+    const formatted = {};
+
+    for (
+      const gameType of allowedGames
+    ) {
+      const value =
+        winningNumbers[
+          gameType
+        ];
+
+      if (
+        value === undefined ||
+        value === null ||
+        value === ""
+      ) {
+        formatted[gameType] =
+          null;
+
+        continue;
+      }
+
+      formatted[gameType] =
+        this.formatWinningNumber(
+          value,
+          gameType
+        );
+    }
+
+    return formatted;
+  };
 
 // ==========================================================
 // STATIC: LATEST RESULT
 // ==========================================================
 
 resultSchema.statics.getLatestResult =
-  async function (marketId) {
+  async function (
+    marketId
+  ) {
     return this.findOne({
       marketId,
       status: "declared",
@@ -319,11 +505,13 @@ resultSchema.statics.getResultsByDateRange =
         $gte: startDate,
         $lte: endDate,
       },
+
       status: "declared",
     };
 
     if (marketId) {
-      query.marketId = marketId;
+      query.marketId =
+        marketId;
     }
 
     return this.find(query)
@@ -338,46 +526,51 @@ resultSchema.statics.getResultsByDateRange =
 // ==========================================================
 
 resultSchema.statics.getStats =
-  async function (marketId) {
+  async function (
+    marketId
+  ) {
     const match = {
       marketId:
         new mongoose.Types.ObjectId(
           marketId
         ),
+
       status: "declared",
     };
 
-    const stats = await this.aggregate([
-      {
-        $match: match,
-      },
+    const stats =
+      await this.aggregate([
+        {
+          $match: match,
+        },
 
-      {
-        $group: {
-          _id: null,
+        {
+          $group: {
+            _id: null,
 
-          totalResults: {
-            $sum: 1,
-          },
+            totalResults: {
+              $sum: 1,
+            },
 
-          totalPayout: {
-            $sum: "$totalPayout",
-          },
+            totalPayout: {
+              $sum: "$totalPayout",
+            },
 
-          totalWinners: {
-            $sum: "$totalWinningBids",
-          },
+            totalWinners: {
+              $sum:
+                "$totalWinningBids",
+            },
 
-          totalBids: {
-            $sum: "$totalBids",
-          },
+            totalBids: {
+              $sum: "$totalBids",
+            },
 
-          avgPayout: {
-            $avg: "$totalPayout",
+            avgPayout: {
+              $avg: "$totalPayout",
+            },
           },
         },
-      },
-    ]);
+      ]);
 
     return (
       stats[0] || {
@@ -394,36 +587,54 @@ resultSchema.statics.getStats =
 // VIRTUAL: SUMMARY
 // ==========================================================
 
-resultSchema.virtual("summary").get(
-  function () {
-    return {
-      marketId: this.marketId,
+resultSchema.virtual(
+  "summary"
+).get(function () {
+  return {
+    marketId:
+      this.marketId,
 
-      marketName: this.marketName,
+    marketName:
+      this.marketName,
 
-      winningNumber:
-        this.winningNumber,
+    digitType:
+      this.digitType,
 
-      resultDate:
-        this.resultDate,
+    winningNumber:
+      this.winningNumber,
 
-      nextOpenDate:
-        this.nextOpenDate,
+    resultDate:
+      this.resultDate,
 
-      totalBids:
-        this.totalBids,
+    nextOpenDate:
+      this.nextOpenDate,
 
-      totalWinningBids:
-        this.totalWinningBids,
+    totalBids:
+      this.totalBids,
 
-      totalPayout:
-        this.totalPayout,
+    totalWinningBids:
+      this.totalWinningBids,
 
-      status:
-        this.status,
-    };
-  }
-);
+    totalPayout:
+      this.totalPayout,
+
+    status:
+      this.status,
+  };
+});
+
+// ==========================================================
+// METHOD: GET WINNING NUMBER
+// ==========================================================
+
+resultSchema.methods.getWinningNumber =
+  function (gameType) {
+    return (
+      this.winningNumber?.[
+        gameType
+      ] ?? null
+    );
+  };
 
 // ==========================================================
 // METHOD: CHECK BID WIN
@@ -440,59 +651,117 @@ resultSchema.methods.checkBidWin =
       ];
 
     if (
-      winningNumber === undefined ||
-      winningNumber === null
+      winningNumber ===
+        undefined ||
+      winningNumber === null ||
+      winningNumber === ""
     ) {
       return false;
     }
 
     const winningNumStr =
-      String(winningNumber).trim();
+      String(
+        winningNumber
+      ).trim();
 
     const bidNumStr =
-      String(bidNumber).trim();
+      String(
+        bidNumber
+      ).trim();
 
-    switch (bidGameType) {
-      case "single":
-        return (
-          winningNumStr === bidNumStr
-        );
+    switch (
+      bidGameType
+    ) {
+      // ====================================================
+      // JODI
+      // ====================================================
 
       case "jodi":
         return (
           winningNumStr ===
-          bidNumStr.padStart(2, "0")
+          bidNumStr.padStart(
+            2,
+            "0"
+          )
         );
+
+      // ====================================================
+      // PANNA
+      // ====================================================
 
       case "panna":
         return (
           winningNumStr ===
-          bidNumStr.padStart(3, "0")
+          bidNumStr.padStart(
+            3,
+            "0"
+          )
         );
 
+      // ====================================================
+      // HALF SANGAM
+      // ====================================================
+
       case "half-sangam":
-        return (
-          winningNumStr ===
-            bidNumStr ||
-          winningNumStr.slice(-1) ===
-            bidNumStr.slice(-1)
-        );
+        // 1 digit bid
+        if (
+          bidNumStr.length === 1
+        ) {
+          return (
+            winningNumStr.slice(
+              -1
+            ) === bidNumStr
+          );
+        }
+
+        // 3 digit bid
+        if (
+          bidNumStr.length === 3
+        ) {
+          return (
+            winningNumStr ===
+            bidNumStr
+          );
+        }
+
+        return false;
+
+      // ====================================================
+      // FULL SANGAM
+      // ====================================================
 
       case "full-sangam":
         return (
-          winningNumStr.slice(-2) ===
-          bidNumStr.padStart(2, "0")
+          winningNumStr.slice(
+            -2
+          ) ===
+          bidNumStr.padStart(
+            2,
+            "0"
+          )
         );
+
+      // ====================================================
+      // LAST DIGIT
+      // ====================================================
 
       case "last-digit":
         return (
-          winningNumStr.slice(-1) ===
+          winningNumStr.slice(
+            -1
+          ) ===
           bidNumStr.slice(-1)
         );
 
+      // ====================================================
+      // FIRST DIGIT
+      // ====================================================
+
       case "first-digit":
         return (
-          winningNumStr.charAt(0) ===
+          winningNumStr.charAt(
+            0
+          ) ===
           bidNumStr.charAt(0)
         );
 
@@ -505,13 +774,19 @@ resultSchema.methods.checkBidWin =
 // JSON
 // ==========================================================
 
-resultSchema.set("toJSON", {
-  virtuals: true,
-});
+resultSchema.set(
+  "toJSON",
+  {
+    virtuals: true,
+  }
+);
 
-resultSchema.set("toObject", {
-  virtuals: true,
-});
+resultSchema.set(
+  "toObject",
+  {
+    virtuals: true,
+  }
+);
 
 // ==========================================================
 // MODEL

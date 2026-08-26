@@ -94,7 +94,6 @@ const BidsHistory = () => {
 
   const getGameTypeDisplay = (type) => {
     const display = {
-      single: "Single",
       jodi: "Jodi",
       panna: "Panna",
       "half-sangam": "Half-Sangam",
@@ -105,6 +104,49 @@ const BidsHistory = () => {
     return display[type] || type;
   };
 
+  const getDigitType = (bid) => {
+    if (bid?.digitType === "2-digit") {
+      return "2-digit";
+    }
+
+    if (bid?.digitType === "3-digit") {
+      return "3-digit";
+    }
+
+    // Some APIs return digitType through populated marketId.
+    if (bid?.marketId?.digitType === "2-digit") {
+      return "2-digit";
+    }
+
+    if (bid?.marketId?.digitType === "3-digit") {
+      return "3-digit";
+    }
+
+    // Fallback based on game type.
+    if (
+      ["panna", "half-sangam"].includes(
+        bid?.gameType
+      )
+    ) {
+      return "3-digit";
+    }
+
+    return "";
+  };
+
+  const getGameTypeLabel = (type) => {
+    const display = {
+      jodi: "Jodi",
+      panna: "Panna",
+      "half-sangam": "Half-Sangam",
+      "full-sangam": "Full-Sangam",
+      "last-digit": "Last Digit",
+      "first-digit": "First Digit",
+    };
+
+    return display[type] || type || "Game";
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -113,48 +155,132 @@ const BidsHistory = () => {
     }).format(amount || 0);
   };
 
-  // ✅ Expected digit count per game type — matches backend validator exactly
-  // single: 1 | jodi: 2 | panna: 3 | full-sangam: 2 | last-digit: 2 | first-digit: 2
-  // half-sangam: 1-digit OR 3-digit (variable) — inferred from the actual value's length
-  const getDigitCount = (gameType, value) => {
+  // ============================================================
+  // NUMBER / RESULT DISPLAY
+  // ============================================================
+  //
+  // Half Sangam:
+  //   123-5  = Panna + Digit
+  //   5-123  = Digit + Panna
+  //
+  // Full Sangam:
+  //   123-456 = Panna + Panna
+  //
+  // Do NOT split Sangam values into a normal 2/3 digit ball count.
+  // Keep the "-" separator visible.
+  // ============================================================
+
+  const getDigitCount = (gameType) => {
     switch (gameType) {
-      case "single":
-        return 1;
       case "jodi":
         return 2;
       case "panna":
         return 3;
+      case "half-sangam":
+        return 4;
       case "full-sangam":
-        return 2;
+        return 6;
       case "last-digit":
         return 2;
       case "first-digit":
         return 2;
-      case "half-sangam": {
-        const len = String(value ?? "").trim().length;
-        return len === 3 ? 3 : 1;
-      }
       default:
-        return 3;
+        return 2;
     }
   };
 
-  // ✅ Get result digits for balls — respects gameType's actual digit count
+  const normalizeNumber = (number) => {
+    if (number === undefined || number === null) return "";
+    return String(number).trim();
+  };
+
+  const isHalfSangam = (gameType) =>
+    gameType === "half-sangam";
+
+  const isFullSangam = (gameType) =>
+    gameType === "full-sangam";
+
+  const getSangamParts = (number, gameType) => {
+    const str = normalizeNumber(number);
+
+    if (!str) {
+      return {
+        first: "",
+        second: "",
+      };
+    }
+
+    if (
+      isHalfSangam(gameType) ||
+      isFullSangam(gameType)
+    ) {
+      const parts = str.split("-");
+
+      if (parts.length === 2) {
+        return {
+          first: parts[0],
+          second: parts[1],
+        };
+      }
+    }
+
+    return {
+      first: str,
+      second: "",
+    };
+  };
+
   const getResultDigits = (number, gameType) => {
-    const digitCount = getDigitCount(gameType, number);
-    if (!number) return Array(digitCount).fill("-");
-    const str = String(number).trim();
+    const str = normalizeNumber(number);
+
+    if (!str) return [];
+
+    // Sangam must remain as two separate groups.
+    if (
+      isHalfSangam(gameType) ||
+      isFullSangam(gameType)
+    ) {
+      const { first, second } =
+        getSangamParts(str, gameType);
+
+      return {
+        sangam: true,
+        first: first.split(""),
+        second: second.split(""),
+      };
+    }
+
+    const digitCount = getDigitCount(gameType);
     const digits = str.split("");
+
     while (digits.length < digitCount) {
       digits.unshift("0");
     }
-    return digits.slice(-digitCount);
+
+    return {
+      sangam: false,
+      first: digits.slice(-digitCount),
+      second: [],
+    };
   };
 
-  // ✅ Render number balls — gameType passed through for correct digit count
-  const renderNumberBalls = (number, status, gameType, size = "md") => {
+  // ============================================================
+  // RENDER NUMBER
+  // ============================================================
+
+  const renderNumberBalls = (
+    number,
+    status,
+    gameType,
+    size = "md"
+  ) => {
     if (!number) return null;
-    const digits = getResultDigits(number, gameType);
+
+    const parsed = getResultDigits(
+      number,
+      gameType
+    );
+
     const isWin = status === "won";
     const isLost = status === "lost";
 
@@ -165,18 +291,137 @@ const BidsHistory = () => {
           ? "w-10 h-10 text-sm"
           : "w-8 h-8 text-xs";
 
+    const ballClass = `
+      ${sizeClasses}
+      rounded-full
+      flex items-center justify-center
+      text-white font-extrabold
+      ${
+        isWin
+          ? "bg-gradient-to-br from-green-400 to-emerald-600 shadow-md shadow-emerald-300/50"
+          : isLost
+            ? "bg-gradient-to-br from-red-400 to-rose-600 shadow-md shadow-red-300/50"
+            : "bg-gradient-to-br from-amber-400 to-orange-500 shadow-md shadow-amber-300/50"
+      }
+    `;
+
+    // ----------------------------------------------------------
+    // HALF / FULL SANGAM
+    // ----------------------------------------------------------
+
+    if (parsed.sangam) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
+            {parsed.first.map((digit, index) => (
+              <div
+                key={`first-${index}`}
+                className={ballClass}
+              >
+                {digit}
+              </div>
+            ))}
+          </div>
+
+          <span className="font-extrabold text-gray-400 text-xs">
+            -
+          </span>
+
+          <div className="flex items-center gap-1">
+            {parsed.second.map((digit, index) => (
+              <div
+                key={`second-${index}`}
+                className={ballClass}
+              >
+                {digit}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ----------------------------------------------------------
+    // NORMAL GAME
+    // ----------------------------------------------------------
+
     return (
       <div className="flex items-center gap-1">
-        {digits.map((digit, index) => (
+        {parsed.first.map((digit, index) => (
           <div
             key={index}
-            className={`${sizeClasses} rounded-full flex items-center justify-center text-white font-extrabold ${
-              isWin
-                ? "bg-gradient-to-br from-green-400 to-emerald-600 shadow-md shadow-emerald-300/50"
-                : isLost
-                  ? "bg-gradient-to-br from-red-400 to-rose-600 shadow-md shadow-red-300/50"
-                  : "bg-gradient-to-br from-amber-400 to-orange-500 shadow-md shadow-amber-300/50"
-            }`}
+            className={ballClass}
+          >
+            {digit}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // ============================================================
+  // RENDER RESULT
+  // ============================================================
+
+  const renderResultNumber = (
+    number,
+    gameType
+  ) => {
+    if (
+      number === undefined ||
+      number === null ||
+      number === ""
+    ) {
+      return (
+        <span className="text-[10px] text-gray-400">
+          Pending
+        </span>
+      );
+    }
+
+    const parsed = getResultDigits(
+      number,
+      gameType
+    );
+
+    if (parsed.sangam) {
+      return (
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
+            {parsed.first.map((digit, index) => (
+              <div
+                key={`result-first-${index}`}
+                className="w-6 h-6 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center text-[10px] font-extrabold text-gray-700"
+              >
+                {digit}
+              </div>
+            ))}
+          </div>
+
+          <span className="font-extrabold text-gray-400 text-[10px]">
+            -
+          </span>
+
+          <div className="flex items-center gap-1">
+            {parsed.second.map((digit, index) => (
+              <div
+                key={`result-second-${index}`}
+                className="w-6 h-6 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center text-[10px] font-extrabold text-gray-700"
+              >
+                {digit}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1">
+        {parsed.first.map((digit, index) => (
+          <div
+            key={index}
+            className="w-6 h-6 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center text-[10px] font-extrabold text-gray-700"
           >
             {digit}
           </div>
@@ -370,9 +615,29 @@ const BidsHistory = () => {
 
                     {/* Row 2: Game type + Date */}
                     <div className="flex items-center justify-between mb-2.5">
-                      <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700">
-                        {gameTypeDisplay}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-gray-100 text-gray-700">
+                          {gameTypeDisplay}
+                        </span>
+
+                        {bid.gameType === "half-sangam" && (
+                          <span className="text-[9px] text-gray-400">
+                            123-5 / 5-123
+                          </span>
+                        )}
+
+                        {bid.gameType === "full-sangam" && (
+                          <span className="text-[9px] text-gray-400">
+                            123-456
+                          </span>
+                        )}
+
+                        {getDigitType(bid) && (
+                          <span className="px-2 py-1 text-[9px] font-extrabold rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                            {getDigitType(bid)}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-right">
                         <p className="text-[10px] text-gray-500">
                           {new Date(bid.createdAt).toLocaleDateString("en-IN", {
@@ -411,19 +676,7 @@ const BidsHistory = () => {
                           Result
                         </p>
                         {isResultDeclared ? (
-                          <div className="flex items-center gap-1">
-                            {getResultDigits(
-                              bid.resultNumber,
-                              bid.gameType,
-                            ).map((digit, index) => (
-                              <div
-                                key={index}
-                                className="w-6 h-6 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center text-[10px] font-extrabold text-gray-700"
-                              >
-                                {digit}
-                              </div>
-                            ))}
-                          </div>
+                          renderResultNumber(bid.resultNumber, bid.gameType)
                         ) : (
                           <span className="text-[10px] text-gray-400">
                             Pending

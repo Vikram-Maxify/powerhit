@@ -168,16 +168,9 @@ const STATUS_STYLES = {
    ============================================================ */
 
 const GAME_TYPES = [
-  {
-    key: "single",
-    label: "SINGLE",
-    sub: "Choose One Number",
-    mode: "digits",
-    digits: ["7"],
-    image: GAME_TYPE_IMAGES.single,
-    icon: Dice5,
-  },
-
+  // ==========================================================
+  // 2-DIGIT MARKET GAMES
+  // ==========================================================
   {
     key: "jodi",
     label: "JODI",
@@ -186,43 +179,7 @@ const GAME_TYPES = [
     digits: ["7", "8"],
     image: GAME_TYPE_IMAGES.jodi,
     icon: Grid3x3,
-  },
-
-  {
-    key: "panna",
-    label: "PANNA",
-    sub: "Choose Panna",
-    mode: "icon",
-    image: GAME_TYPE_IMAGES.panna,
-    icon: Dice5,
-  },
-
-  {
-    key: "spot",
-    label: "SPOT",
-    sub: "Choose Spot Number",
-    mode: "digits",
-    digits: ["5"],
-    image: GAME_TYPE_IMAGES.spot,
-    icon: Gem,
-  },
-
-  {
-    key: "half-sangam",
-    label: "HALF-SANGAM",
-    sub: "Open + Close Combo",
-    mode: "icon",
-    image: GAME_TYPE_IMAGES["half-sangam"],
-    icon: Moon,
-  },
-
-  {
-    key: "full-sangam",
-    label: "FULL-SANGAM",
-    sub: "Full Combo",
-    mode: "icon",
-    image: GAME_TYPE_IMAGES["full-sangam"],
-    icon: Sun,
+    digitType: "2-digit",
   },
 
   {
@@ -232,6 +189,7 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES["last-digit"],
     icon: ArrowRightFromLine,
+    digitType: "2-digit",
   },
 
   {
@@ -241,6 +199,71 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES["first-digit"],
     icon: ArrowLeftFromLine,
+    digitType: "2-digit",
+  },
+
+  // ==========================================================
+  // 3-DIGIT MARKET GAMES
+  // ==========================================================
+  {
+    key: "jodi",
+    label: "JODI",
+    sub: "Choose Two Numbers",
+    mode: "digits",
+    digits: ["7", "8"],
+    image: GAME_TYPE_IMAGES.jodi,
+    icon: Grid3x3,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "panna",
+    label: "PANNA",
+    sub: "Choose Panna",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES.panna,
+    icon: Dice5,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "half-sangam",
+    label: "HALF-SANGAM",
+    sub: "Open + Close Combo",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["half-sangam"],
+    icon: Moon,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "full-sangam",
+    label: "FULL-SANGAM",
+    sub: "Full Combo",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["full-sangam"],
+    icon: Sun,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "last-digit",
+    label: "LAST DIGIT",
+    sub: "Choose Last Digit",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["last-digit"],
+    icon: ArrowRightFromLine,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "first-digit",
+    label: "FIRST DIGIT",
+    sub: "Choose First Digit",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["first-digit"],
+    icon: ArrowLeftFromLine,
+    digitType: "3-digit",
   },
 ];
 
@@ -408,7 +431,6 @@ const MatkaMarkets = () => {
 
   const handleSelectGameType = (gameType) => {
     setSelectedGameType(gameType);
-
     setShowAllGameTypes(false);
 
     if (selectedMarket) {
@@ -809,6 +831,11 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
                 Choose Game Type
+                {selectedMarket?.digitType && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                    {selectedMarket.digitType}
+                  </span>
+                )}
               </h2>
             </div>
 
@@ -838,7 +865,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
               return (
                 <div
-                  key={gt.key}
+                  key={`${gt.digitType}-${gt.key}`}
                   className={`overflow-hidden rounded-2xl border bg-white text-center shadow-sm transition ${
                     isSelected
                       ? "border-amber-400 ring-2 ring-amber-200"
@@ -856,6 +883,10 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                     />
 
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                    <div className="absolute left-2 top-2 rounded-full border border-white/40 bg-black/30 px-2 py-0.5 text-[8px] font-bold text-white backdrop-blur-sm">
+                      {gt.digitType}
+                    </div>
 
                     <div className="absolute bottom-2 left-2 right-2">
                       <p className="flex items-center justify-center gap-1 text-[10px] font-extrabold tracking-wide text-white sm:text-xs">
