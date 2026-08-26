@@ -41,7 +41,7 @@ const endSession = async (session) => {
 };
 
 // ============================================================
-// ================= DECLARE RESULT ===========================
+// ================= DECLARE RESULT ============================
 // ============================================================
 
 exports.declareResult = async (req, res) => {
@@ -668,7 +668,7 @@ exports.declareResult = async (req, res) => {
 };
 
 // ============================================================
-// ================= HELPER: CHECK BID WIN ===================
+// ================= HELPER: CHECK BID WIN =====================
 // ============================================================
 
 const checkBidWin = (
@@ -706,34 +706,84 @@ const checkBidWin = (
     return false;
   }
 
+  // ============================================================
+  // GAME TYPE MATCHING
+  // ============================================================
+
   switch (bid.gameType) {
+
     // ============================================================
     // JODI
     // ============================================================
+    //
+    // IMPORTANT:
+    //
+    // Jodi bid ke FIRST 2 DIGITS ko result ke FIRST 2 DIGITS
+    // se match karega.
+    //
+    // Bid    = 12
+    // Result = 123456
+    // FIRST 2 = 12
+    // => WIN
+    //
+    // Bid    = 12
+    // Result = 129876
+    // FIRST 2 = 12
+    // => WIN
+    //
+    // Bid    = 12
+    // Result = 132456
+    // FIRST 2 = 13
+    // => LOST
+    //
+    // ============================================================
 
-    case "jodi":
+    case "jodi": {
+      const bidFirstTwo =
+        bidNumStr.slice(0, 2);
+
+      const resultFirstTwo =
+        winningNumStr.slice(0, 2);
+
       return (
-        winningNumStr ===
-        bidNumStr.padStart(2, "0")
+        bidFirstTwo.length === 2 &&
+        resultFirstTwo.length === 2 &&
+        /^\d{2}$/.test(bidFirstTwo) &&
+        /^\d{2}$/.test(resultFirstTwo) &&
+        bidFirstTwo === resultFirstTwo
       );
+    }
 
     // ============================================================
     // PANNA
     // ============================================================
 
-    case "panna":
+    case "panna": {
+      const bidPanna =
+        bidNumStr.padStart(3, "0");
+
+      const resultPanna =
+        winningNumStr.padStart(3, "0");
+
       return (
-        winningNumStr ===
-        bidNumStr.padStart(3, "0")
+        bidPanna.length === 3 &&
+        resultPanna.length === 3 &&
+        /^\d{3}$/.test(bidPanna) &&
+        /^\d{3}$/.test(resultPanna) &&
+        bidPanna === resultPanna
       );
+    }
 
     // ============================================================
     // HALF SANGAM
     // ============================================================
 
     case "half-sangam": {
-      const bidParts = bidNumStr.split("-");
-      const resultParts = winningNumStr.split("-");
+      const bidParts =
+        bidNumStr.split("-");
+
+      const resultParts =
+        winningNumStr.split("-");
 
       if (
         bidParts.length !== 2 ||
@@ -742,20 +792,32 @@ const checkBidWin = (
         return false;
       }
 
+      const bidFirst =
+        bidParts[0].trim();
+
+      const bidSecond =
+        bidParts[1].trim();
+
+      const resultFirst =
+        resultParts[0].trim();
+
+      const resultSecond =
+        resultParts[1].trim();
+
       // ----------------------------------------------------------
       // PANNA + DIGIT
       // Example: 123-6
       // ----------------------------------------------------------
 
       if (
-        bidParts[0].length === 3 &&
-        bidParts[1].length === 1
+        /^\d{3}$/.test(bidFirst) &&
+        /^\d$/.test(bidSecond)
       ) {
         return (
-          resultParts[0].length === 3 &&
-          resultParts[1].length === 1 &&
-          bidParts[0] === resultParts[0] &&
-          bidParts[1] === resultParts[1]
+          /^\d{3}$/.test(resultFirst) &&
+          /^\d$/.test(resultSecond) &&
+          bidFirst === resultFirst &&
+          bidSecond === resultSecond
         );
       }
 
@@ -765,14 +827,14 @@ const checkBidWin = (
       // ----------------------------------------------------------
 
       if (
-        bidParts[0].length === 1 &&
-        bidParts[1].length === 3
+        /^\d$/.test(bidFirst) &&
+        /^\d{3}$/.test(bidSecond)
       ) {
         return (
-          resultParts[0].length === 1 &&
-          resultParts[1].length === 3 &&
-          bidParts[0] === resultParts[0] &&
-          bidParts[1] === resultParts[1]
+          /^\d$/.test(resultFirst) &&
+          /^\d{3}$/.test(resultSecond) &&
+          bidFirst === resultFirst &&
+          bidSecond === resultSecond
         );
       }
 
@@ -784,8 +846,11 @@ const checkBidWin = (
     // ============================================================
 
     case "full-sangam": {
-      const bidParts = bidNumStr.split("-");
-      const resultParts = winningNumStr.split("-");
+      const bidParts =
+        bidNumStr.split("-");
+
+      const resultParts =
+        winningNumStr.split("-");
 
       if (
         bidParts.length !== 2 ||
@@ -794,18 +859,30 @@ const checkBidWin = (
         return false;
       }
 
+      const bidFirst =
+        bidParts[0].trim();
+
+      const bidSecond =
+        bidParts[1].trim();
+
+      const resultFirst =
+        resultParts[0].trim();
+
+      const resultSecond =
+        resultParts[1].trim();
+
       if (
-        bidParts[0].length !== 3 ||
-        bidParts[1].length !== 3 ||
-        resultParts[0].length !== 3 ||
-        resultParts[1].length !== 3
+        !/^\d{3}$/.test(bidFirst) ||
+        !/^\d{3}$/.test(bidSecond) ||
+        !/^\d{3}$/.test(resultFirst) ||
+        !/^\d{3}$/.test(resultSecond)
       ) {
         return false;
       }
 
       return (
-        bidParts[0] === resultParts[0] &&
-        bidParts[1] === resultParts[1]
+        bidFirst === resultFirst &&
+        bidSecond === resultSecond
       );
     }
 
@@ -832,26 +909,6 @@ const checkBidWin = (
     // ============================================================
 
     case "first-digit": {
-      /*
-        IMPORTANT:
-
-        Bid  = 12
-        Result = 123456
-
-        Bid first digit    = 1
-        Result first digit = 1
-
-        => WIN
-
-        Bid  = 25
-        Result = 123456
-
-        Bid first digit    = 2
-        Result first digit = 1
-
-        => LOST
-      */
-
       const bidFirstDigit =
         bidNumStr.match(/^\d/)?.[0];
 
@@ -875,7 +932,7 @@ const checkBidWin = (
 };
 
 // ============================================================
-// ================= GET RESULTS ==============================
+// ================= GET RESULTS ================================
 // ============================================================
 
 exports.getResults = async (
@@ -901,18 +958,30 @@ exports.getResults = async (
       filter.resultDate = {};
 
       if (startDate) {
-        const parsedStartDate = new Date(startDate);
+        const parsedStartDate =
+          new Date(startDate);
 
-        if (!Number.isNaN(parsedStartDate.getTime())) {
-          filter.resultDate.$gte = parsedStartDate;
+        if (
+          !Number.isNaN(
+            parsedStartDate.getTime()
+          )
+        ) {
+          filter.resultDate.$gte =
+            parsedStartDate;
         }
       }
 
       if (endDate) {
-        const parsedEndDate = new Date(endDate);
+        const parsedEndDate =
+          new Date(endDate);
 
-        if (!Number.isNaN(parsedEndDate.getTime())) {
-          filter.resultDate.$lte = parsedEndDate;
+        if (
+          !Number.isNaN(
+            parsedEndDate.getTime()
+          )
+        ) {
+          filter.resultDate.$lte =
+            parsedEndDate;
         }
       }
     }
@@ -927,23 +996,24 @@ exports.getResults = async (
       1
     );
 
-    const results = await Result.find(filter)
-      .populate(
-        "marketId",
-        "name marketId digitType"
-      )
-      .populate(
-        "declaredBy",
-        "name email"
-      )
-      .sort({
-        resultDate: -1,
-      })
-      .skip(
-        (parsedPage - 1) *
-          parsedLimit
-      )
-      .limit(parsedLimit);
+    const results =
+      await Result.find(filter)
+        .populate(
+          "marketId",
+          "name marketId digitType"
+        )
+        .populate(
+          "declaredBy",
+          "name email"
+        )
+        .sort({
+          resultDate: -1,
+        })
+        .skip(
+          (parsedPage - 1) *
+            parsedLimit
+        )
+        .limit(parsedLimit);
 
     const total =
       await Result.countDocuments(filter);
@@ -981,7 +1051,7 @@ exports.getResults = async (
 };
 
 // ============================================================
-// ================= GET RESULT BY ID ========================
+// ================= GET RESULT BY ID ==========================
 // ============================================================
 
 exports.getResultById = async (
@@ -993,7 +1063,11 @@ exports.getResultById = async (
       resultId,
     } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(resultId)) {
+    if (
+      !mongoose.Types.ObjectId.isValid(
+        resultId
+      )
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid result ID",
@@ -1065,7 +1139,7 @@ exports.getResultById = async (
 };
 
 // ============================================================
-// ================= GET TODAY'S RESULTS =====================
+// ================= GET TODAY'S RESULTS =======================
 // ============================================================
 
 exports.getTodayResults = async (
@@ -1082,7 +1156,8 @@ exports.getTodayResults = async (
       0
     );
 
-    const tomorrow = new Date(today);
+    const tomorrow =
+      new Date(today);
 
     tomorrow.setDate(
       tomorrow.getDate() + 1
@@ -1123,7 +1198,7 @@ exports.getTodayResults = async (
 };
 
 // ============================================================
-// ================= GET RESULT STATISTICS ====================
+// ================= GET RESULT STATISTICS =====================
 // ============================================================
 
 exports.getResultStats = async (
