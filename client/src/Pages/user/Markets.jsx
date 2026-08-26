@@ -168,9 +168,16 @@ const STATUS_STYLES = {
    ============================================================ */
 
 const GAME_TYPES = [
-  // ==========================================================
-  // 2-DIGIT MARKET GAMES
-  // ==========================================================
+  {
+    key: "single",
+    label: "SINGLE",
+    sub: "Choose One Number",
+    mode: "digits",
+    digits: ["7"],
+    image: GAME_TYPE_IMAGES.single,
+    icon: Dice5,
+  },
+
   {
     key: "jodi",
     label: "JODI",
@@ -179,41 +186,6 @@ const GAME_TYPES = [
     digits: ["7", "8"],
     image: GAME_TYPE_IMAGES.jodi,
     icon: Grid3x3,
-    digitType: "2-digit",
-  },
-
-  {
-    key: "last-digit",
-    label: "LAST DIGIT",
-    sub: "Choose Last Digit",
-    mode: "icon",
-    image: GAME_TYPE_IMAGES["last-digit"],
-    icon: ArrowRightFromLine,
-    digitType: "2-digit",
-  },
-
-  {
-    key: "first-digit",
-    label: "FIRST DIGIT",
-    sub: "Choose First Digit",
-    mode: "icon",
-    image: GAME_TYPE_IMAGES["first-digit"],
-    icon: ArrowLeftFromLine,
-    digitType: "2-digit",
-  },
-
-  // ==========================================================
-  // 3-DIGIT MARKET GAMES
-  // ==========================================================
-  {
-    key: "jodi",
-    label: "JODI",
-    sub: "Choose Two Numbers",
-    mode: "digits",
-    digits: ["7", "8"],
-    image: GAME_TYPE_IMAGES.jodi,
-    icon: Grid3x3,
-    digitType: "3-digit",
   },
 
   {
@@ -223,7 +195,16 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES.panna,
     icon: Dice5,
-    digitType: "3-digit",
+  },
+
+  {
+    key: "spot",
+    label: "SPOT",
+    sub: "Choose Spot Number",
+    mode: "digits",
+    digits: ["5"],
+    image: GAME_TYPE_IMAGES.spot,
+    icon: Gem,
   },
 
   {
@@ -233,7 +214,6 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES["half-sangam"],
     icon: Moon,
-    digitType: "3-digit",
   },
 
   {
@@ -243,7 +223,6 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES["full-sangam"],
     icon: Sun,
-    digitType: "3-digit",
   },
 
   {
@@ -253,7 +232,6 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES["last-digit"],
     icon: ArrowRightFromLine,
-    digitType: "3-digit",
   },
 
   {
@@ -263,9 +241,30 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES["first-digit"],
     icon: ArrowLeftFromLine,
-    digitType: "3-digit",
   },
 ];
+
+const getAllowedGameTypes = (market) => {
+  if (!market) return [];
+  if (market.digitType === "2-digit") {
+    return GAME_TYPES.filter((game) =>
+      ["jodi", "last-digit", "first-digit"].includes(game.key),
+    );
+  }
+  if (market.digitType === "3-digit") {
+    return GAME_TYPES.filter((game) =>
+      [
+        "jodi",
+        "panna",
+        "half-sangam",
+        "full-sangam",
+        "last-digit",
+        "first-digit",
+      ].includes(game.key),
+    );
+  }
+  return [];
+};
 
 const DEFAULT_VISIBLE_GAME_TYPES = 6;
 
@@ -430,12 +429,14 @@ const MatkaMarkets = () => {
      ============================================================ */
 
   const handleSelectGameType = (gameType) => {
+    if (!selectedMarket) return;
+
+    const allowedGameTypes = getAllowedGameTypes(selectedMarket);
+    if (!allowedGameTypes.some((game) => game.key === gameType)) return;
+
     setSelectedGameType(gameType);
     setShowAllGameTypes(false);
-
-    if (selectedMarket) {
-      handlePlaceBid(selectedMarket._id, gameType);
-    }
+    handlePlaceBid(selectedMarket._id, gameType);
   };
 
   /* ============================================================
@@ -831,113 +832,108 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
                 Choose Game Type
-                {selectedMarket?.digitType && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700">
-                    {selectedMarket.digitType}
-                  </span>
-                )}
               </h2>
             </div>
 
-            <button
-              onClick={() => setShowAllGameTypes((prev) => !prev)}
-              className="flex items-center gap-0.5 text-xs font-bold text-amber-700"
-            >
-              {showAllGameTypes ? "SHOW LESS" : "VIEW ALL"}
-
-              <ChevronRight
-                size={14}
-                className={`transition-transform duration-200 ${
-                  showAllGameTypes ? "rotate-90" : ""
-                }`}
-              />
-            </button>
+            {getAllowedGameTypes(selectedMarket).length >
+              DEFAULT_VISIBLE_GAME_TYPES && (
+              <button
+                onClick={() => setShowAllGameTypes((prev) => !prev)}
+                className="flex items-center gap-0.5 text-xs font-bold text-amber-700"
+              >
+                {showAllGameTypes ? "SHOW LESS" : "VIEW ALL"}
+                <ChevronRight
+                  size={14}
+                  className={`transition-transform duration-200 ${showAllGameTypes ? "rotate-90" : ""}`}
+                />
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-1 sm:gap-3">
-            {GAME_TYPES.slice(
-              0,
-              showAllGameTypes ? GAME_TYPES.length : DEFAULT_VISIBLE_GAME_TYPES,
-            ).map((gt) => {
-              const Icon = gt.icon;
+            {getAllowedGameTypes(selectedMarket)
+              .slice(
+                0,
+                showAllGameTypes
+                  ? getAllowedGameTypes(selectedMarket).length
+                  : DEFAULT_VISIBLE_GAME_TYPES,
+              )
+              .map((gt) => {
+                const Icon = gt.icon;
 
-              const isSelected = selectedGameType === gt.key;
+                const isSelected = selectedGameType === gt.key;
 
-              return (
-                <div
-                  key={`${gt.digitType}-${gt.key}`}
-                  className={`overflow-hidden rounded-2xl border bg-white text-center shadow-sm transition ${
-                    isSelected
-                      ? "border-amber-400 ring-2 ring-amber-200"
-                      : "border-amber-100"
-                  }`}
-                >
-                  {/* GAME IMAGE */}
+                return (
+                  <div
+                    key={gt.key}
+                    className={`overflow-hidden rounded-2xl border bg-white text-center shadow-sm transition ${
+                      isSelected
+                        ? "border-amber-400 ring-2 ring-amber-200"
+                        : "border-amber-100"
+                    }`}
+                  >
+                    {/* GAME IMAGE */}
 
-                  <div className="relative h-24 w-full overflow-hidden sm:h-32">
-                    <SafeImage
-                      src={gt.image}
-                      alt={gt.label}
-                      fallbackIcon={Icon}
-                      className="h-full w-full object-cover"
-                    />
+                    <div className="relative h-24 w-full overflow-hidden sm:h-32">
+                      <SafeImage
+                        src={gt.image}
+                        alt={gt.label}
+                        fallbackIcon={Icon}
+                        className="h-full w-full object-cover"
+                      />
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-                    <div className="absolute left-2 top-2 rounded-full border border-white/40 bg-black/30 px-2 py-0.5 text-[8px] font-bold text-white backdrop-blur-sm">
-                      {gt.digitType}
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <p className="flex items-center justify-center gap-1 text-[10px] font-extrabold tracking-wide text-white sm:text-xs">
+                          {gt.label}
+
+                          {isSelected && (
+                            <Check size={12} className="text-amber-300" />
+                          )}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <p className="flex items-center justify-center gap-1 text-[10px] font-extrabold tracking-wide text-white sm:text-xs">
-                        {gt.label}
+                    <div className="p-2 sm:p-3">
+                      {/* DIGIT BADGE */}
 
-                        {isSelected && (
-                          <Check size={12} className="text-amber-300" />
+                      <div className="mx-auto mb-2 flex min-h-[36px] items-center justify-center">
+                        {gt.mode === "digits" ? (
+                          <div className="flex items-center justify-center gap-1">
+                            {gt.digits.map((d, i) => (
+                              <span
+                                key={i}
+                                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-sm font-extrabold text-white ring-2 ring-amber-200"
+                              >
+                                {d}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-white ring-2 ring-amber-200">
+                            <Icon size={18} />
+                          </span>
                         )}
+                      </div>
+
+                      <p className="mb-2 min-h-[16px] text-[8px] text-gray-400 sm:text-[10px]">
+                        {gt.sub}
                       </p>
+
+                      <button
+                        onClick={() =>
+                          selectedMarket && handleSelectGameType(gt.key)
+                        }
+                        className="w-full rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] py-1.5 text-[10px] font-bold text-black transition-all hover:shadow-md sm:py-2 sm:text-xs"
+                        disabled={!selectedMarket}
+                      >
+                        {selectedMarket ? "PLAY →" : "SELECT MARKET"}
+                      </button>
                     </div>
                   </div>
-
-                  <div className="p-2 sm:p-3">
-                    {/* DIGIT BADGE */}
-
-                    <div className="mx-auto mb-2 flex min-h-[36px] items-center justify-center">
-                      {gt.mode === "digits" ? (
-                        <div className="flex items-center justify-center gap-1">
-                          {gt.digits.map((d, i) => (
-                            <span
-                              key={i}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-sm font-extrabold text-white ring-2 ring-amber-200"
-                            >
-                              {d}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-white ring-2 ring-amber-200">
-                          <Icon size={18} />
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mb-2 min-h-[16px] text-[8px] text-gray-400 sm:text-[10px]">
-                      {gt.sub}
-                    </p>
-
-                    <button
-                      onClick={() =>
-                        selectedMarket && handleSelectGameType(gt.key)
-                      }
-                      className="w-full rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] py-1.5 text-[10px] font-bold text-black transition-all hover:shadow-md sm:py-2 sm:text-xs"
-                      disabled={!selectedMarket}
-                    >
-                      {selectedMarket ? "PLAY →" : "SELECT MARKET"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
 

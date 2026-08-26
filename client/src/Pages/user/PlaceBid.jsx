@@ -83,7 +83,7 @@ const PlaceBid = () => {
   const location = useLocation();
 
   const { currentMarket, loading: marketLoading } = useSelector(
-    (state) => state.market
+    (state) => state.market,
   );
 
   const { user } = useSelector((state) => state.auth);
@@ -95,14 +95,12 @@ const PlaceBid = () => {
   } = useSelector((state) => state.bid);
 
   const { results: publicResults, loading: resultsLoading } = useSelector(
-    selectPublicBidResults
+    selectPublicBidResults,
   );
 
   // MUST BE BEFORE marketDigitType
-  const {
-    gameType: autoGameType,
-    digitType: autoDigitType,
-  } = location.state || {};
+  const { gameType: autoGameType, digitType: autoDigitType } =
+    location.state || {};
 
   // Market controls available games
   const marketDigitType =
@@ -150,9 +148,9 @@ const PlaceBid = () => {
 
   const [localError, setLocalError] = useState("");
   const [success, setSuccess] = useState("");
-  const [isHalfSangamMode, setIsHalfSangamMode] = useState("single");
+  const [isHalfSangamMode, setIsHalfSangamMode] = useState("triple");
   const [isCustomAmount, setIsCustomAmount] = useState(false);
-  const [customAmountError, setCustomAmountError] = useState("");  // Bid amount options derived from the market's minBid/maxBid range
+  const [customAmountError, setCustomAmountError] = useState(""); // Bid amount options derived from the market's minBid/maxBid range
   const bidAmountOptions = useMemo(
     () => generateBidAmounts(currentMarket?.minBid, currentMarket?.maxBid),
     [currentMarket?.minBid, currentMarket?.maxBid],
@@ -319,9 +317,7 @@ const PlaceBid = () => {
       setFormData((prev) => ({ ...prev, gameType: "" }));
       setSelectedDigits([]);
       setCurrentDigitIndex(0);
-      setLocalError(
-        `This game is not available for ${marketDigitType} market`
-      );
+      setLocalError(`This game is not available for ${marketDigitType} market`);
       return;
     }
 
@@ -329,13 +325,9 @@ const PlaceBid = () => {
     setSelectedDigits([]);
     setCurrentDigitIndex(0);
     if (autoGameType === "half-sangam") {
-      setIsHalfSangamMode("single");
+      setIsHalfSangamMode("triple");
     }
-  }, [
-    autoGameType,
-    marketDigitType,
-    allowedGameTypesByDigitType,
-  ]);
+  }, [autoGameType, marketDigitType, allowedGameTypesByDigitType]);
 
   useEffect(() => {
     if (error) {
@@ -440,13 +432,13 @@ const PlaceBid = () => {
 
     if (!marketDigitType) {
       return setLocalError(
-        "Market digit type is not configured. Please select 2-digit or 3-digit market."
+        "Market digit type is not configured. Please select 2-digit or 3-digit market.",
       );
     }
 
     if (!isGameTypeAllowed(formData.gameType)) {
       return setLocalError(
-        `${getGameTypeDisplay(formData.gameType)} is not available for ${marketDigitType} market`
+        `${getGameTypeDisplay(formData.gameType)} is not available for ${marketDigitType} market`,
       );
     }
 
@@ -565,12 +557,14 @@ const PlaceBid = () => {
       "half-sangam": {
         title: "ABOUT HALF-SANGAM",
         desc: "Select one digit and one Panna. You can play Digit + Panna (5-123) or Panna + Digit (123-5).",
-        example: "Example: 123-5 or 5-123 → Both sides must match the declared result.",
+        example:
+          "Example: 123-5 or 5-123 → Both sides must match the declared result.",
       },
       "full-sangam": {
         title: "ABOUT FULL-SANGAM",
         desc: "Select two Pannas: one for Open and one for Close. The format is 123-456.",
-        example: "Example: 123-456 → Open Panna 123 + Close Panna 456 must both match.",
+        example:
+          "Example: 123-456 → Open Panna 123 + Close Panna 456 must both match.",
       },
       "last-digit": {
         title: "ABOUT LAST DIGIT",
@@ -603,26 +597,6 @@ const PlaceBid = () => {
       return (
         <div>
           <div className="flex gap-2 mb-4">
-            <button
-              type="button"
-              onClick={() => {
-                setIsHalfSangamMode("single");
-                setSelectedDigits([]);
-                setCurrentDigitIndex(0);
-                setFormData((prev) => ({ ...prev, number: "" }));
-              }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
-                isHalfSangamMode === "single"
-                  ? "bg-amber-50 border-amber-400 text-amber-700"
-                  : "bg-white border-gray-200 text-gray-500"
-              }`}
-            >
-              Digit + Panna
-              <span className="block text-[10px] font-normal mt-0.5">
-                5-123
-              </span>
-            </button>
-
             <button
               type="button"
               onClick={() => {
@@ -680,12 +654,13 @@ const PlaceBid = () => {
           {Array.from({ length: count }, (_, i) => (
             <div key={i} className="text-center">
               <div
-                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center text-2xl font-bold transition-all ${selectedDigits[i] !== null && selectedDigits[i] !== undefined
+                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center text-2xl font-bold transition-all ${
+                  selectedDigits[i] !== null && selectedDigits[i] !== undefined
                     ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-white"
                     : i === currentDigitIndex
                       ? "border-amber-400 bg-amber-50 text-gray-400"
                       : "border-gray-200 bg-gray-50 text-gray-300"
-                  }`}
+                }`}
               >
                 {selectedDigits[i] !== null && selectedDigits[i] !== undefined
                   ? selectedDigits[i]
@@ -703,14 +678,14 @@ const PlaceBid = () => {
         {/* Digit grid */}
         <div className="grid grid-cols-5 gap-2.5 max-w-[280px] mx-auto">
           {digits.map((digit) => {
-            const preventDuplicate =
-              !["panna", "half-sangam", "full-sangam"].includes(
-                formData.gameType
-              );
+            const preventDuplicate = ![
+              "panna",
+              "half-sangam",
+              "full-sangam",
+            ].includes(formData.gameType);
 
             const isSelected =
-              preventDuplicate &&
-              selectedDigits.some((d) => d === digit);
+              preventDuplicate && selectedDigits.some((d) => d === digit);
 
             return (
               <button
@@ -720,11 +695,12 @@ const PlaceBid = () => {
                 disabled={isSelected || isComplete}
                 className={`
                   w-11 h-11 rounded-full font-mono font-bold text-lg transition-all duration-200
-                  ${isSelected
-                    ? "bg-amber-500 text-white shadow-lg shadow-amber-200 scale-95"
-                    : isComplete
-                      ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                      : "bg-white border-2 border-gray-200 text-gray-700 hover:border-amber-400 hover:bg-amber-50 hover:scale-110 active:scale-95"
+                  ${
+                    isSelected
+                      ? "bg-amber-500 text-white shadow-lg shadow-amber-200 scale-95"
+                      : isComplete
+                        ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                        : "bg-white border-2 border-gray-200 text-gray-700 hover:border-amber-400 hover:bg-amber-50 hover:scale-110 active:scale-95"
                   }
                 `}
               >
@@ -997,7 +973,8 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                     Select a game from the market page
                   </p>
                   <p className="mt-1 text-xs text-gray-300">
-                    Available games are automatically based on {marketDigitType}.
+                    Available games are automatically based on {marketDigitType}
+                    .
                   </p>
                 </div>
               ) : (
@@ -1032,9 +1009,10 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                         onClick={() => handleBidAmountClick(amount)}
                         className={`
                           py-2.5 rounded-xl text-sm font-bold transition-all border-2
-                          ${formData.bidAmount === amount.toString()
-                            ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
-                            : "bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-300 hover:bg-amber-50"
+                          ${
+                            formData.bidAmount === amount.toString()
+                              ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
+                              : "bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-300 hover:bg-amber-50"
                           }
                         `}
                       >
@@ -1072,10 +1050,11 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                               value={formData.bidAmount}
                               onChange={handleCustomAmountChange}
                               placeholder={`${currentMarket.minBid} - ${currentMarket.maxBid}`}
-                              className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${customAmountError
+                              className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${
+                                customAmountError
                                   ? "border-red-300 focus:border-red-400 text-red-600"
                                   : "border-amber-300 focus:border-amber-500 text-gray-700"
-                                }`}
+                              }`}
                             />
                           </div>
                           <button
@@ -1160,7 +1139,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                             YOUR COINS
                           </p>
                           <p className="font-bold text-gray-700">
-                            {formatCurrency(user?.balance.local || 0)}
+                            {formatCurrency(user?.balance || 0)}
                           </p>
                         </div>
                         <div>

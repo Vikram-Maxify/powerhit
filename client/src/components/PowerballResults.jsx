@@ -109,7 +109,7 @@ const PowerballResults = () => {
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
         {/* ===== LATEST RESULT ===== */}
         <div
-          className="relative rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+          className="relative rounded-xl overflow-hidden"
           style={{
             backgroundImage: `url('https://i.ibb.co/7J7T2sRB/Chat-GPT-Image-Aug-26-2026-12-20-01-PM.png')`,
             backgroundSize: "cover",
@@ -120,11 +120,11 @@ const PowerballResults = () => {
           {/* <div className="absolute inset-0 bg-gradient-to-br from-amber-950/85 via-amber-900/75 to-amber-800/70"></div> */}
 
           {/* Content */}
-          <div className="relative z-10 p-4">
+          <div className="relative z-10">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 {/* <Zap size={16} className="text-amber-300" /> */}
-                <span className="text-xs font-bold text-amber-100 ml-10">
+                <span className="text-[12px] font-medium text-amber-100 ml-[7.1rem] mt-3">
                   LATEST POWERBALL RESULT
                 </span>
               </div>
@@ -134,7 +134,7 @@ const PowerballResults = () => {
               </span>
             </div>
 
-            <div className="border-t border-amber-700/40 pt-3">
+            <div className="border-t border-amber-700/40 pt-3 ml-4">
               <h3 className="text-lg font-extrabold text-black flex items-center gap-2">
                 <span>
                   {countries.find((c) => c.name === selectedCountry)?.flag}
@@ -159,7 +159,7 @@ const PowerballResults = () => {
             </div>
 
             {/* Numbers */}
-            <div className="flex items-center gap-3 py-3 rounded-lg mt-3">
+            <div className="flex items-center gap-3 py-3 rounded-lg mt-3 ml-3">
               <div className="flex items-center gap-2">
                 {latestResult.numbers.map((num, i) => (
                   <div
@@ -180,7 +180,7 @@ const PowerballResults = () => {
 
             {/* Next Draw & Jackpot */}
             <div className="grid grid-cols-2 gap-3 mt-3">
-              <div className="rounded-lg px-3 py-2 border border-white/20">
+              <div className="rounded-lg px-3 py-2">
                 <p className="text-[8px] font-bold text-amber-900 uppercase tracking-wider">
                   NEXT DRAW
                 </p>
