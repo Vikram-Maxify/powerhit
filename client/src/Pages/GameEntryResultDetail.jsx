@@ -648,7 +648,7 @@ const GameEntryResultDetail = () => {
                               key={num}
                               className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
                                 isMatched
-                                  ? "bg-amber-500 text-white"
+                                  ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black"
                                   : "bg-white text-gray-600 border border-gray-200"
                               }`}
                             >

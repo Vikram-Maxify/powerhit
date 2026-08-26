@@ -247,16 +247,6 @@ const GAME_TYPES = [
 const DEFAULT_VISIBLE_GAME_TYPES = 6;
 
 /* ============================================================
-   MOCK TAG
-   ============================================================ */
-
-const MockTag = () => (
-  <span className="ml-1.5 inline-flex items-center rounded-full border border-dashed border-amber-300 bg-amber-50 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-wide text-amber-500">
-    mock
-  </span>
-);
-
-/* ============================================================
    SAFE IMAGE
    ============================================================ */
 const SafeImage = ({
@@ -299,7 +289,7 @@ const MatkaMarkets = () => {
   const { activeMarkets, loading } = useSelector((state) => state.market);
   const { user } = useSelector((state) => state.auth); // adjust slice name if different
 
-  const walletBalance = user?.balance?.local ?? 0;
+  const walletBalance = user?.balance;
 
   const [activeTab, setActiveTab] = useState("live");
 

@@ -1186,7 +1186,7 @@ const GameSelection = () => {
         {/* STEP 1: SELECT TICKET TYPE */}
         <section className="mt-3 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-xl font-black text-black">
               1
             </div>
             <div>
@@ -1201,7 +1201,7 @@ const GameSelection = () => {
               <Flame size={16} fill="currentColor" /> Best Value
             </div>
           </div>
-          <div className="grid gap-3 grid-cols-4 sm:gap-4">
+          <div className="grid gap-1 grid-cols-4">
             {ticketTypes.slice(0, 4).map((ticket, index) => {
               const isActive = activeTicket === ticket._id;
               const visual = ticketVisuals[index % ticketVisuals.length];
@@ -1212,7 +1212,7 @@ const GameSelection = () => {
                   onClick={() => setActiveTicket(ticket._id)}
                   onMouseEnter={() => setHoveredTicket(ticket._id)}
                   onMouseLeave={() => setHoveredTicket(null)}
-                  className={`relative flex min-h-[150px] flex-col items-center justify-center gap-2 rounded-[17px] border-2 bg-gradient-to-b from-white to-[#fffdf8] p-3 text-center transition ${
+                  className={`relative flex flex-col items-center justify-center rounded-[17px] border-2 bg-gradient-to-b from-white to-[#fffdf8] text-center pb-3 transition ${
                     isActive
                       ? "border-amber-500 shadow-[0_6px_15px_rgba(229,163,18,0.18)]"
                       : "border-[#f1d7a3] hover:-translate-y-0.5 hover:shadow-lg"
@@ -1233,7 +1233,7 @@ const GameSelection = () => {
                     />
                   </span>
 
-                  <strong className="text-sm font-black sm:text-[17px]">
+                  <strong className="text-sm font-medium -mt-3">
                     {ticket.title || visual.title}
                   </strong>
                   <small className="text-xs text-amber-700 sm:text-sm">
@@ -1248,7 +1248,7 @@ const GameSelection = () => {
         {/* STEP 2: SELECT GAME TYPE */}
         <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-2 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black text-xl font-black">
               2
             </div>
             <div>
@@ -1313,7 +1313,7 @@ const GameSelection = () => {
         {/* STEP 3: SELECT GAME PACKAGE */}
         <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-1 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black font-black text-xl">
               3
             </div>
             <div>
@@ -1374,7 +1374,7 @@ const GameSelection = () => {
         {activeTicket && activeCountryName && (
           <section className="mt-2 rounded-[21px] border border-[#f0e6d5] bg-white/95 p-4 shadow-[0_5px_18px_rgba(103,77,29,0.07)] sm:p-5">
             <div className="mb-3 flex flex-wrap items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 text-xl font-black text-white shadow-lg">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black text-xl font-black">
                 4
               </div>
               <div>
@@ -1657,9 +1657,9 @@ const GameSelection = () => {
                                         e.stopPropagation();
                                         toggleNumber(gameIndex, num);
                                       }}
-                                      className={`h-9 rounded-full font-semibold transition-all duration-200 text-sm ${
+                                      className={`h-9 w-9 rounded-full font-semibold transition-all duration-200 text-sm ${
                                         isSelected
-                                          ? "bg-gradient-to-br from-amber-400 to-yellow-400 text-white shadow-md scale-105"
+                                          ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black scale-105"
                                           : "bg-white hover:bg-gray-100 text-gray-700 border-2 border-gray-200 hover:border-amber-300"
                                       }`}
                                     >
@@ -1703,9 +1703,9 @@ const GameSelection = () => {
                                         e.stopPropagation();
                                         togglePowerball(gameIndex, num);
                                       }}
-                                      className={`h-9 rounded-full font-semibold transition-all duration-200 text-sm ${
+                                      className={`h-9 w-9 rounded-full font-semibold transition-all duration-200 text-sm ${
                                         isSelected
-                                          ? "bg-gradient-to-br from-red-500 to-red-400 text-white shadow-md scale-105"
+                                          ? "bg-[radial-gradient(circle_at_30%_25%,#ff6666_0%,#ed0000_25%,#a80000_55%,#420000_100%)] border border-red-300/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.5),inset_0_-4px_8px_rgba(40,0,0,0.7),0_4px_10px_rgba(120,0,0,0.4)] text-white scale-105"
                                           : "bg-white hover:bg-red-50 text-red-600 border-2 border-red-200 hover:border-red-400"
                                       }`}
                                     >
@@ -1776,97 +1776,241 @@ const GameSelection = () => {
           games.length > 0 &&
           allGamesFilled &&
           activeCountryName && (
-            <section
-              style={{
-                backgroundImage: "url('https://i.ibb.co/XZs4vz6f/banner4.png')",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-              className="mt-2 rounded-2xl min-h-[148px] text-white shadow-xl p-4 sm:p-5"
-            >
-              <div className="flex flex-wrap gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-black sm:text-lg">
-                    YOUR SELECTION SUMMARY
-                  </h3>
-                  <div className="mt-2 flex flex-wrap items-center gap-3 border-b border-amber-900 pb-2">
-                    <span className="text-xs font-bold text-amber-400">
-                      Games: {games.length}
+            <section className="mt-3 overflow-hidden rounded-2xl border border-[#c89b3c]/50 bg-white text-[#241b0b] shadow-[0_10px_35px_rgba(80,55,10,0.18)]">
+              {/* Premium Header */}
+              <div className="relative overflow-hidden bg-[linear-gradient(135deg,#fffdf5_0%,#f8edc9_35%,#d4aa4c_65%,#9b6b18_100%)] px-4 py-4 sm:px-5">
+                {/* Gloss */}
+                <div className="pointer-events-none absolute -top-20 left-1/4 h-32 w-1/2 rounded-full bg-white/40 blur-3xl" />
+
+                <div className="relative flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/60 bg-white/30 shadow-inner">
+                        <span className="text-sm">✦</span>
+                      </div>
+
+                      <div>
+                        <h3 className="text-sm font-black tracking-wide text-[#3b2807] sm:text-base">
+                          YOUR SELECTION SUMMARY
+                        </h3>
+
+                        <p className="mt-0.5 text-[10px] font-semibold text-[#654b17] sm:text-xs">
+                          Review all your selected games
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mode */}
+                  <span className="rounded-full border border-white/60 bg-white/35 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#4b3509] shadow-sm backdrop-blur-sm">
+                    {selectionMode === "quickpick" ? "QuickPick" : "Manual"}
+                  </span>
+                </div>
+
+                {/* Stats */}
+                <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-white/50 bg-white/35 px-3 py-2 backdrop-blur-sm">
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-[#72561b]">
+                      Games
                     </span>
-                    <span className="text-xs text-amber-400">|</span>
-                    <span className="text-xs font-bold text-green-400">
-                      Complete:{" "}
+                    <strong className="text-lg font-black text-[#2e2007]">
+                      {games.length}
+                    </strong>
+                  </div>
+
+                  <div className="rounded-xl border border-white/50 bg-white/35 px-3 py-2 backdrop-blur-sm">
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-[#72561b]">
+                      Complete
+                    </span>
+                    <strong className="text-lg font-black text-green-700">
                       {
                         games.filter((g) => {
                           if (selectionMode === "quickpick") {
                             return g.numbers?.length === 7 && g.powerball;
                           }
+
                           return (
                             g.selectedNumbers?.length === 7 &&
                             g.selectedPowerball
                           );
                         }).length
                       }
-                      /{games.length}
-                    </span>
-                    <span className="ml-auto text-xs bg-amber-700/50 px-2 py-0.5 rounded-full">
-                      {selectionMode === "quickpick" ? "QuickPick" : "Manual"}
-                    </span>
+                      <span className="text-xs font-bold text-[#72561b]">
+                        /{games.length}
+                      </span>
+                    </strong>
                   </div>
 
-                  {/* Show all games numbers summary */}
-                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  <div className="hidden rounded-xl border border-white/50 bg-white/35 px-3 py-2 backdrop-blur-sm sm:block">
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-[#72561b]">
+                      Status
+                    </span>
+
+                    <strong className="text-sm font-black text-green-700">
+                      {allGamesFilled ? "READY" : "INCOMPLETE"}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Game Selection Area */}
+              <div className="border-b border-[#d9bd79]/40 bg-[linear-gradient(180deg,#fffdf8_0%,#fff_100%)] p-3 sm:p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-[#5b4310]">
+                      Selected Games
+                    </h4>
+
+                    <p className="mt-0.5 text-[9px] font-medium text-gray-500">
+                      {games.length} game{games.length !== 1 ? "s" : ""}{" "}
+                      selected
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+                    <span className="text-[9px] font-bold text-gray-500">
+                      Completed
+                    </span>
+                  </div>
+                </div>
+
+                {/* 
+          IMPORTANT:
+          max-height prevents 40-50 games from making the whole page huge.
+          Grid automatically adapts to the screen.
+        */}
+                <div
+                  className="
+            max-h-[360px]
+            overflow-y-auto
+            pr-1
+            scrollbar-thin
+            scrollbar-thumb-[#c89b3c]
+            scrollbar-track-[#f7f1df]
+          "
+                >
+                  <div
+                    className="
+              grid
+              grid-cols-1
+              gap-2
+              sm:grid-cols-2
+              lg:grid-cols-3
+              xl:grid-cols-4
+            "
+                  >
                     {games.map((game, idx) => {
                       const nums =
                         selectionMode === "quickpick"
                           ? game.numbers || []
                           : game.selectedNumbers || [];
+
                       const pb =
                         selectionMode === "quickpick"
                           ? game.powerball
                           : game.selectedPowerball;
+
                       const isComplete = nums.length === 7 && pb;
 
                       return (
                         <div
                           key={idx}
-                          className={`bg-white/10 backdrop-blur-sm rounded-lg p-2 ${isComplete ? "border border-green-400/30" : ""}`}
+                          className={`
+                    group relative overflow-hidden rounded-xl border
+                    bg-white
+                    p-2.5
+                    transition-all duration-200
+                    hover:-translate-y-0.5
+                    hover:shadow-[0_6px_18px_rgba(160,120,30,0.16)]
+                    ${isComplete ? "border-[#d1a63f]/60" : "border-gray-200"}
+                  `}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-amber-300">
-                              Game #{idx + 1}
-                            </span>
+                          {/* Gold accent */}
+                          <div
+                            className={`
+                      absolute left-0 top-0 h-full w-1
+                      ${
+                        isComplete
+                          ? "bg-[linear-gradient(180deg,#fff2a8,#d4a72c,#8c6114)]"
+                          : "bg-gray-200"
+                      }
+                    `}
+                          />
+
+                          <div className="flex items-center justify-between pl-1">
+                            <div className="flex items-center gap-2">
+                              {/* Game number */}
+
+                              <span className="text-[10px] font-black uppercase tracking-wide text-[#5a4517]">
+                                Game #{idx + 1}
+                              </span>
+                            </div>
+
                             {isComplete ? (
-                              <span className="text-[8px] text-green-300">
-                                ✅
+                              <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[8px] font-black text-green-600">
+                                ✓ READY
                               </span>
                             ) : (
-                              <span className="text-[8px] text-red-300">
-                                ⏳
+                              <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[8px] font-black text-amber-600">
+                                PENDING
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-wrap gap-0.5 mt-1">
+
+                          {/* Numbers */}
+                          <div className="mt-2 flex flex-wrap items-center gap-1 pl-1">
                             {nums.length > 0 ? (
                               nums.map((n, i) => (
                                 <span
                                   key={i}
-                                  className="w-5 h-5 rounded-full bg-amber-400/30 text-white flex items-center justify-center text-[8px] font-bold"
+                                  className="
+                            flex h-7 min-w-7 items-center justify-center
+                            rounded-full
+                            border border-[#FFD75A]
+  bg-[radial-gradient(circle_at_32%_25%,#FFFDE8_0%,#FFF19A_10%,#FFC928_35%,#E5A400_62%,#B96D00_100%)]
+  text-[12px]
+  font-black
+  text-black
+  shadow-[
+    inset_2px_2px_4px_rgba(255,255,255,0.9),
+    inset_-3px_-4px_6px_rgba(100,55,0,0.6),
+    inset_0_1px_2px_rgba(255,255,255,0.95),
+    0_2px_7px_rgba(210,145,0,0.45)
+  ] text-black
+                            px-1
+                            text-[8px]
+                            font-black
+                            
+                          "
                                 >
                                   {n}
                                 </span>
                               ))
                             ) : (
-                              <span className="text-[8px] text-white/50">
+                              <span className="text-[9px] italic text-gray-400">
                                 Not selected
                               </span>
                             )}
+
                             {pb && (
                               <>
-                                <span className="text-white/30 text-[8px] mx-0.5">
+                                <span className="mx-0.5 text-[10px] font-black text-gray-300">
                                   +
                                 </span>
-                                <span className="w-5 h-5 rounded-full bg-red-400/30 text-white flex items-center justify-center text-[8px] font-bold">
+
+                                <span
+                                  className="
+                            flex h-7 min-w-7 items-center justify-center
+                            rounded-full
+                            bg-[radial-gradient(circle_at_30%_25%,#ff6666_0%,#ed0000_25%,#a80000_55%,#420000_100%)] border border-red-300/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.5),inset_0_-4px_8px_rgba(40,0,0,0.7),0_4px_10px_rgba(120,0,0,0.4)]
+                            px-1
+                            text-[12px]
+                            font-black
+                            text-white
+                          
+                          "
+                                >
                                   {pb}
                                 </span>
                               </>
@@ -1876,23 +2020,44 @@ const GameSelection = () => {
                       );
                     })}
                   </div>
+                </div>
 
-                  <div className="mt-3 grid gap-3 grid-cols-3 sm:grid-cols-4">
-                    {[
-                      ["Game Type", selectedGameTypeTitle || "POWERBALL"],
-                      ["Package", `POWER PACK (${selectedCount.totalGames})`],
-                      ["Total Games", `${selectedCount.totalGames}`],
-                    ].map(([label, value]) => (
-                      <div key={label} className="min-w-0">
-                        <small className="block text-[10px] font-bold text-amber-400">
-                          {label}
-                        </small>
-                        <strong className="block truncate text-xs sm:text-sm">
-                          {value}
-                        </strong>
-                      </div>
-                    ))}
+                {/* Scroll hint for many games */}
+                {games.length > 12 && (
+                  <div className="mt-2 text-center">
+                    <span className="text-[9px] font-semibold text-gray-400">
+                      ↕ Scroll to view all {games.length} games
+                    </span>
                   </div>
+                )}
+              </div>
+
+              {/* Bottom Information */}
+              <div className="bg-[#fffdf8] p-3 sm:p-4">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {[
+                    ["Game Type", selectedGameTypeTitle || "POWERBALL"],
+                    ["Package", `POWER PACK (${selectedCount.totalGames})`],
+                    ["Total Games", `${selectedCount.totalGames}`],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="
+                rounded-xl
+                border border-[#e0c77e]/50
+                bg-[linear-gradient(135deg,#fff,#fffaf0)]
+                px-3 py-2.5
+              "
+                    >
+                      <small className="block text-[9px] font-black uppercase tracking-wider text-[#a07820]">
+                        {label}
+                      </small>
+
+                      <strong className="mt-0.5 block truncate text-xs font-black text-[#30230b] sm:text-sm">
+                        {value}
+                      </strong>
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>

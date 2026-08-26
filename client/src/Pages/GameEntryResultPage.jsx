@@ -164,7 +164,11 @@ const countries = [
   { name: "Pakistan", flag: "https://flagcdn.com/w80/pk.png", code: "PK" },
   { name: "Bangladesh", flag: "https://flagcdn.com/w80/bd.png", code: "BD" },
   { name: "Nepal", flag: "https://flagcdn.com/w80/np.png", code: "NP" },
-  { name: "United Arab Emirates", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
+  {
+    name: "United Arab Emirates",
+    flag: "https://flagcdn.com/w80/ae.png",
+    code: "UAE",
+  },
 ];
 
 // ======================================================
@@ -369,9 +373,7 @@ const GameEntryResultPage = () => {
     };
 
     const country =
-      countryRouteMap[activeCountryCode] ||
-      normalizedCountry ||
-      "india";
+      countryRouteMap[activeCountryCode] || normalizedCountry || "india";
 
     navigate(`/${country}/game-entry-result/${entry.poolId}`, {
       state: {
@@ -623,7 +625,7 @@ const GameEntryResultPage = () => {
 
                 {/* 👇 UPDATED: View Results button - Navigate to new page */}
                 <button
-                  className="w-full mt-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                  className="w-full mt-1 px-4 py-2.5 bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5"
                   onClick={() => handleViewResults(entry)}
                 >
                   <Eye className="w-3.5 h-3.5" /> View Results{" "}

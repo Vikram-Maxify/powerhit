@@ -66,7 +66,7 @@ export default function WalletDashboard() {
   const isDepositLoading = depositState?.loading || false;
   const isWithdrawalLoading = withdrawalState?.loading || false;
 
-  const walletBalance = user?.balance?.local ?? 0;
+  const walletBalance = user?.balance;
 
   // ======================================================
   // EFFECTS
