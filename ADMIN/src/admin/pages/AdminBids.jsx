@@ -284,7 +284,6 @@ const AdminBids = () => {
 
   const getGameTypeDisplay = (type) => {
     const display = {
-      single: "Single",
       jodi: "Jodi",
       panna: "Panna",
       "half-sangam": "Half-Sangam",
@@ -297,12 +296,46 @@ const AdminBids = () => {
   };
 
   // =========================================================
+  // SANGAM NUMBER DISPLAY
+  // =========================================================
+  //
+  // Half Sangam:
+  //   123-5
+  //   5-123
+  //
+  // Full Sangam:
+  //   123-456
+  //
+  // Keep Sangam numbers exactly as stored by the API.
+  // =========================================================
+
+  const formatSangamNumber = (number, gameType) => {
+    if (
+      number === undefined ||
+      number === null ||
+      number === ""
+    ) {
+      return "-";
+    }
+
+    const value = String(number).trim();
+
+    if (
+      gameType === "half-sangam" ||
+      gameType === "full-sangam"
+    ) {
+      return value;
+    }
+
+    return value;
+  };
+
+  // =========================================================
   // GAME COLOR
   // =========================================================
 
   const getGameTypeColor = (type) => {
     const colors = {
-      single: "bg-blue-100 text-blue-700",
       jodi: "bg-green-100 text-green-700",
       panna: "bg-purple-100 text-purple-700",
       "half-sangam": "bg-orange-100 text-orange-700",
@@ -680,10 +713,6 @@ const AdminBids = () => {
                 All Types
               </option>
 
-              <option value="single">
-                Single
-              </option>
-
               <option value="jodi">
                 Jodi
               </option>
@@ -708,6 +737,18 @@ const AdminBids = () => {
                 First Digit
               </option>
             </select>
+
+            {filter.gameType === "half-sangam" && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Format: 123-5 or 5-123
+              </p>
+            )}
+
+            {filter.gameType === "full-sangam" && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Format: 123-456
+              </p>
+            )}
 
           </div>
 
@@ -746,6 +787,11 @@ const AdminBids = () => {
 
               <p className="text-xs text-gray-500 mt-1">
                 Showing {displayedBids.length} bids
+              </p>
+
+              <p className="text-[11px] text-gray-400 mt-1">
+                Half Sangam: Panna + Digit (123-5 / 5-123) ·
+                Full Sangam: Panna + Panna (123-456)
               </p>
 
             </div>
@@ -908,7 +954,10 @@ const AdminBids = () => {
                       <td className="px-4 py-3 text-center">
 
                         <span className="inline-flex min-w-[50px] justify-center px-3 py-1.5 bg-gray-900 text-white rounded-lg text-sm font-bold">
-                          {bid.number ?? "-"}
+                          {formatSangamNumber(
+                            bid.number,
+                            bid.gameType
+                          )}
                         </span>
 
                       </td>
@@ -921,7 +970,10 @@ const AdminBids = () => {
                         bid.resultNumber !== "" ? (
 
                           <span className="inline-flex min-w-[50px] justify-center px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-bold">
-                            {bid.resultNumber}
+                            {formatSangamNumber(
+                              bid.resultNumber,
+                              bid.gameType
+                            )}
                           </span>
 
                         ) : (

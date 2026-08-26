@@ -2,6 +2,49 @@ const Market = require("../models/Market");
 const uploadToImgBB = require("../utils/uploadToImgBB");
 
 // ==========================================================
+// AUTOMATIC GAME TYPES
+// ==========================================================
+
+const getGameTypesByDigitType = (digitType) => {
+  if (digitType === "2-digit") {
+    return [
+      "jodi",
+      "last-digit",
+      "first-digit",
+    ];
+  }
+
+  if (digitType === "3-digit") {
+    return [
+      "jodi",
+      "panna",
+      "half-sangam",
+      "full-sangam",
+      "last-digit",
+      "first-digit",
+    ];
+  }
+
+  return [];
+};
+
+// ==========================================================
+// VALIDATE DIGIT TYPE
+// ==========================================================
+
+const validateDigitType = (digitType) => {
+  if (!digitType) {
+    return "Digit type is required";
+  }
+
+  if (!["2-digit", "3-digit"].includes(digitType)) {
+    return "Digit type must be either 2-digit or 3-digit";
+  }
+
+  return null;
+};
+
+// ==========================================================
 // CREATE MARKET
 // ==========================================================
 
@@ -10,6 +53,7 @@ exports.createMarket = async (req, res) => {
     const {
       name,
       marketId,
+      digitType,
       openTime,
       closeTime,
       resultTime,
@@ -22,13 +66,37 @@ exports.createMarket = async (req, res) => {
     // VALIDATION
     // ======================================================
 
-    if (!name || !marketId || !openTime || !closeTime || !resultTime) {
+    if (
+      !name ||
+      !marketId ||
+      !digitType ||
+      !openTime ||
+      !closeTime ||
+      !resultTime
+    ) {
       return res.status(400).json({
         success: false,
         message:
-          "Name, market ID, open time, close time and result time are required",
+          "Name, market ID, digit type, open time, close time and result time are required",
       });
     }
+
+    const digitTypeError =
+      validateDigitType(digitType);
+
+    if (digitTypeError) {
+      return res.status(400).json({
+        success: false,
+        message: digitTypeError,
+      });
+    }
+
+    // ======================================================
+    // AUTOMATIC GAME TYPES
+    // ======================================================
+
+    const gameTypes =
+      getGameTypesByDigitType(digitType);
 
     // ======================================================
     // CHECK DUPLICATE
@@ -48,7 +116,8 @@ exports.createMarket = async (req, res) => {
     if (existingMarket) {
       return res.status(400).json({
         success: false,
-        message: "Market name or ID already exists",
+        message:
+          "Market name or ID already exists",
       });
     }
 
@@ -59,18 +128,26 @@ exports.createMarket = async (req, res) => {
     let imageUrl = "";
 
     if (req.file) {
-      const uploadedImage = await uploadToImgBB(req.file);
+      const uploadedImage =
+        await uploadToImgBB(req.file);
 
-      console.log("ImgBB response:", uploadedImage);
-      console.log("ImgBB response type:", typeof uploadedImage);
+      console.log(
+        "ImgBB response:",
+        uploadedImage
+      );
 
-      // uploadToImgBB should return string
+      console.log(
+        "ImgBB response type:",
+        typeof uploadedImage
+      );
+
       if (typeof uploadedImage === "string") {
         imageUrl = uploadedImage;
       } else {
         return res.status(500).json({
           success: false,
-          message: "Invalid image URL received from ImgBB",
+          message:
+            "Invalid image URL received from ImgBB",
         });
       }
     }
@@ -81,31 +158,45 @@ exports.createMarket = async (req, res) => {
 
     const market = await Market.create({
       name: name.trim(),
+
       marketId: marketId.trim(),
 
+      // Selected by admin
+      digitType,
+
+      // Automatically generated
+      gameTypes,
+
       openTime,
+
       closeTime,
+
       resultTime,
 
       minBid:
-        minBid !== undefined && minBid !== null && minBid !== ""
+        minBid !== undefined &&
+        minBid !== null &&
+        minBid !== ""
           ? Number(minBid)
           : 10,
 
       maxBid:
-        maxBid !== undefined && maxBid !== null && maxBid !== ""
+        maxBid !== undefined &&
+        maxBid !== null &&
+        maxBid !== ""
           ? Number(maxBid)
           : 10000,
 
-      description: description ? description.trim() : "",
+      description: description
+        ? description.trim()
+        : "",
 
-      // IMPORTANT:
-      // Always save string URL
       image: imageUrl,
 
       createdBy: req.user.id,
 
       isActive: true,
+
       isResultDeclared: false,
     });
 
@@ -115,16 +206,21 @@ exports.createMarket = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Market created successfully",
+      message:
+        "Market created successfully",
       data: market,
     });
   } catch (error) {
-    console.error("CREATE MARKET ERROR:", error);
+    console.error(
+      "CREATE MARKET ERROR:",
+      error
+    );
 
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: "Market name or ID already exists",
+        message:
+          "Market name or ID already exists",
       });
     }
 
@@ -144,10 +240,11 @@ exports.updateMarket = async (req, res) => {
     const { marketId } = req.params;
 
     // ======================================================
-    // CHECK MARKET ID
+    // CHECK MARKET
     // ======================================================
 
-    const existingMarket = await Market.findById(marketId);
+    const existingMarket =
+      await Market.findById(marketId);
 
     if (!existingMarket) {
       return res.status(404).json({
@@ -165,33 +262,74 @@ exports.updateMarket = async (req, res) => {
     };
 
     // ======================================================
-    // REMOVE PROTECTED / UNWANTED FIELDS
+    // PROTECTED FIELDS
     // ======================================================
 
     delete updateData.createdBy;
 
-    delete updateData.gameTypes;
+    // Frontend se agar gameType/gameTypes aaye bhi,
+    // manually use nahi karenge.
     delete updateData.gameType;
+    delete updateData.gameTypes;
+
     delete updateData.winningMultiplier;
+
+    // ======================================================
+    // DIGIT TYPE
+    // ======================================================
+
+    const finalDigitType =
+      updateData.digitType !== undefined &&
+      updateData.digitType !== ""
+        ? updateData.digitType
+        : existingMarket.digitType;
+
+    const digitTypeError =
+      validateDigitType(finalDigitType);
+
+    if (digitTypeError) {
+      return res.status(400).json({
+        success: false,
+        message: digitTypeError,
+      });
+    }
+
+    // ======================================================
+    // AUTOMATIC GAME TYPES
+    // ======================================================
+
+    const gameTypes =
+      getGameTypesByDigitType(
+        finalDigitType
+      );
+
+    updateData.digitType =
+      finalDigitType;
+
+    updateData.gameTypes =
+      gameTypes;
 
     // ======================================================
     // NAME
     // ======================================================
 
     if (updateData.name) {
-      updateData.name = updateData.name.trim();
+      updateData.name =
+        updateData.name.trim();
 
-      const existingName = await Market.findOne({
-        name: updateData.name,
-        _id: {
-          $ne: marketId,
-        },
-      });
+      const existingName =
+        await Market.findOne({
+          name: updateData.name,
+          _id: {
+            $ne: marketId,
+          },
+        });
 
       if (existingName) {
         return res.status(400).json({
           success: false,
-          message: "Market name already exists",
+          message:
+            "Market name already exists",
         });
       }
     }
@@ -201,19 +339,23 @@ exports.updateMarket = async (req, res) => {
     // ======================================================
 
     if (updateData.marketId) {
-      updateData.marketId = updateData.marketId.trim();
+      updateData.marketId =
+        updateData.marketId.trim();
 
-      const existingId = await Market.findOne({
-        marketId: updateData.marketId,
-        _id: {
-          $ne: marketId,
-        },
-      });
+      const existingId =
+        await Market.findOne({
+          marketId:
+            updateData.marketId,
+          _id: {
+            $ne: marketId,
+          },
+        });
 
       if (existingId) {
         return res.status(400).json({
           success: false,
-          message: "Market ID already exists",
+          message:
+            "Market ID already exists",
         });
       }
     }
@@ -222,20 +364,35 @@ exports.updateMarket = async (req, res) => {
     // NUMBER FIELDS
     // ======================================================
 
-    if (updateData.minBid !== undefined && updateData.minBid !== "") {
-      updateData.minBid = Number(updateData.minBid);
+    if (
+      updateData.minBid !==
+        undefined &&
+      updateData.minBid !== ""
+    ) {
+      updateData.minBid =
+        Number(updateData.minBid);
     }
 
-    if (updateData.maxBid !== undefined && updateData.maxBid !== "") {
-      updateData.maxBid = Number(updateData.maxBid);
+    if (
+      updateData.maxBid !==
+        undefined &&
+      updateData.maxBid !== ""
+    ) {
+      updateData.maxBid =
+        Number(updateData.maxBid);
     }
 
     // ======================================================
     // DESCRIPTION
     // ======================================================
 
-    if (updateData.description !== undefined) {
-      updateData.description = updateData.description?.trim() || "";
+    if (
+      updateData.description !==
+      undefined
+    ) {
+      updateData.description =
+        updateData.description?.trim() ||
+        "";
     }
 
     // ======================================================
@@ -243,32 +400,38 @@ exports.updateMarket = async (req, res) => {
     // ======================================================
 
     if (req.file) {
-      const uploadedImage = await uploadToImgBB(req.file);
+      const uploadedImage =
+        await uploadToImgBB(req.file);
 
-      console.log("ImgBB update response:", uploadedImage);
-      console.log("ImgBB update response type:", typeof uploadedImage);
+      console.log(
+        "ImgBB update response:",
+        uploadedImage
+      );
 
-      if (typeof uploadedImage !== "string") {
+      if (
+        typeof uploadedImage !==
+        "string"
+      ) {
         return res.status(500).json({
           success: false,
-          message: "Invalid image URL received from ImgBB",
+          message:
+            "Invalid image URL received from ImgBB",
         });
       }
 
-      updateData.image = uploadedImage;
+      updateData.image =
+        uploadedImage;
     }
 
     // ======================================================
-    // VERY IMPORTANT
+    // IMAGE VALIDATION
     // ======================================================
-    // If no new image is uploaded, don't touch old image.
-    //
-    // If somehow frontend sends image as an object,
-    // remove it instead of sending object to MongoDB.
 
     if (
-      updateData.image !== undefined &&
-      typeof updateData.image !== "string"
+      updateData.image !==
+        undefined &&
+      typeof updateData.image !==
+        "string"
     ) {
       delete updateData.image;
     }
@@ -277,10 +440,15 @@ exports.updateMarket = async (req, res) => {
     // UPDATE
     // ======================================================
 
-    const market = await Market.findByIdAndUpdate(marketId, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    const market =
+      await Market.findByIdAndUpdate(
+        marketId,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
 
     if (!market) {
       return res.status(404).json({
@@ -295,16 +463,21 @@ exports.updateMarket = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Market updated successfully",
+      message:
+        "Market updated successfully",
       data: market,
     });
   } catch (error) {
-    console.error("UPDATE MARKET ERROR:", error);
+    console.error(
+      "UPDATE MARKET ERROR:",
+      error
+    );
 
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: "Market name or ID already exists",
+        message:
+          "Market name or ID already exists",
       });
     }
 
@@ -319,42 +492,82 @@ exports.updateMarket = async (req, res) => {
 // GET ALL MARKETS
 // ==========================================================
 
-exports.getAllMarkets = async (req, res) => {
+exports.getAllMarkets = async (
+  req,
+  res
+) => {
   try {
-    const { isActive, page = 1, limit = 20 } = req.query;
+    const {
+      isActive,
+      digitType,
+      page = 1,
+      limit = 20,
+    } = req.query;
 
-    const currentPage = Math.max(parseInt(page, 10) || 1, 1);
+    const currentPage = Math.max(
+      parseInt(page, 10) || 1,
+      1
+    );
 
-    const currentLimit = Math.max(parseInt(limit, 10) || 20, 1);
+    const currentLimit = Math.max(
+      parseInt(limit, 10) || 20,
+      1
+    );
 
     const filter = {};
 
     if (isActive !== undefined) {
-      filter.isActive = isActive === "true";
+      filter.isActive =
+        isActive === "true";
     }
 
-    const markets = await Market.find(filter)
-      .populate("createdBy", "name email")
-      .sort({
-        createdAt: -1,
-      })
-      .skip((currentPage - 1) * currentLimit)
-      .limit(currentLimit);
+    if (digitType) {
+      filter.digitType =
+        digitType;
+    }
 
-    const total = await Market.countDocuments(filter);
+    const markets =
+      await Market.find(filter)
+        .populate(
+          "createdBy",
+          "name email"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .skip(
+          (currentPage - 1) *
+            currentLimit
+        )
+        .limit(currentLimit);
+
+    const total =
+      await Market.countDocuments(
+        filter
+      );
 
     return res.status(200).json({
       success: true,
+
       data: markets,
+
       pagination: {
         page: currentPage,
+
         limit: currentLimit,
+
         total,
-        pages: Math.ceil(total / currentLimit),
+
+        pages: Math.ceil(
+          total / currentLimit
+        ),
       },
     });
   } catch (error) {
-    console.error("GET ALL MARKETS ERROR:", error);
+    console.error(
+      "GET ALL MARKETS ERROR:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -367,14 +580,21 @@ exports.getAllMarkets = async (req, res) => {
 // GET MARKET BY ID
 // ==========================================================
 
-exports.getMarketById = async (req, res) => {
+exports.getMarketById = async (
+  req,
+  res
+) => {
   try {
-    const { marketId } = req.params;
+    const { marketId } =
+      req.params;
 
-    const market = await Market.findById(marketId).populate(
-      "createdBy",
-      "name email",
-    );
+    const market =
+      await Market.findById(
+        marketId
+      ).populate(
+        "createdBy",
+        "name email"
+      );
 
     if (!market) {
       return res.status(404).json({
@@ -388,7 +608,10 @@ exports.getMarketById = async (req, res) => {
       data: market,
     });
   } catch (error) {
-    console.error("GET MARKET ERROR:", error);
+    console.error(
+      "GET MARKET ERROR:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -401,108 +624,142 @@ exports.getMarketById = async (req, res) => {
 // TOGGLE MARKET STATUS
 // ==========================================================
 
-exports.toggleMarketStatus = async (req, res) => {
-  try {
-    const { marketId } = req.params;
-    const { isActive } = req.body;
+exports.toggleMarketStatus =
+  async (req, res) => {
+    try {
+      const { marketId } =
+        req.params;
 
-    if (typeof isActive !== "boolean") {
-      return res.status(400).json({
+      const { isActive } =
+        req.body;
+
+      if (
+        typeof isActive !==
+        "boolean"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "isActive must be true or false",
+        });
+      }
+
+      const market =
+        await Market.findByIdAndUpdate(
+          marketId,
+          {
+            isActive,
+          },
+          {
+            new: true,
+            runValidators: true,
+          }
+        );
+
+      if (!market) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Market not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+
+        message: `Market ${
+          isActive
+            ? "activated"
+            : "deactivated"
+        } successfully`,
+
+        data: market,
+      });
+    } catch (error) {
+      console.error(
+        "TOGGLE MARKET ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "isActive must be true or false",
+        message: error.message,
       });
     }
-
-    const market = await Market.findByIdAndUpdate(
-      marketId,
-      {
-        isActive,
-      },
-      {
-        new: true,
-        runValidators: true,
-      },
-    );
-
-    if (!market) {
-      return res.status(404).json({
-        success: false,
-        message: "Market not found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: `Market ${isActive ? "activated" : "deactivated"} successfully`,
-      data: market,
-    });
-  } catch (error) {
-    console.error("TOGGLE MARKET ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  };
 
 // ==========================================================
 // GET ACTIVE MARKETS
 // ==========================================================
 
-exports.getActiveMarkets = async (req, res) => {
-  try {
-    const markets = await Market.find({
-      isActive: true,
-    })
-      .select(
-        "name marketId openTime closeTime resultTime minBid maxBid description image",
-      )
-      .sort({
-        createdAt: -1,
+exports.getActiveMarkets =
+  async (req, res) => {
+    try {
+      const markets =
+        await Market.find({
+          isActive: true,
+        })
+          .select(
+            "name marketId digitType gameTypes openTime closeTime resultTime minBid maxBid description image isActive isResultDeclared"
+          )
+          .sort({
+            createdAt: -1,
+          });
+
+      return res.status(200).json({
+        success: true,
+        data: markets,
       });
+    } catch (error) {
+      console.error(
+        "GET ACTIVE MARKETS ERROR:",
+        error
+      );
 
-    return res.status(200).json({
-      success: true,
-      data: markets,
-    });
-  } catch (error) {
-    console.error("GET ACTIVE MARKETS ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  };
 
 // ==========================================================
 // DELETE MARKET
 // ==========================================================
 
-exports.deleteMarket = async (req, res) => {
-  try {
-    const { marketId } = req.params;
+exports.deleteMarket =
+  async (req, res) => {
+    try {
+      const { marketId } =
+        req.params;
 
-    const market = await Market.findByIdAndDelete(marketId);
+      const market =
+        await Market.findByIdAndDelete(
+          marketId
+        );
 
-    if (!market) {
-      return res.status(404).json({
+      if (!market) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Market not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Market deleted successfully",
+      });
+    } catch (error) {
+      console.error(
+        "DELETE MARKET ERROR:",
+        error
+      );
+
+      return res.status(500).json({
         success: false,
-        message: "Market not found",
+        message: error.message,
       });
     }
-
-    return res.status(200).json({
-      success: true,
-      message: "Market deleted successfully",
-    });
-  } catch (error) {
-    console.error("DELETE MARKET ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  };

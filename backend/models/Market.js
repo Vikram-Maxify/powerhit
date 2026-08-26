@@ -16,6 +16,38 @@ const marketSchema = new mongoose.Schema(
       unique: true,
     },
 
+    // ======================================================
+    // MARKET DIGIT TYPE
+    // ======================================================
+    // Admin sirf 2-digit ya 3-digit select karega
+
+    digitType: {
+      type: String,
+      enum: ["2-digit", "3-digit"],
+      required: true,
+    },
+
+    // ======================================================
+    // AUTOMATIC GAME TYPES
+    // ======================================================
+
+    gameTypes: {
+      type: [
+        {
+          type: String,
+          enum: [
+            "jodi",
+            "panna",
+            "half-sangam",
+            "full-sangam",
+            "last-digit",
+            "first-digit",
+          ],
+        },
+      ],
+      default: [],
+    },
+
     openTime: {
       type: String,
       required: true,
@@ -46,7 +78,6 @@ const marketSchema = new mongoose.Schema(
       default: "",
     },
 
-    // Market Image
     image: {
       type: String,
       default: "",

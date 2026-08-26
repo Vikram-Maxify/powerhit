@@ -38,17 +38,11 @@ const DEFAULT_MARKET_IMAGE =
 
 // Game type images
 const GAME_TYPE_IMAGES = {
-  single:
-    "https://images.unsplash.com/photo-1518544801976-3e159e50e5bb?auto=format&fit=crop&w=500&q=80",
-
   jodi:
     "https://images.unsplash.com/photo-1518893883800-45cd0954574b?auto=format&fit=crop&w=500&q=80",
 
   panna:
     "https://images.unsplash.com/photo-1605870445919-838d190e8e1b?auto=format&fit=crop&w=500&q=80",
-
-  spot:
-    "https://images.unsplash.com/photo-1518544889287-6d7a6d3f0f4a?auto=format&fit=crop&w=500&q=80",
 
   "half-sangam":
     "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=500&q=80",
@@ -182,16 +176,9 @@ const STATUS_STYLES = {
    ============================================================ */
 
 const GAME_TYPES = [
-  {
-    key: "single",
-    label: "SINGLE",
-    sub: "Choose One Number",
-    mode: "digits",
-    digits: ["7"],
-    image: GAME_TYPE_IMAGES.single,
-    icon: Dice5,
-  },
-
+  // ==========================================================
+  // 2-DIGIT MARKET GAMES
+  // ==========================================================
   {
     key: "jodi",
     label: "JODI",
@@ -200,43 +187,7 @@ const GAME_TYPES = [
     digits: ["7", "8"],
     image: GAME_TYPE_IMAGES.jodi,
     icon: Grid3x3,
-  },
-
-  {
-    key: "panna",
-    label: "PANNA",
-    sub: "Choose Panna",
-    mode: "icon",
-    image: GAME_TYPE_IMAGES.panna,
-    icon: Dice5,
-  },
-
-  {
-    key: "spot",
-    label: "SPOT",
-    sub: "Choose Spot Number",
-    mode: "digits",
-    digits: ["5"],
-    image: GAME_TYPE_IMAGES.spot,
-    icon: Gem,
-  },
-
-  {
-    key: "half-sangam",
-    label: "HALF-SANGAM",
-    sub: "Open + Close Combo",
-    mode: "icon",
-    image: GAME_TYPE_IMAGES["half-sangam"],
-    icon: Moon,
-  },
-
-  {
-    key: "full-sangam",
-    label: "FULL-SANGAM",
-    sub: "Full Combo",
-    mode: "icon",
-    image: GAME_TYPE_IMAGES["full-sangam"],
-    icon: Sun,
+    digitType: "2-digit",
   },
 
   {
@@ -246,6 +197,7 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES["last-digit"],
     icon: ArrowRightFromLine,
+    digitType: "2-digit",
   },
 
   {
@@ -255,10 +207,99 @@ const GAME_TYPES = [
     mode: "icon",
     image: GAME_TYPE_IMAGES["first-digit"],
     icon: ArrowLeftFromLine,
+    digitType: "2-digit",
+  },
+
+  // ==========================================================
+  // 3-DIGIT MARKET GAMES
+  // ==========================================================
+  {
+    key: "jodi",
+    label: "JODI",
+    sub: "Choose Two Numbers",
+    mode: "digits",
+    digits: ["7", "8"],
+    image: GAME_TYPE_IMAGES.jodi,
+    icon: Grid3x3,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "panna",
+    label: "PANNA",
+    sub: "Choose Panna",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES.panna,
+    icon: Dice5,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "half-sangam",
+    label: "HALF-SANGAM",
+    sub: "Open + Close Combo",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["half-sangam"],
+    icon: Moon,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "full-sangam",
+    label: "FULL-SANGAM",
+    sub: "Full Combo",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["full-sangam"],
+    icon: Sun,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "last-digit",
+    label: "LAST DIGIT",
+    sub: "Choose Last Digit",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["last-digit"],
+    icon: ArrowRightFromLine,
+    digitType: "3-digit",
+  },
+
+  {
+    key: "first-digit",
+    label: "FIRST DIGIT",
+    sub: "Choose First Digit",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["first-digit"],
+    icon: ArrowLeftFromLine,
+    digitType: "3-digit",
   },
 ];
 
-const DEFAULT_VISIBLE_GAME_TYPES = 6;
+
+/* ============================================================
+   MARKET GAME TYPES
+   ============================================================ */
+
+const getGameTypesForMarket = (market) => {
+  const digitType =
+    market?.digitType ||
+    market?.gameType ||
+    "";
+
+  if (digitType === "2-digit") {
+    return GAME_TYPES.filter(
+      (game) => game.digitType === "2-digit"
+    );
+  }
+
+  if (digitType === "3-digit") {
+    return GAME_TYPES.filter(
+      (game) => game.digitType === "3-digit"
+    );
+  }
+
+  return [];
+};
 
 /* ============================================================
    MOCK TAG
@@ -429,6 +470,14 @@ const MatkaMarkets = () => {
         m._id === selectedMarketId
     );
 
+  const availableGameTypes = useMemo(
+    () =>
+      getGameTypesForMarket(
+        selectedMarket
+      ),
+    [selectedMarket]
+  );
+
   /* ============================================================
      OPEN MARKET
      ============================================================ */
@@ -464,12 +513,31 @@ const MatkaMarkets = () => {
     marketId,
     gameType
   ) => {
+    const market = marketsWithStatus.find(
+      (item) => item._id === marketId
+    );
+
+    if (!market) return;
+
+    const allowedGameTypes =
+      getGameTypesForMarket(market);
+
+    const isAllowed =
+      allowedGameTypes.some(
+        (game) => game.key === gameType
+      );
+
+    if (!isAllowed) {
+      return;
+    }
+
     navigate(
       `/matka/place-bid/${marketId}`,
       {
         state: {
           gameType,
           marketId,
+          digitType: market.digitType,
         },
       }
     );
@@ -482,16 +550,27 @@ const MatkaMarkets = () => {
   const handleSelectGameType = (
     gameType
   ) => {
-    setSelectedGameType(gameType);
+    if (!selectedMarket) return;
 
+    const allowedGameTypes =
+      getGameTypesForMarket(
+        selectedMarket
+      );
+
+    const selectedGame =
+      allowedGameTypes.find(
+        (game) => game.key === gameType
+      );
+
+    if (!selectedGame) return;
+
+    setSelectedGameType(gameType);
     setShowAllGameTypes(false);
 
-    if (selectedMarket) {
-      handlePlaceBid(
-        selectedMarket._id,
-        gameType
-      );
-    }
+    handlePlaceBid(
+      selectedMarket._id,
+      gameType
+    );
   };
 
   /* ============================================================
@@ -995,6 +1074,11 @@ const MatkaMarkets = () => {
 
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
                 Choose Game Type
+              {selectedMarket?.digitType && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                  {selectedMarket.digitType}
+                </span>
+              )}
               </h2>
             </div>
 
@@ -1021,102 +1105,116 @@ const MatkaMarkets = () => {
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-1 sm:gap-3">
-            {GAME_TYPES.slice(
-              0,
-              showAllGameTypes
-                ? GAME_TYPES.length
-                : DEFAULT_VISIBLE_GAME_TYPES
-            ).map((gt) => {
-              const Icon = gt.icon;
+          {availableGameTypes.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1 sm:gap-3">
+              {availableGameTypes
+                .filter((gt) =>
+                  showAllGameTypes
+                    ? true
+                    : availableGameTypes.indexOf(gt) <
+                      6
+                )
+                .map((gt) => {
+                  const Icon = gt.icon;
 
-              const isSelected =
-                selectedGameType ===
-                gt.key;
+                  const isSelected =
+                    selectedGameType ===
+                    gt.key;
 
-              return (
-                <div
-                  key={gt.key}
-                  className={`overflow-hidden rounded-2xl border bg-white text-center shadow-sm transition ${
-                    isSelected
-                      ? "border-amber-400 ring-2 ring-amber-200"
-                      : "border-amber-100"
-                  }`}
-                >
-                  {/* GAME IMAGE */}
+                  return (
+                    <div
+                      key={`${gt.digitType}-${gt.key}`}
+                      className={`overflow-hidden rounded-2xl border bg-white text-center shadow-sm transition ${
+                        isSelected
+                          ? "border-amber-400 ring-2 ring-amber-200"
+                          : "border-amber-100"
+                      }`}
+                    >
+                      {/* GAME IMAGE */}
 
-                  <div className="relative h-24 w-full overflow-hidden sm:h-32">
-                    <SafeImage
-                      src={gt.image}
-                      alt={gt.label}
-                      fallbackIcon={Icon}
-                      className="h-full w-full object-cover"
-                    />
+                      <div className="relative h-24 w-full overflow-hidden sm:h-32">
+                        <SafeImage
+                          src={gt.image}
+                          alt={gt.label}
+                          fallbackIcon={Icon}
+                          className="h-full w-full object-cover"
+                        />
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <p className="flex items-center justify-center gap-1 text-[10px] font-extrabold tracking-wide text-white sm:text-xs">
-                        {gt.label}
+                        <div className="absolute left-2 top-2 rounded-full border border-white/40 bg-black/30 px-2 py-0.5 text-[8px] font-bold text-white backdrop-blur-sm">
+                          {gt.digitType}
+                        </div>
 
-                        {isSelected && (
-                          <Check
-                            size={12}
-                            className="text-amber-300"
-                          />
-                        )}
-                      </p>
-                    </div>
-                  </div>
+                        <div className="absolute bottom-2 left-2 right-2">
+                          <p className="flex items-center justify-center gap-1 text-[10px] font-extrabold tracking-wide text-white sm:text-xs">
+                            {gt.label}
 
-                  <div className="p-2 sm:p-3">
-                    {/* DIGIT BADGE */}
+                            {isSelected && (
+                              <Check
+                                size={12}
+                                className="text-amber-300"
+                              />
+                            )}
+                          </p>
+                        </div>
+                      </div>
 
-                    <div className="mx-auto mb-2 flex min-h-[36px] items-center justify-center">
-                      {gt.mode ===
-                      "digits" ? (
-                        <div className="flex items-center justify-center gap-1">
-                          {gt.digits.map(
-                            (d, i) => (
-                              <span
-                                key={i}
-                                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-sm font-extrabold text-white ring-2 ring-amber-200"
-                              >
-                                {d}
-                              </span>
-                            )
+                      <div className="p-2 sm:p-3">
+                        <div className="mx-auto mb-2 flex min-h-[36px] items-center justify-center">
+                          {gt.mode ===
+                          "digits" ? (
+                            <div className="flex items-center justify-center gap-1">
+                              {gt.digits.map(
+                                (d, i) => (
+                                  <span
+                                    key={i}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-sm font-extrabold text-white ring-2 ring-amber-200"
+                                  >
+                                    {d}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          ) : (
+                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-white ring-2 ring-amber-200">
+                              <Icon size={18} />
+                            </span>
                           )}
                         </div>
-                      ) : (
-                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-white ring-2 ring-amber-200">
-                          <Icon size={18} />
-                        </span>
-                      )}
+
+                        <p className="mb-2 min-h-[16px] text-[8px] text-gray-400 sm:text-[10px]">
+                          {gt.sub}
+                        </p>
+
+                        <button
+                          onClick={() =>
+                            handleSelectGameType(
+                              gt.key
+                            )
+                          }
+                          className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 py-1.5 text-[10px] font-bold text-white shadow transition-all hover:shadow-md sm:py-2 sm:text-xs"
+                          disabled={!selectedMarket}
+                        >
+                          {selectedMarket
+                            ? "PLAY →"
+                            : "SELECT MARKET"}
+                        </button>
+                      </div>
                     </div>
-
-                    <p className="mb-2 min-h-[16px] text-[8px] text-gray-400 sm:text-[10px]">
-                      {gt.sub}
-                    </p>
-
-                    <button
-                      onClick={() =>
-                        selectedMarket &&
-                        handleSelectGameType(
-                          gt.key
-                        )
-                      }
-                      className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 py-1.5 text-[10px] font-bold text-white shadow transition-all hover:shadow-md sm:py-2 sm:text-xs"
-                      disabled={!selectedMarket}
-                    >
-                      {selectedMarket
-                        ? "PLAY →"
-                        : "SELECT MARKET"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/40 py-8 text-center">
+              <p className="text-sm font-bold text-amber-700">
+                Select a valid 2-digit or 3-digit market
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Games are automatically shown according to the market digit type.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ======================================================

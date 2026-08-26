@@ -59,24 +59,62 @@ const MatkaResults = () => {
     });
   };
 
-  // ✅ Helper to get winning number display
+  // ============================================================
+  // WINNING NUMBER DISPLAY
+  // ============================================================
+
   const getWinningNumberDisplay = (result) => {
-    if (!result?.winningNumber) return "-";
-    
-    if (typeof result.winningNumber === 'object') {
-      const entries = Object.entries(result.winningNumber).filter(
-        ([_, value]) => value !== null && value !== ""
-      );
-      if (entries.length === 0) return "-";
-      // Show all winning numbers
-      return entries.map(([gameType, number]) => (
-        <span key={gameType} className="inline-flex items-center gap-1 mr-2">
-          <span className="text-[10px] text-gray-400">{gameType}:</span>
-          <span className="font-bold">{number}</span>
-        </span>
-      ));
+    if (
+      result?.winningNumber === null ||
+      result?.winningNumber === undefined ||
+      result?.winningNumber === ""
+    ) {
+      return [];
     }
-    return result.winningNumber;
+
+    const winningNumber =
+      result.winningNumber;
+
+    // New format:
+    // {
+    //   jodi: "45",
+    //   panna: "123",
+    //   half-sangam: "123",
+    //   ...
+    // }
+    if (
+      typeof winningNumber === "object" &&
+      !Array.isArray(winningNumber)
+    ) {
+      const digitType = getDigitType(result);
+      const allowedTypes =
+        getAllowedGameTypes(digitType);
+
+      return Object.entries(winningNumber)
+        .filter(
+          ([gameType, value]) =>
+            value !== null &&
+            value !== undefined &&
+            String(value).trim() !== "" &&
+            (
+              allowedTypes.length === 0 ||
+              allowedTypes.includes(gameType)
+            )
+        )
+        .map(([gameType, number]) => ({
+          gameType,
+          number: String(number),
+        }));
+    }
+
+    // Old format:
+    // "45"
+    return [
+      {
+        gameType: "winning-number",
+        number: String(winningNumber),
+      },
+    ];
   };
 
   const formatCurrency = (amount) => {
@@ -85,6 +123,61 @@ const MatkaResults = () => {
       currency: "INR",
       minimumFractionDigits: 0,
     }).format(amount || 0);
+  };
+
+  // ============================================================
+  // DIGIT TYPE / GAME HELPERS
+  // ============================================================
+
+  const getDigitType = (result) => {
+    if (result?.digitType === "2-digit") return "2-digit";
+    if (result?.digitType === "3-digit") return "3-digit";
+
+    // Fallback for older results where digitType was not stored.
+    const marketDigitType =
+      result?.marketId?.digitType ||
+      result?.market?.digitType;
+
+    if (
+      marketDigitType === "2-digit" ||
+      marketDigitType === "3-digit"
+    ) {
+      return marketDigitType;
+    }
+
+    return "";
+  };
+
+  const getGameTypeLabel = (gameType) => {
+    const labels = {
+      jodi: "JODI",
+      panna: "PANNA",
+      "half-sangam": "HALF SANGAM",
+      "full-sangam": "FULL SANGAM",
+      "last-digit": "LAST DIGIT",
+      "first-digit": "FIRST DIGIT",
+    };
+
+    return labels[gameType] || gameType;
+  };
+
+  const getAllowedGameTypes = (digitType) => {
+    if (digitType === "2-digit") {
+      return ["jodi", "last-digit", "first-digit"];
+    }
+
+    if (digitType === "3-digit") {
+      return [
+        "jodi",
+        "panna",
+        "half-sangam",
+        "full-sangam",
+        "last-digit",
+        "first-digit",
+      ];
+    }
+
+    return [];
   };
 
   // Get gradient background based on market name
@@ -324,27 +417,60 @@ const MatkaResults = () => {
 
                       return (
                         <tr
-                          key={result._id}
+                          key={result._id || `${result.marketId?._id || result.marketId}-${result.resultDate}-${index}`}
                           className="hover:bg-gradient-to-r hover:from-amber-50/50 hover:to-orange-50/50 transition-all duration-300 group/row transform hover:scale-[1.002]"
                         >
                           <td className="px-4 py-3.5">
-                            <span
-                              className={`inline-block px-3 py-1 text-xs font-bold text-white rounded-lg bg-gradient-to-r ${marketGradient} shadow-lg transform group-hover/row:scale-105 transition duration-300`}
-                            >
-                              {result.marketName}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <div className="flex flex-wrap gap-1">
-                              {typeof winningDisplay === 'string' ? (
-                                <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 font-black rounded-xl text-lg border border-green-200 shadow-lg shadow-green-500/10">
-                                  <Award size={16} className="text-green-500" />
-                                  {winningDisplay}
+                            <div className="flex flex-col items-start gap-1.5">
+                              <span
+                                className={`inline-block px-3 py-1 text-xs font-bold text-white rounded-lg bg-gradient-to-r ${marketGradient} shadow-lg transform group-hover/row:scale-105 transition duration-300`}
+                              >
+                                {result.marketName ||
+                                  result.marketId?.name ||
+                                  "Market"}
+                              </span>
+
+                              {getDigitType(result) && (
+                                <span className="inline-flex px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 text-[9px] font-extrabold">
+                                  {getDigitType(result)}
                                 </span>
-                              ) : (
-                                winningDisplay
                               )}
                             </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {winningDisplay.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {winningDisplay.map(
+                                  ({ gameType, number }) => (
+                                    <div
+                                      key={`${result._id}-${gameType}`}
+                                      className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 rounded-xl border border-green-200 shadow-sm"
+                                    >
+                                      <Award
+                                        size={15}
+                                        className="text-green-500 flex-shrink-0"
+                                      />
+
+                                      <div className="flex flex-col">
+                                        <span className="text-[9px] font-bold uppercase text-gray-400 leading-none">
+                                          {gameType === "winning-number"
+                                            ? "Winning Number"
+                                            : getGameTypeLabel(gameType)}
+                                        </span>
+
+                                        <span className="font-black text-lg leading-tight">
+                                          {number}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400">
+                                Awaited
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3.5 text-sm font-semibold text-gray-700">
                             {result.totalBids || 0}

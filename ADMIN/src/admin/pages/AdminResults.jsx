@@ -92,15 +92,7 @@ const AdminResults = () => {
   // =========================
   const [formData, setFormData] = useState({
     marketId: "",
-    winningNumbers: {
-      single: "",
-      jodi: "",
-      panna: "",
-      "half-sangam": "",
-      "full-sangam": "",
-      "last-digit": "",
-      "first-digit": "",
-    },
+    winningResult: "",
     resultDate: new Date().toISOString().split("T")[0],
     nextOpenDate: "",
   });
@@ -110,41 +102,57 @@ const AdminResults = () => {
   // =========================
   const gameTypes = [
     {
-      key: "single",
-      label: "Single",
-      placeholder: "0-9",
-    },
-    {
       key: "jodi",
       label: "Jodi",
-      placeholder: "00-99",
     },
     {
       key: "panna",
       label: "Panna",
-      placeholder: "000-999",
     },
     {
       key: "half-sangam",
       label: "Half-Sangam",
-      placeholder: "1-3 digits",
     },
     {
       key: "full-sangam",
       label: "Full-Sangam",
-      placeholder: "00-99",
     },
     {
       key: "last-digit",
       label: "Last Digit",
-      placeholder: "00-99",
     },
     {
       key: "first-digit",
       label: "First Digit",
-      placeholder: "00-99",
     },
   ];
+
+  // Admin only selects the market digit type:
+  // 2-digit or 3-digit.
+  const getMarketDigitType = (market) => {
+    return market?.digitType === "2-digit" ||
+      market?.digitType === "3-digit"
+      ? market.digitType
+      : "";
+  };
+
+  const getAllowedGamesForMarket = (market) => {
+    const digitType = getMarketDigitType(market);
+
+    if (digitType === "2-digit") {
+      return gameTypes.filter((game) =>
+        ["jodi", "last-digit", "first-digit"].includes(
+          game.key
+        )
+      );
+    }
+
+    if (digitType === "3-digit") {
+      return gameTypes;
+    }
+
+    return [];
+  };
 
   // =========================
   // INITIAL DATA
@@ -194,15 +202,31 @@ const AdminResults = () => {
   };
 
   // =========================
-  // WINNING NUMBER CHANGE
+  // WINNING RESULT CHANGE
   // =========================
-  const handleWinningNumberChange = (gameType, value) => {
+  const handleWinningResultChange = (value) => {
+    const selectedMarket = markets.find(
+      (m) => String(m._id) === String(formData.marketId)
+    );
+
+    const digitType = getMarketDigitType(selectedMarket);
+    // Winning result is digits-only.
+    // 2-digit market: 2 digits (e.g. 25)
+    // 3-digit market: 6 digits (e.g. 123456)
+    // For 3-digit markets:
+    //   123 = Open Panna
+    //   456 = Close Panna
+    //   123456 = Full result
+    const maxLength =
+      digitType === "2-digit" ? 2 : digitType === "3-digit" ? 6 : 0;
+
+    const cleaned = String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, maxLength);
+
     setFormData((prev) => ({
       ...prev,
-      winningNumbers: {
-        ...prev.winningNumbers,
-        [gameType]: value,
-      },
+      winningResult: cleaned,
     }));
   };
 
@@ -238,12 +262,36 @@ const AdminResults = () => {
       return;
     }
 
-    const hasAnyNumber = Object.values(formData.winningNumbers).some(
-      (num) => num && String(num).trim() !== "",
+    const selectedMarket = markets.find(
+      (m) => String(m._id) === String(formData.marketId)
     );
 
-    if (!hasAnyNumber) {
-      alert("Please enter at least one winning number");
+    const digitType =
+      getMarketDigitType(selectedMarket);
+
+    if (!digitType) {
+      alert(
+        "Please configure this market as 2-digit or 3-digit"
+      );
+      return;
+    }
+
+    const expectedLength =
+      digitType === "2-digit" ? 2 : digitType === "3-digit" ? 6 : 0;
+
+    const winningResult =
+      String(formData.winningResult || "").trim();
+
+    if (!winningResult) {
+      alert("Please enter the winning result");
+      return;
+    }
+
+
+    if (winningResult.length !== expectedLength) {
+      alert(
+        `Please enter exactly ${expectedLength} digits for this ${digitType} market`
+      );
       return;
     }
 
@@ -252,24 +300,75 @@ const AdminResults = () => {
       return;
     }
 
-    if (formData.resultDate && formData.nextOpenDate < formData.resultDate) {
-      alert("Next open date must be after or equal to result date");
+    if (
+      formData.resultDate &&
+      formData.nextOpenDate < formData.resultDate
+    ) {
+      alert(
+        "Next open date must be after or equal to result date"
+      );
       return;
     }
 
+    // ------------------------------------------------------------
+    // BUILD ONLY VALID GAME-TYPE KEYS.
+    // Never send "result" as a game type.
+    //
+    // 2-digit result: 25
+    //   jodi=25, first-digit=2, last-digit=5
+    //
+    // 3-digit market result: 123456
+    //   openPanna=123
+    //   closePanna=456
+    //
+    //   jodi=56
+    //   panna=123
+    //   half-sangam=123-6
+    //   full-sangam=123-456
+    //   first-digit=1
+    //   last-digit=6
+    // ------------------------------------------------------------
+
     const payload = {
       marketId: formData.marketId,
-      winningNumbers: formData.winningNumbers,
+      winningNumbers:
+        digitType === "2-digit"
+          ? {
+              jodi: winningResult,
+              "first-digit": winningResult.charAt(0),
+              "last-digit": winningResult.slice(-1),
+            }
+          : {
+              jodi: winningResult.slice(-2),
+              panna: winningResult.slice(0, 3),
+              "half-sangam": `${winningResult.slice(0, 3)}-${winningResult.slice(-1)}`,
+              "full-sangam": `${winningResult.slice(0, 3)}-${winningResult.slice(3, 6)}`,
+              "first-digit": winningResult.charAt(0),
+              "last-digit": winningResult.slice(-1),
+            },
+      digitType,
       resultDate: formData.resultDate,
       nextOpenDate: formData.nextOpenDate,
     };
 
     try {
-      const response = await dispatch(declareResult(payload));
+      const response =
+        await dispatch(
+          declareResult(payload)
+        );
 
-      if (declareResult.fulfilled.match(response)) {
-        await dispatch(getAdminResults(filter));
-        await dispatch(getAdminResultStats());
+      if (
+        declareResult.fulfilled.match(
+          response
+        )
+      ) {
+        await dispatch(
+          getAdminResults(filter)
+        );
+
+        await dispatch(
+          getAdminResultStats()
+        );
 
         setShowModal(false);
 
@@ -277,21 +376,19 @@ const AdminResults = () => {
 
         setFormData({
           marketId: "",
-          winningNumbers: {
-            single: "",
-            jodi: "",
-            panna: "",
-            "half-sangam": "",
-            "full-sangam": "",
-            "last-digit": "",
-            "first-digit": "",
-          },
-          resultDate: new Date().toISOString().split("T")[0],
+          winningResult: "",
+          resultDate:
+            new Date()
+              .toISOString()
+              .split("T")[0],
           nextOpenDate: "",
         });
       }
     } catch (error) {
-      console.error("Declare Result Error:", error);
+      console.error(
+        "Declare Result Error:",
+        error
+      );
     }
   };
 
@@ -317,16 +414,9 @@ const AdminResults = () => {
 
     setFormData({
       marketId: "",
-      winningNumbers: {
-        single: "",
-        jodi: "",
-        panna: "",
-        "half-sangam": "",
-        "full-sangam": "",
-        "last-digit": "",
-        "first-digit": "",
-      },
-      resultDate: new Date().toISOString().split("T")[0],
+      winningResult: "",
+      resultDate:
+        new Date().toISOString().split("T")[0],
       nextOpenDate: "",
     });
   };
@@ -347,7 +437,6 @@ const AdminResults = () => {
   // =========================
   const getGameTypeDisplay = (type) => {
     const display = {
-      single: "Single",
       jodi: "Jodi",
       panna: "Panna",
       "half-sangam": "Half-Sangam",
@@ -1162,7 +1251,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
                       {!lowestBidLoading && !lowestBidError && (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          {gameTypes.map((game) => {
+                          {getAllowedGamesForMarket(markets.find((m) => String(m._id) === String(formData.marketId))).map((game) => {
                             const bidData = getLowestBidData(game.key);
 
                             return (
@@ -1198,36 +1287,103 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                   )}
                 </div>
 
-                {/* ================= WINNING NUMBERS ================= */}
+                {/* ================= WINNING RESULT ================= */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Winning Numbers (Enter at least one)
+                    Winning Result *
                   </label>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {gameTypes.map((game) => (
-                      <div key={game.key}>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {game.label}
-                        </label>
+                  {(() => {
+                    const selectedMarket =
+                      markets.find(
+                        (m) =>
+                          String(m._id) ===
+                          String(formData.marketId)
+                      );
 
+                    const digitType =
+                      getMarketDigitType(
+                        selectedMarket
+                      );
+
+                    const expectedLength =
+                      digitType === "2-digit"
+                        ? 2
+                        : digitType === "3-digit"
+                          ? 6
+                          : 0;
+
+                    return (
+                      <>
                         <input
                           type="text"
-                          value={formData.winningNumbers[game.key] || ""}
-                          onChange={(e) =>
-                            handleWinningNumberChange(game.key, e.target.value)
+                          inputMode="numeric"
+                          maxLength={
+                            expectedLength || 6
                           }
-                          placeholder={game.placeholder}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                          value={
+                            formData.winningResult ||
+                            ""
+                          }
+                          onChange={(e) =>
+                            handleWinningResultChange(
+                              e.target.value
+                            )
+                          }
+                          placeholder={
+                            digitType === "2-digit"
+                              ? "Enter 2 digit result e.g. 25"
+                              : digitType === "3-digit"
+                                ? "Enter 6 digit result e.g. 123456"
+                                : "Select market first"
+                          }
+                          disabled={!digitType}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-lg font-semibold tracking-widest disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          required
                         />
-                      </div>
-                    ))}
-                  </div>
 
-                  <p className="text-xs text-gray-400 mt-2">
-                    * At least one winning number is required. Leave empty if
-                    not applicable.
-                  </p>
+                        {digitType === "2-digit" && (
+                          <div className="mt-3 rounded-xl bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700">
+                            <p className="font-semibold mb-1">
+                              2-Digit Result
+                            </p>
+                            <p>
+                              Example: <strong>25</strong>
+                              {" → "}
+                              Jodi 25, First Digit 2,
+                              Last Digit 5
+                            </p>
+                          </div>
+                        )}
+
+                        {digitType === "3-digit" && (
+                          <div className="mt-3 rounded-xl bg-green-50 border border-green-100 p-3 text-xs text-green-700">
+                            <p className="font-semibold mb-1">
+                              3-Digit Result
+                            </p>
+                            <p>
+                              Example: <strong>123456</strong>
+                              {" → "}
+                              Open Panna 123, Close Panna 456
+                            </p>
+                            <p className="mt-1">
+                              Jodi 56, Panna 123, Half-Sangam 123-6,
+                              Full-Sangam 123-456, First Digit 1,
+                              Last Digit 6
+                            </p>
+                          </div>
+                        )}
+
+                        {digitType && (
+                          <p className="text-xs text-gray-400 mt-2">
+                            Enter only the main result.
+                            All applicable game results
+                            are calculated automatically.
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* ================= RESULT DATE ================= */}
