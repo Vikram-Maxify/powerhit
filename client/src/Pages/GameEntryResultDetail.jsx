@@ -143,7 +143,6 @@ const countryConfig = {
 // ======================================================
 // MAIN COMPONENT
 // ======================================================
-
 const GameEntryResultDetail = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -169,8 +168,32 @@ const GameEntryResultDetail = () => {
     ] || "";
 
   const activeCountryConfig = countryConfig[normalizedCountry] || null;
+
+  // Helper function to get country code from name
+  const getCountryCodeFromName = (countryName) => {
+    if (!countryName) return null;
+    const value = String(countryName).trim().toLowerCase();
+    const codeMap = {
+      india: "IN",
+      in: "IN",
+      australia: "AU",
+      au: "AU",
+      pakistan: "PK",
+      pk: "PK",
+      bangladesh: "BD",
+      bd: "BD",
+      nepal: "NP",
+      np: "NP",
+      uae: "UAE",
+      ae: "UAE",
+      dubai: "UAE",
+    };
+    return codeMap[value] || null;
+  };
+
   const activeCountryCode =
     countryCodeFromState || getCountryCodeFromName(activeCountryName);
+
   const currencySymbol =
     currencySymbolFromState || getCurrencySymbol(activeCountryCode);
   const currencyConfigObj = getCurrencyConfig(activeCountryCode);
@@ -329,27 +352,6 @@ const GameEntryResultDetail = () => {
       Open: Loader2,
     };
     return icons[status] || Info;
-  };
-
-  const getCountryCodeFromName = (countryName) => {
-    if (!countryName) return null;
-    const value = String(countryName).trim().toLowerCase();
-    const codeMap = {
-      india: "IN",
-      in: "IN",
-      australia: "AU",
-      au: "AU",
-      pakistan: "PK",
-      pk: "PK",
-      bangladesh: "BD",
-      bd: "BD",
-      nepal: "NP",
-      np: "NP",
-      uae: "UAE",
-      ae: "UAE",
-      dubai: "UAE",
-    };
-    return codeMap[value] || null;
   };
 
   // ======================================================

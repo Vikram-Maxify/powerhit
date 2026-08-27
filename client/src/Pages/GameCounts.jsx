@@ -1201,7 +1201,7 @@ const GameSelection = () => {
               <Flame size={16} fill="currentColor" /> Best Value
             </div>
           </div>
-          <div className="grid gap-1 grid-cols-4">
+          <div className="grid gap-3 grid-cols-3">
             {ticketTypes.slice(0, 4).map((ticket, index) => {
               const isActive = activeTicket === ticket._id;
               const visual = ticketVisuals[index % ticketVisuals.length];
