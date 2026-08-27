@@ -67,6 +67,7 @@ import {
   logout,
 } from "./redux/slices/authSlice.js";
 import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
+import MineGames from "./Pages/MineGames.jsx";
 
 // ========================================
 // Scroll To Top
@@ -688,6 +689,11 @@ function App() {
                   <MatkaResults />
                 </ProtectedRoute>
               }
+            />
+
+            <Route
+              path="/mine-games"
+              element={<MineGames />}
             />
 
             {/* ========================================

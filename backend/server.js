@@ -26,7 +26,7 @@ const resultRoutes = require("./routes/resultRoutes");
 const currencyRateRoutes = require("./routes/currencyRateRoutes");
 const userTicketTypeRoutes = require("./routes/user/ticketTypeRoutes");
 const bettingBonusRoutes = require("./routes/bettingBonusRoutes");
-
+const mineGameRoutes = require("./routes/marketRoutes");
 // ============================================
 // GENERIC 6-COUNTRY USER GAME ROUTES
 // ============================================
@@ -182,6 +182,8 @@ app.use(
 // BETTING BONUS
 // ============================================
 app.use("/api/betting-bonus", bettingBonusRoutes);
+
+app.use("/api/mine-games", mineGameRoutes);
 
 // ============================================
 // STATIC FILES & FRONTEND ROUTES

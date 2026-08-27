@@ -47,8 +47,225 @@ const endSession = async (session) => {
 exports.declareResult = async (req, res) => {
   const session = await mongoose.startSession();
 
+  const str = (value) => {
+    if (value === undefined || value === null) {
+      return "";
+    }
+    return String(value).trim();
+  };
+
+  const getFirstDigit = (value) => {
+    const valueStr = str(value);
+    if (!valueStr) return "";
+    return valueStr.charAt(0);
+  };
+
+  // ============================================================
+  // JODI RESULT LOGIC
+  // ============================================================
+  // 2-digit result:
+  //   36 -> 36
+  //   63 -> 63
+  //
+  // Full Sangam:
+  //   123-456 -> 36
+  //   456-123 -> 63
+  //
+  // Full Sangam me:
+  // First Panna ka LAST digit
+  // +
+  // Second Panna ka LAST digit
+  //
+  // Order preserve rahega.
+  const getJodi = (value) => {
+    const valueStr = str(value);
+    if (!valueStr) return "";
+
+    // Full Sangam: Panna-Panna
+    const sangamParts = valueStr.split("-");
+
+    if (
+      sangamParts.length === 2 &&
+      /^\d{3}$/.test(sangamParts[0].trim()) &&
+      /^\d{3}$/.test(sangamParts[1].trim())
+    ) {
+      const firstPanna = sangamParts[0].trim();
+      const secondPanna = sangamParts[1].trim();
+
+      return (
+        firstPanna.charAt(firstPanna.length - 1) +
+        secondPanna.charAt(secondPanna.length - 1)
+      );
+    }
+
+    // Normal 2-digit Jodi result
+    if (/^\d{2}$/.test(valueStr)) {
+      return valueStr;
+    }
+
+    // 3-digit value
+    if (/^\d{3}$/.test(valueStr)) {
+      return valueStr.substring(0, 2);
+    }
+
+    return "";
+  };
+
+  // ============================================================
+  // HALF SANGAM NORMALIZER
+  // Supports:
+  //   123-6
+  //   6-123
+  // ============================================================
+
+  const normalizeHalfSangam = (value) => {
+    const input = str(value);
+    if (!input) return null;
+
+    const parts = input.split("-");
+
+    if (parts.length !== 2) return null;
+
+    const left = parts[0].trim();
+    const right = parts[1].trim();
+
+    // 123-6
+    if (/^\d{3}$/.test(left) && /^\d$/.test(right)) {
+      return {
+        panna: left,
+        digit: right,
+      };
+    }
+
+    // 6-123
+    if (/^\d$/.test(left) && /^\d{3}$/.test(right)) {
+      return {
+        panna: right,
+        digit: left,
+      };
+    }
+
+    return null;
+  };
+
+  const checkHalfSangamWin = (bidNumber, winningNumber) => {
+    const bid = normalizeHalfSangam(bidNumber);
+    const winning = normalizeHalfSangam(winningNumber);
+
+    if (!bid || !winning) return false;
+
+    return (
+      bid.panna === winning.panna &&
+      bid.digit === winning.digit
+    );
+  };
+
+  // ============================================================
+  // CHECK BID WIN
+  // ============================================================
+
+  const checkBidWin = (bid, formattedWinningNumbers) => {
+    if (!bid) return false;
+
+    const gameType = str(bid.gameType).toLowerCase();
+    const bidNumber = str(bid.number);
+
+    if (!gameType || !bidNumber) return false;
+
+    const winningNumber = formattedWinningNumbers[gameType];
+
+    if (
+      winningNumber === undefined ||
+      winningNumber === null ||
+      str(winningNumber) === ""
+    ) {
+      return false;
+    }
+
+    // ==========================================================
+    // FIRST DIGIT
+    // ==========================================================
+
+    if (gameType === "first-digit") {
+      const resultFirstDigit = getFirstDigit(winningNumber);
+      const bidFirstDigit = getFirstDigit(bidNumber);
+
+      return bidFirstDigit === resultFirstDigit;
+    }
+
+    // ==========================================================
+    // JODI
+    // ==========================================================
+
+    if (gameType === "jodi") {
+      const resultJodi = getJodi(winningNumber);
+      const bidJodi = getJodi(bidNumber);
+
+      return (
+        resultJodi !== "" &&
+        bidJodi !== "" &&
+        bidJodi === resultJodi
+      );
+    }
+
+    // ==========================================================
+    // LAST DIGIT
+    // ==========================================================
+
+    if (gameType === "last-digit") {
+      const resultStr = str(winningNumber);
+      const bidStr = str(bidNumber);
+
+      if (!resultStr || !bidStr) return false;
+
+      return (
+        bidStr.charAt(bidStr.length - 1) ===
+        resultStr.charAt(resultStr.length - 1)
+      );
+    }
+
+    // ==========================================================
+    // PANNA
+    // ==========================================================
+
+    if (gameType === "panna") {
+      const resultStr = str(winningNumber);
+      const bidStr = str(bidNumber);
+
+      if (!/^\d{3}$/.test(resultStr)) return false;
+      if (!/^\d{3}$/.test(bidStr)) return false;
+
+      return bidStr === resultStr;
+    }
+
+    // ==========================================================
+    // HALF SANGAM
+    // ==========================================================
+
+    if (gameType === "half-sangam") {
+      return checkHalfSangamWin(
+        bidNumber,
+        winningNumber
+      );
+    }
+
+    // ==========================================================
+    // FULL SANGAM
+    // ==========================================================
+
+    if (gameType === "full-sangam") {
+      return str(bidNumber) === str(winningNumber);
+    }
+
+    return false;
+  };
+
   try {
     session.startTransaction();
+
+    // ============================================================
+    // REQUEST BODY
+    // ============================================================
 
     const {
       marketId,
@@ -59,12 +276,12 @@ exports.declareResult = async (req, res) => {
     } = req.body;
 
     // ============================================================
-    // VALIDATE MARKET ID
+    // VALIDATION
     // ============================================================
 
     if (!marketId) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
@@ -74,7 +291,7 @@ exports.declareResult = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(marketId)) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
@@ -82,17 +299,13 @@ exports.declareResult = async (req, res) => {
       });
     }
 
-    // ============================================================
-    // VALIDATE WINNING NUMBERS
-    // ============================================================
-
     if (
       !winningNumbers ||
       typeof winningNumbers !== "object" ||
       Array.isArray(winningNumbers)
     ) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
@@ -100,13 +313,9 @@ exports.declareResult = async (req, res) => {
       });
     }
 
-    // ============================================================
-    // VALIDATE NEXT OPEN DATE
-    // ============================================================
-
     if (!nextOpenDate) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
@@ -114,23 +323,15 @@ exports.declareResult = async (req, res) => {
       });
     }
 
-    // ============================================================
-    // PARSE DATES
-    // ============================================================
-
     const parsedResultDate = resultDate
       ? new Date(resultDate)
       : new Date();
 
     const parsedNextOpenDate = new Date(nextOpenDate);
 
-    // ============================================================
-    // VALIDATE RESULT DATE
-    // ============================================================
-
     if (Number.isNaN(parsedResultDate.getTime())) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
@@ -138,13 +339,9 @@ exports.declareResult = async (req, res) => {
       });
     }
 
-    // ============================================================
-    // VALIDATE NEXT OPEN DATE
-    // ============================================================
-
     if (Number.isNaN(parsedNextOpenDate.getTime())) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
@@ -152,16 +349,12 @@ exports.declareResult = async (req, res) => {
       });
     }
 
-    // ============================================================
-    // NEXT OPEN DATE MUST BE AFTER RESULT DATE
-    // ============================================================
-
     if (
       parsedNextOpenDate.getTime() <=
       parsedResultDate.getTime()
     ) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
@@ -170,14 +363,15 @@ exports.declareResult = async (req, res) => {
     }
 
     // ============================================================
-    // FIND MARKET
+    // GET MARKET
     // ============================================================
 
-    const market = await Market.findById(marketId).session(session);
+    const market = await Market.findById(marketId)
+      .session(session);
 
     if (!market) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(404).json({
         success: false,
@@ -186,14 +380,22 @@ exports.declareResult = async (req, res) => {
     }
 
     // ============================================================
-    // GET MARKET DIGIT TYPE
+    // DIGIT TYPE
     // ============================================================
+
+    const VALID_DIGIT_TYPES = [
+      "2-digit",
+      "3-digit",
+    ];
 
     let digitType = market.digitType;
 
-    // Allow old market to be repaired from request
     if (!VALID_DIGIT_TYPES.includes(digitType)) {
-      if (VALID_DIGIT_TYPES.includes(requestedDigitType)) {
+      if (
+        VALID_DIGIT_TYPES.includes(
+          requestedDigitType
+        )
+      ) {
         market.digitType = requestedDigitType;
         digitType = requestedDigitType;
       }
@@ -201,11 +403,12 @@ exports.declareResult = async (req, res) => {
 
     if (!VALID_DIGIT_TYPES.includes(digitType)) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
-        message: "Market digit type must be 2-digit or 3-digit",
+        message:
+          "Market digit type must be 2-digit or 3-digit",
       });
     }
 
@@ -213,22 +416,38 @@ exports.declareResult = async (req, res) => {
     // ALLOWED GAME TYPES
     // ============================================================
 
+    const TWO_DIGIT_GAME_TYPES = [
+      "jodi",
+      "last-digit",
+      "first-digit",
+    ];
+
+    const THREE_DIGIT_GAME_TYPES = [
+      "jodi",
+      "panna",
+      "half-sangam",
+      "full-sangam",
+      "last-digit",
+      "first-digit",
+    ];
+
     const allowedGameTypes =
       digitType === "2-digit"
         ? TWO_DIGIT_GAME_TYPES
         : THREE_DIGIT_GAME_TYPES;
 
     // ============================================================
-    // CHECK RESULT ALREADY DECLARED
+    // RESULT ALREADY DECLARED
     // ============================================================
 
     if (market.isResultDeclared) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
-        message: "Result already declared for this market",
+        message:
+          "Result already declared for this market",
       });
     }
 
@@ -236,30 +455,33 @@ exports.declareResult = async (req, res) => {
     // VALIDATE GAME TYPES
     // ============================================================
 
-    const invalidGameTypes = Object.keys(winningNumbers).filter(
-      (gameType) => {
-        const value = winningNumbers[gameType];
+    const invalidGameTypes =
+      Object.keys(winningNumbers).filter(
+        (gameType) => {
+          const value = winningNumbers[gameType];
 
-        // Ignore empty values
-        if (
-          value === undefined ||
-          value === null ||
-          String(value).trim() === ""
-        ) {
-          return false;
+          if (
+            value === undefined ||
+            value === null ||
+            str(value) === ""
+          ) {
+            return false;
+          }
+
+          return !allowedGameTypes.includes(
+            gameType
+          );
         }
-
-        return !allowedGameTypes.includes(gameType);
-      }
-    );
+      );
 
     if (invalidGameTypes.length > 0) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
-        message: "Invalid game type for this market",
+        message:
+          "Invalid game type for this market",
         invalidGameTypes,
         allowedGameTypes,
         digitType,
@@ -276,11 +498,10 @@ exports.declareResult = async (req, res) => {
     for (const gameType of allowedGameTypes) {
       const number = winningNumbers[gameType];
 
-      // Empty game allowed
       if (
         number === undefined ||
         number === null ||
-        String(number).trim() === ""
+        str(number) === ""
       ) {
         formattedWinningNumbers[gameType] = null;
         continue;
@@ -293,17 +514,15 @@ exports.declareResult = async (req, res) => {
             gameType
           );
       } catch (error) {
-        errors.push(`${gameType}: ${error.message}`);
+        errors.push(
+          `${gameType}: ${error.message}`
+        );
       }
     }
 
-    // ============================================================
-    // NUMBER VALIDATION ERROR
-    // ============================================================
-
     if (errors.length > 0) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
@@ -316,22 +535,24 @@ exports.declareResult = async (req, res) => {
     // AT LEAST ONE RESULT REQUIRED
     // ============================================================
 
-    const hasWinningNumber = Object.values(
-      formattedWinningNumbers
-    ).some(
-      (value) =>
-        value !== null &&
-        value !== undefined &&
-        String(value).trim() !== ""
-    );
+    const hasWinningNumber =
+      Object.values(
+        formattedWinningNumbers
+      ).some(
+        (value) =>
+          value !== null &&
+          value !== undefined &&
+          str(value) !== ""
+      );
 
     if (!hasWinningNumber) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
-        message: "At least one winning number is required",
+        message:
+          "At least one winning number is required",
       });
     }
 
@@ -346,11 +567,12 @@ exports.declareResult = async (req, res) => {
 
     if (pendingBids.length === 0) {
       await session.abortTransaction();
-      await endSession(session);
+      await session.endSession();
 
       return res.status(400).json({
         success: false,
-        message: "No pending bids found for this market",
+        message:
+          "No pending bids found for this market",
       });
     }
 
@@ -363,7 +585,6 @@ exports.declareResult = async (req, res) => {
     let totalPayout = 0;
 
     const winningBidsList = [];
-
     const gameTypeStats = {};
 
     for (const type of allowedGameTypes) {
@@ -379,6 +600,7 @@ exports.declareResult = async (req, res) => {
     // ============================================================
 
     for (const bid of pendingBids) {
+
       // ----------------------------------------------------------
       // INVALID / OLD GAME TYPE
       // ----------------------------------------------------------
@@ -388,14 +610,12 @@ exports.declareResult = async (req, res) => {
         bid.lostAt = new Date();
         bid.winAmount = 0;
         bid.resultNumber = null;
-        bid.nextOpenDate = parsedNextOpenDate;
+        bid.nextOpenDate =
+          parsedNextOpenDate;
 
-        await bid.save({
-          session,
-        });
+        await bid.save({ session });
 
         totalLost++;
-
         continue;
       }
 
@@ -404,7 +624,9 @@ exports.declareResult = async (req, res) => {
       // ----------------------------------------------------------
 
       if (gameTypeStats[bid.gameType]) {
-        gameTypeStats[bid.gameType].total++;
+        gameTypeStats[
+          bid.gameType
+        ].total++;
       }
 
       // ----------------------------------------------------------
@@ -424,12 +646,16 @@ exports.declareResult = async (req, res) => {
         bid.status = "won";
 
         bid.winAmount =
-          Number(bid.possibleWinAmount) || 0;
+          Number(
+            bid.possibleWinAmount
+          ) || 0;
 
         bid.wonAt = new Date();
 
         bid.resultNumber =
-          formattedWinningNumbers[bid.gameType] || null;
+          formattedWinningNumbers[
+            bid.gameType
+          ] || null;
 
         // --------------------------------------------------------
         // GET USER
@@ -442,27 +668,28 @@ exports.declareResult = async (req, res) => {
         if (user) {
           user.balance =
             (Number(user.balance) || 0) +
-            (Number(bid.possibleWinAmount) || 0);
+            (Number(
+              bid.possibleWinAmount
+            ) || 0);
 
-          await user.save({
-            session,
-          });
+          await user.save({ session });
 
           totalPayout +=
-            Number(bid.possibleWinAmount) || 0;
+            Number(
+              bid.possibleWinAmount
+            ) || 0;
         }
 
         totalWon++;
 
         winningBidsList.push(bid);
 
-        // --------------------------------------------------------
-        // GAME TYPE WON
-        // --------------------------------------------------------
-
         if (gameTypeStats[bid.gameType]) {
-          gameTypeStats[bid.gameType].won++;
+          gameTypeStats[
+            bid.gameType
+          ].won++;
         }
+
       }
 
       // ==========================================================
@@ -471,38 +698,35 @@ exports.declareResult = async (req, res) => {
 
       else {
         bid.status = "lost";
-
         bid.winAmount = 0;
-
         bid.lostAt = new Date();
 
         bid.resultNumber =
-          formattedWinningNumbers[bid.gameType] || null;
+          formattedWinningNumbers[
+            bid.gameType
+          ] || null;
 
         totalLost++;
 
-        // --------------------------------------------------------
-        // GAME TYPE LOST
-        // --------------------------------------------------------
-
         if (gameTypeStats[bid.gameType]) {
-          gameTypeStats[bid.gameType].lost++;
+          gameTypeStats[
+            bid.gameType
+          ].lost++;
         }
       }
 
-      // ==========================================================
+      // ============================================================
       // SET NEXT OPEN DATE
-      // ==========================================================
+      // ============================================================
 
-      bid.nextOpenDate = parsedNextOpenDate;
+      bid.nextOpenDate =
+        parsedNextOpenDate;
 
-      // ==========================================================
+      // ============================================================
       // SAVE BID
-      // ==========================================================
+      // ============================================================
 
-      await bid.save({
-        session,
-      });
+      await bid.save({ session });
     }
 
     // ============================================================
@@ -511,25 +735,19 @@ exports.declareResult = async (req, res) => {
 
     const resultData = {
       marketId: market._id,
-
       marketName: market.name,
-
       digitType,
-
-      winningNumber: formattedWinningNumbers,
-
+      winningNumber:
+        formattedWinningNumbers,
       resultDate: parsedResultDate,
-
-      nextOpenDate: parsedNextOpenDate,
-
+      nextOpenDate:
+        parsedNextOpenDate,
       declaredBy: req.user.id,
-
-      totalBids: pendingBids.length,
-
-      totalWinningBids: totalWon,
-
+      totalBids:
+        pendingBids.length,
+      totalWinningBids:
+        totalWon,
       totalPayout,
-
       status: "declared",
     };
 
@@ -539,9 +757,7 @@ exports.declareResult = async (req, res) => {
 
     const result = await Result.create(
       [resultData],
-      {
-        session,
-      }
+      { session }
     );
 
     // ============================================================
@@ -554,7 +770,8 @@ exports.declareResult = async (req, res) => {
       },
       {
         $set: {
-          nextOpenDate: parsedNextOpenDate,
+          nextOpenDate:
+            parsedNextOpenDate,
         },
       },
       {
@@ -569,16 +786,14 @@ exports.declareResult = async (req, res) => {
     market.isResultDeclared = true;
     market.resultDeclaredAt = new Date();
 
-    await market.save({
-      session,
-    });
+    await market.save({ session });
 
     // ============================================================
     // COMMIT
     // ============================================================
 
     await session.commitTransaction();
-    await endSession(session);
+    await session.endSession();
 
     // ============================================================
     // SUCCESS
@@ -586,8 +801,8 @@ exports.declareResult = async (req, res) => {
 
     return res.json({
       success: true,
-
-      message: "Result declared successfully",
+      message:
+        "Result declared successfully",
 
       data: {
         market: {
@@ -598,46 +813,44 @@ exports.declareResult = async (req, res) => {
 
         result: result[0],
 
-        resultDate: parsedResultDate,
+        resultDate:
+          parsedResultDate,
 
-        nextOpenDate: parsedNextOpenDate,
+        nextOpenDate:
+          parsedNextOpenDate,
 
         summary: {
           digitType,
-
           allowedGameTypes,
-
-          totalBidsProcessed: pendingBids.length,
-
+          totalBidsProcessed:
+            pendingBids.length,
           totalWon,
-
           totalLost,
-
           totalPayout,
-
           gameTypeStats,
         },
 
-        winningBids: winningBidsList.map(
-          (bid) => ({
-            id: bid._id,
-
-            userId: bid.userId,
-
-            gameType: bid.gameType,
-
-            number: bid.number,
-
-            bidAmount: bid.bidAmount,
-
-            winAmount: bid.winAmount,
-
-            nextOpenDate: parsedNextOpenDate,
-          })
-        ),
+        winningBids:
+          winningBidsList.map(
+            (bid) => ({
+              id: bid._id,
+              userId: bid.userId,
+              gameType:
+                bid.gameType,
+              number: bid.number,
+              bidAmount:
+                bid.bidAmount,
+              winAmount:
+                bid.winAmount,
+              nextOpenDate:
+                parsedNextOpenDate,
+            })
+          ),
       },
     });
+
   } catch (error) {
+
     // ============================================================
     // ROLLBACK
     // ============================================================
@@ -651,7 +864,7 @@ exports.declareResult = async (req, res) => {
       );
     }
 
-    await endSession(session);
+    await session.endSession();
 
     console.error(
       "Declare Result Error:",
@@ -664,270 +877,6 @@ exports.declareResult = async (req, res) => {
         error.message ||
         "Internal server error",
     });
-  }
-};
-
-// ============================================================
-// ================= HELPER: CHECK BID WIN =====================
-// ============================================================
-
-const checkBidWin = (
-  bid,
-  winningNumbers
-) => {
-  // ============================================================
-  // GET WINNING NUMBER
-  // ============================================================
-
-  const winningNumber =
-    winningNumbers[bid.gameType];
-
-  if (
-    winningNumber === undefined ||
-    winningNumber === null ||
-    String(winningNumber).trim() === ""
-  ) {
-    return false;
-  }
-
-  // ============================================================
-  // NORMALIZE VALUES
-  // ============================================================
-
-  const winningNumStr = String(
-    winningNumber
-  ).trim();
-
-  const bidNumStr = String(
-    bid.number
-  ).trim();
-
-  if (!bidNumStr) {
-    return false;
-  }
-
-  // ============================================================
-  // GAME TYPE MATCHING
-  // ============================================================
-
-  switch (bid.gameType) {
-
-    // ============================================================
-    // JODI
-    // ============================================================
-    //
-    // IMPORTANT:
-    //
-    // Jodi bid ke FIRST 2 DIGITS ko result ke FIRST 2 DIGITS
-    // se match karega.
-    //
-    // Bid    = 12
-    // Result = 123456
-    // FIRST 2 = 12
-    // => WIN
-    //
-    // Bid    = 12
-    // Result = 129876
-    // FIRST 2 = 12
-    // => WIN
-    //
-    // Bid    = 12
-    // Result = 132456
-    // FIRST 2 = 13
-    // => LOST
-    //
-    // ============================================================
-
-    case "jodi": {
-      const bidFirstTwo =
-        bidNumStr.slice(0, 2);
-
-      const resultFirstTwo =
-        winningNumStr.slice(0, 2);
-
-      return (
-        bidFirstTwo.length === 2 &&
-        resultFirstTwo.length === 2 &&
-        /^\d{2}$/.test(bidFirstTwo) &&
-        /^\d{2}$/.test(resultFirstTwo) &&
-        bidFirstTwo === resultFirstTwo
-      );
-    }
-
-    // ============================================================
-    // PANNA
-    // ============================================================
-
-    case "panna": {
-      const bidPanna =
-        bidNumStr.padStart(3, "0");
-
-      const resultPanna =
-        winningNumStr.padStart(3, "0");
-
-      return (
-        bidPanna.length === 3 &&
-        resultPanna.length === 3 &&
-        /^\d{3}$/.test(bidPanna) &&
-        /^\d{3}$/.test(resultPanna) &&
-        bidPanna === resultPanna
-      );
-    }
-
-    // ============================================================
-    // HALF SANGAM
-    // ============================================================
-
-    case "half-sangam": {
-      const bidParts =
-        bidNumStr.split("-");
-
-      const resultParts =
-        winningNumStr.split("-");
-
-      if (
-        bidParts.length !== 2 ||
-        resultParts.length !== 2
-      ) {
-        return false;
-      }
-
-      const bidFirst =
-        bidParts[0].trim();
-
-      const bidSecond =
-        bidParts[1].trim();
-
-      const resultFirst =
-        resultParts[0].trim();
-
-      const resultSecond =
-        resultParts[1].trim();
-
-      // ----------------------------------------------------------
-      // PANNA + DIGIT
-      // Example: 123-6
-      // ----------------------------------------------------------
-
-      if (
-        /^\d{3}$/.test(bidFirst) &&
-        /^\d$/.test(bidSecond)
-      ) {
-        return (
-          /^\d{3}$/.test(resultFirst) &&
-          /^\d$/.test(resultSecond) &&
-          bidFirst === resultFirst &&
-          bidSecond === resultSecond
-        );
-      }
-
-      // ----------------------------------------------------------
-      // DIGIT + PANNA
-      // Example: 6-123
-      // ----------------------------------------------------------
-
-      if (
-        /^\d$/.test(bidFirst) &&
-        /^\d{3}$/.test(bidSecond)
-      ) {
-        return (
-          /^\d$/.test(resultFirst) &&
-          /^\d{3}$/.test(resultSecond) &&
-          bidFirst === resultFirst &&
-          bidSecond === resultSecond
-        );
-      }
-
-      return false;
-    }
-
-    // ============================================================
-    // FULL SANGAM
-    // ============================================================
-
-    case "full-sangam": {
-      const bidParts =
-        bidNumStr.split("-");
-
-      const resultParts =
-        winningNumStr.split("-");
-
-      if (
-        bidParts.length !== 2 ||
-        resultParts.length !== 2
-      ) {
-        return false;
-      }
-
-      const bidFirst =
-        bidParts[0].trim();
-
-      const bidSecond =
-        bidParts[1].trim();
-
-      const resultFirst =
-        resultParts[0].trim();
-
-      const resultSecond =
-        resultParts[1].trim();
-
-      if (
-        !/^\d{3}$/.test(bidFirst) ||
-        !/^\d{3}$/.test(bidSecond) ||
-        !/^\d{3}$/.test(resultFirst) ||
-        !/^\d{3}$/.test(resultSecond)
-      ) {
-        return false;
-      }
-
-      return (
-        bidFirst === resultFirst &&
-        bidSecond === resultSecond
-      );
-    }
-
-    // ============================================================
-    // LAST DIGIT
-    // ============================================================
-
-    case "last-digit": {
-      const bidLastDigit =
-        bidNumStr.match(/\d$/)?.[0];
-
-      const resultLastDigit =
-        winningNumStr.match(/\d$/)?.[0];
-
-      return (
-        bidLastDigit !== undefined &&
-        resultLastDigit !== undefined &&
-        bidLastDigit === resultLastDigit
-      );
-    }
-
-    // ============================================================
-    // FIRST DIGIT
-    // ============================================================
-
-    case "first-digit": {
-      const bidFirstDigit =
-        bidNumStr.match(/^\d/)?.[0];
-
-      const resultFirstDigit =
-        winningNumStr.match(/^\d/)?.[0];
-
-      return (
-        bidFirstDigit !== undefined &&
-        resultFirstDigit !== undefined &&
-        bidFirstDigit === resultFirstDigit
-      );
-    }
-
-    // ============================================================
-    // DEFAULT
-    // ============================================================
-
-    default:
-      return false;
   }
 };
 
@@ -1011,7 +960,7 @@ exports.getResults = async (
         })
         .skip(
           (parsedPage - 1) *
-            parsedLimit
+          parsedLimit
         )
         .limit(parsedLimit);
 

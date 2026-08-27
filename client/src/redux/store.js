@@ -52,6 +52,7 @@ import bidReducer from "./slices/bidSlice";
 import resultReducer from "./slices/resultSlice";
 import publicBidReducer from "./slices/publicBidSlice";
 import powerballResultReducer from "./slices/powerballResultSlice";
+import mineGameReducer from './slices/mineGameSlice'
 
 
 export const store = configureStore({
@@ -65,6 +66,8 @@ export const store = configureStore({
     deposit: depositReducer,
     banner: bannerReducer,
     ticketType: ticketTypeReducer,
+        mineGame: mineGameReducer,
+
 
     // ========================================
     // AUSTRALIA

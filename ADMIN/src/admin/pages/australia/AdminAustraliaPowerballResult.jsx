@@ -13,6 +13,7 @@ import {
     deletePowerballResult,
     getAllPendingGames,
     clearPendingGames,
+    getUnselectedPowerballNumbers,
 } from "../../redux/australia/powerballResultSlice";
 
 import { toast } from "react-toastify";
@@ -41,6 +42,12 @@ const AustraliaPowerballResult = () => {
         deleteLoading,
         pendingGames,
         pendingGamesLoading,
+
+        // NEW
+        selectedNumbers,
+        unselectedNumbers,
+        unselectedCounts,
+        unselectedNumbersLoading,
     } = useSelector(
         (state) =>
             state.australiaPowerballResult ||
@@ -81,26 +88,6 @@ const AustraliaPowerballResult = () => {
 
     // =========================================================
     // NORMALIZE PENDING API RESPONSE
-    //
-    // Your API:
-    //
-    // {
-    //   success: true,
-    //   total: 1,
-    //   games: [
-    //     {
-    //       poolId,
-    //       drawNo,
-    //       userId,
-    //       userName,
-    //       userEmail,
-    //       bidAmount,
-    //       currencyDetails,
-    //       games: [...]
-    //     }
-    //   ]
-    // }
-    //
     // =========================================================
 
     const normalizedPools = useMemo(() => {
@@ -168,9 +155,9 @@ const AustraliaPowerballResult = () => {
                 };
             }
 
-            // -------------------------------------------------
+            // =================================================
             // NESTED GAMES
-            // -------------------------------------------------
+            // =================================================
 
             if (Array.isArray(item.games)) {
                 item.games.forEach((game) => {
@@ -430,7 +417,7 @@ const AustraliaPowerballResult = () => {
     ]);
 
     // =========================================================
-    // DRAW CHANGE
+    // DRAW CHANGE - AUTO SELECT POOL
     // =========================================================
 
     const handleDrawChange = (
@@ -439,11 +426,32 @@ const AustraliaPowerballResult = () => {
         const drawNo =
             event.target.value;
 
+        // Find pools for this draw
+        const poolsForDraw = normalizedPools.filter(
+            (pool) =>
+                Number(pool.drawNo) === Number(drawNo)
+        );
+
+        // Auto select the first pool if available
+        const autoPoolId = poolsForDraw.length > 0 ? poolsForDraw[0].poolId : "";
+
+        console.log("DRAW CHANGED:", drawNo);
+        console.log("AUTO SELECTED POOL:", autoPoolId);
+
         setFormData((prev) => ({
             ...prev,
             drawNo,
-            gamePoolId: "",
+            gamePoolId: autoPoolId,
         }));
+
+        // If pool is auto selected, fetch unselected numbers
+        if (autoPoolId) {
+            dispatch(
+                getUnselectedPowerballNumbers({
+                    gamePoolId: autoPoolId,
+                })
+            );
+        }
     };
 
     // =========================================================
@@ -465,6 +473,18 @@ const AustraliaPowerballResult = () => {
             ...prev,
             gamePoolId,
         }));
+
+        // ================================================
+        // GET UNSELECTED NUMBERS
+        // ================================================
+
+        if (gamePoolId) {
+            dispatch(
+                getUnselectedPowerballNumbers({
+                    gamePoolId,
+                })
+            );
+        }
     };
 
     // =========================================================
@@ -533,9 +553,9 @@ const AustraliaPowerballResult = () => {
             "======================================"
         );
 
-        // -----------------------------------------------------
+        // =====================================================
         // PREVENT DOUBLE CLICK
-        // -----------------------------------------------------
+        // =====================================================
 
         if (
             isSubmitting ||
@@ -548,9 +568,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // DRAW
-        // -----------------------------------------------------
+        // =====================================================
 
         if (!formData.drawNo) {
             toast.error(
@@ -560,9 +580,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // POOL ID
-        // -----------------------------------------------------
+        // =====================================================
 
         if (!formData.gamePoolId) {
             toast.error(
@@ -572,9 +592,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // FIND POOL
-        // -----------------------------------------------------
+        // =====================================================
 
         const pool =
             poolsForSelectedDraw.find(
@@ -600,9 +620,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // POOL STATUS
-        // -----------------------------------------------------
+        // =====================================================
 
         const poolStatus =
             String(
@@ -628,9 +648,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // EXISTING RESULT
-        // -----------------------------------------------------
+        // =====================================================
 
         if (
             selectedDrawHasResult
@@ -642,9 +662,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // NUMBERS
-        // -----------------------------------------------------
+        // =====================================================
 
         if (
             !Array.isArray(
@@ -666,7 +686,9 @@ const AustraliaPowerballResult = () => {
                     Number(value)
             );
 
-        // Empty validation
+        // =====================================================
+        // EMPTY VALIDATION
+        // =====================================================
 
         const hasEmptyNumber =
             formData.numbers.some(
@@ -685,7 +707,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // Integer validation
+        // =====================================================
+        // INTEGER VALIDATION
+        // =====================================================
 
         if (
             numbers.some(
@@ -702,7 +726,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // Range
+        // =====================================================
+        // RANGE
+        // =====================================================
 
         if (
             numbers.some(
@@ -718,7 +744,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // Unique
+        // =====================================================
+        // UNIQUE
+        // =====================================================
 
         if (
             new Set(numbers).size !==
@@ -731,9 +759,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // POWERBALL
-        // -----------------------------------------------------
+        // =====================================================
 
         if (
             formData.powerball ===
@@ -778,17 +806,9 @@ const AustraliaPowerballResult = () => {
             return;
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // FINAL PAYLOAD
-        //
-        // IMPORTANT:
-        // Backend expects exactly:
-        //
-        // gamePoolId
-        // numbers
-        // powerball
-        //
-        // -----------------------------------------------------
+        // =====================================================
 
         const payload = {
             gamePoolId:
@@ -824,9 +844,9 @@ const AustraliaPowerballResult = () => {
         setIsSubmitting(true);
 
         try {
-            // -------------------------------------------------
+            // =================================================
             // API CALL
-            // -------------------------------------------------
+            // =================================================
 
             const response =
                 await dispatch(
@@ -857,9 +877,9 @@ const AustraliaPowerballResult = () => {
                     "Result Declared Successfully!"
             );
 
-            // -------------------------------------------------
+            // =================================================
             // RESET
-            // -------------------------------------------------
+            // =================================================
 
             setFormData({
                 ...INITIAL_FORM,
@@ -874,9 +894,9 @@ const AustraliaPowerballResult = () => {
                 ],
             });
 
-            // -------------------------------------------------
+            // =================================================
             // REFRESH
-            // -------------------------------------------------
+            // =================================================
 
             await dispatch(
                 getAllPowerballResults()
@@ -1179,6 +1199,13 @@ const AustraliaPowerballResult = () => {
 
                             </select>
 
+                            {/* Show auto-selected pool info */}
+                            {formData.drawNo && formData.gamePoolId && (
+                                <p className="mt-2 text-xs text-green-600">
+                                    ✓ Pool auto-selected for Draw #{formData.drawNo}
+                                </p>
+                            )}
+
                         </div>
 
                         {/* =====================================
@@ -1215,42 +1242,32 @@ const AustraliaPowerballResult = () => {
                                 {poolsForSelectedDraw.map(
                                     (
                                         pool
-                                    ) => {
-                                        const status =
-                                            String(
-                                                pool.poolStatus ||
-                                                    ""
-                                            )
-                                                .trim()
-                                                .toLowerCase();
-
-                                        return (
-                                            <option
-                                                key={
-                                                    pool.poolId
-                                                }
-                                                value={
-                                                    pool.poolId
-                                                }
-                                            >
-                                                Pool #
-                                                {
-                                                    pool.poolId.slice(
-                                                        -8
-                                                    )
-                                                }{" "}
-                                                —{" "}
-                                                {
-                                                    pool.games
-                                                        .length
-                                                }{" "}
-                                                Games —{" "}
-                                                {
-                                                    pool.poolStatus
-                                                }
-                                            </option>
-                                        );
-                                    }
+                                    ) => (
+                                        <option
+                                            key={
+                                                pool.poolId
+                                            }
+                                            value={
+                                                pool.poolId
+                                            }
+                                        >
+                                            Pool #
+                                            {
+                                                pool.poolId.slice(
+                                                    -8
+                                                )
+                                            }{" "}
+                                            —{" "}
+                                            {
+                                                pool.games
+                                                    .length
+                                            }{" "}
+                                            Games —{" "}
+                                            {
+                                                pool.poolStatus
+                                            }
+                                        </option>
+                                    )
                                 )}
 
                             </select>
@@ -1266,7 +1283,9 @@ const AustraliaPowerballResult = () => {
                                     </p>
                                 )}
 
-                            {/* SELECTED POOL */}
+                            {/* =====================================
+                                SELECTED POOL
+                            ===================================== */}
 
                             {selectedPool && (
                                 <div className="mt-4 bg-purple-50 border border-purple-200 rounded-xl p-5">
@@ -1386,6 +1405,239 @@ const AustraliaPowerballResult = () => {
                                 </div>
                             )}
 
+                            {/* =====================================
+                                UNSELECTED NUMBERS
+                            ===================================== */}
+
+                            {formData.gamePoolId && (
+                                <div className="mt-5 bg-gray-50 border border-gray-200 rounded-xl p-5">
+
+                                    <div className="flex justify-between items-center mb-5">
+
+                                        <div>
+                                            <h4 className="font-bold text-gray-800 text-lg">
+                                                Unselected Numbers
+                                            </h4>
+
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Numbers not selected in this game pool
+                                            </p>
+                                        </div>
+
+                                        {unselectedNumbersLoading && (
+                                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                <div className="w-4 h-4 border-2 border-gray-400 border-r-transparent rounded-full animate-spin" />
+                                                Loading...
+                                            </div>
+                                        )}
+
+                                    </div>
+
+                                    {/* =================================
+                                        MAIN NUMBERS
+                                    ================================= */}
+
+                                    <div className="mb-6">
+
+                                        <div className="flex justify-between items-center mb-3">
+
+                                            <p className="text-sm font-semibold text-gray-700">
+                                                Main Numbers
+                                            </p>
+
+                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+                                                {
+                                                    unselectedCounts
+                                                        ?.unselectedMainNumbers ||
+                                                    0
+                                                }{" "}
+                                                Unselected
+                                            </span>
+
+                                        </div>
+
+                                        {Array.isArray(
+                                            unselectedNumbers?.mainNumbers
+                                        ) &&
+                                        unselectedNumbers.mainNumbers.length >
+                                            0 ? (
+                                            <div className="flex flex-wrap gap-2">
+
+                                                {unselectedNumbers.mainNumbers.map(
+                                                    (
+                                                        number
+                                                    ) => (
+                                                        <span
+                                                            key={
+                                                                number
+                                                            }
+                                                            className="w-10 h-10 rounded-full bg-green-100 text-green-700 border border-green-200 flex items-center justify-center font-bold"
+                                                        >
+                                                            {
+                                                                number
+                                                            }
+                                                        </span>
+                                                    )
+                                                )}
+
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500">
+                                                No unselected main numbers found.
+                                            </p>
+                                        )}
+
+                                    </div>
+
+                                    {/* =================================
+                                        POWERBALL - RED BALL
+                                    ================================= */}
+
+                                    <div>
+
+                                        <div className="flex justify-between items-center mb-3">
+
+                                            <p className="text-sm font-semibold text-gray-700">
+                                                Powerball
+                                            </p>
+
+                                            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-semibold">
+                                                {
+                                                    unselectedCounts
+                                                        ?.unselectedPowerballs ||
+                                                    0
+                                                }{" "}
+                                                Unselected
+                                            </span>
+
+                                        </div>
+
+                                        {Array.isArray(
+                                            unselectedNumbers?.powerballs
+                                        ) &&
+                                        unselectedNumbers.powerballs.length >
+                                            0 ? (
+                                            <div className="flex flex-wrap gap-2">
+
+                                                {unselectedNumbers.powerballs.map(
+                                                    (
+                                                        number
+                                                    ) => (
+                                                        <span
+                                                            key={
+                                                                number
+                                                            }
+                                                            className="w-10 h-10 rounded-full bg-red-100 text-red-700 border border-red-200 flex items-center justify-center font-bold"
+                                                        >
+                                                            {
+                                                                number
+                                                            }
+                                                        </span>
+                                                    )
+                                                )}
+
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500">
+                                                No unselected Powerball numbers found.
+                                            </p>
+                                        )}
+
+                                    </div>
+
+                                    {/* =================================
+                                        SELECTED SUMMARY
+                                    ================================= */}
+
+                                    <div className="mt-6 pt-4 border-t border-gray-200">
+
+                                        <p className="text-xs font-semibold text-gray-500 mb-3">
+                                            Selected Numbers Summary
+                                        </p>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                            <div className="bg-white rounded-lg border p-3">
+
+                                                <p className="text-xs text-gray-500 mb-2">
+                                                    Selected Main Numbers
+                                                </p>
+
+                                                <div className="flex flex-wrap gap-1.5">
+
+                                                    {selectedNumbers?.mainNumbers
+                                                        ?.length >
+                                                    0 ? (
+                                                        selectedNumbers.mainNumbers.map(
+                                                            (
+                                                                number
+                                                            ) => (
+                                                                <span
+                                                                    key={
+                                                                        number
+                                                                    }
+                                                                    className="px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-bold"
+                                                                >
+                                                                    {
+                                                                        number
+                                                                    }
+                                                                </span>
+                                                            )
+                                                        )
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">
+                                                            None
+                                                        </span>
+                                                    )}
+
+                                                </div>
+
+                                            </div>
+
+                                            <div className="bg-white rounded-lg border p-3">
+
+                                                <p className="text-xs text-gray-500 mb-2">
+                                                    Selected Powerballs
+                                                </p>
+
+                                                <div className="flex flex-wrap gap-1.5">
+
+                                                    {selectedNumbers?.powerballs
+                                                        ?.length >
+                                                    0 ? (
+                                                        selectedNumbers.powerballs.map(
+                                                            (
+                                                                number
+                                                            ) => (
+                                                                <span
+                                                                    key={
+                                                                        number
+                                                                    }
+                                                                    className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-bold"
+                                                                >
+                                                                    {
+                                                                        number
+                                                                    }
+                                                                </span>
+                                                            )
+                                                        )
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">
+                                                            None
+                                                        </span>
+                                                    )}
+
+                                                </div>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            )}
+
                         </div>
 
                         {/* =====================================
@@ -1415,9 +1667,7 @@ const AustraliaPowerballResult = () => {
                                             value={
                                                 value
                                             }
-                                            onChange={(
-                                                event
-                                            ) =>
+                                            onChange={(event) =>
                                                 handleNumberChange(
                                                     index,
                                                     event
@@ -1520,10 +1770,7 @@ const AustraliaPowerballResult = () => {
 
                         {/* =====================================
                             DECLARE BUTTON
-                            
-                            IMPORTANT:
-                            NO selectedPoolIsOpen HERE
-                            ===================================== */}
+                        ===================================== */}
 
                         <button
                             type="submit"
@@ -1778,9 +2025,7 @@ const AustraliaPowerballResult = () => {
                                         value={
                                             selectedDrawNo
                                         }
-                                        onChange={(
-                                            event
-                                        ) =>
+                                        onChange={(event) =>
                                             setSelectedDrawNo(
                                                 event
                                                     .target

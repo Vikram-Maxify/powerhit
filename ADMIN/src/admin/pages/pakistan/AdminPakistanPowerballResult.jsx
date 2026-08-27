@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
     createPowerballResult,
@@ -7,6 +7,7 @@ import {
     deletePowerballResult,
     getAllPendingGames,
     clearPendingGames,
+    getUnselectedPowerballNumbers,
 } from "../../redux/pakistan/powerballResultSlice";
 import { toast } from "react-toastify";
 
@@ -23,6 +24,10 @@ const PakistanPowerballResult = () => {
         deleteLoading,
         pendingGames,
         pendingGamesLoading,
+        selectedNumbers,
+        unselectedNumbers,
+        unselectedCounts,
+        unselectedNumbersLoading,
     } = useSelector(
         (state) => state.pakistanPowerballResult
     );
@@ -48,10 +53,7 @@ const PakistanPowerballResult = () => {
         dispatch(getAllPendingGames());
     }, [dispatch]);
 
-    // Group pending games by poolId.
-    // Supports both:
-    // { poolId, drawNo, games: [...] }
-    // and flat game records.
+    // Group pending games by poolId
     useEffect(() => {
         if (
             !Array.isArray(pendingGames) ||
@@ -103,6 +105,7 @@ const PakistanPowerballResult = () => {
                 };
             }
 
+            // Nested response
             if (Array.isArray(item.games)) {
                 item.games.forEach((game) => {
                     if (!game) return;
@@ -158,26 +161,60 @@ const PakistanPowerballResult = () => {
                             null,
                     });
                 });
-            } else {
-                grouped[poolId].games.push({
-                    ...item,
-                    poolId: String(poolId),
-                    drawNo:
-                        Number(item.drawNo) || 0,
-                    gameNo:
-                        Number(item.gameNo) || 0,
-                    numbers:
-                        Array.isArray(item.numbers)
-                            ? item.numbers.map(Number)
-                            : [],
-                    powerball:
-                        Number(item.powerball) || 0,
-                });
+
+                return;
             }
+
+            // Flat response
+            grouped[poolId].games.push({
+                ...item,
+                poolId: String(poolId),
+                drawNo:
+                    Number(item.drawNo) || 0,
+                gameNo:
+                    Number(item.gameNo) || 0,
+                numbers:
+                    Array.isArray(item.numbers)
+                        ? item.numbers.map(Number)
+                        : [],
+                powerball:
+                    Number(item.powerball) || 0,
+            });
         });
 
         setGroupedGames(grouped);
     }, [pendingGames]);
+
+    // =========================================================
+    // AUTO-SELECT POOL WHEN GROUPED GAMES UPDATES
+    // =========================================================
+    useEffect(() => {
+        if (formData.drawNo && Object.keys(groupedGames).length > 0) {
+            const poolsForDraw = Object.values(groupedGames).filter(
+                (pool) => Number(pool.drawNo) === Number(formData.drawNo)
+            );
+            
+            if (poolsForDraw.length > 0) {
+                const autoPoolId = poolsForDraw[0].poolId;
+                // Only update if different from current selection
+                if (autoPoolId !== formData.gamePoolId) {
+                    console.log("🔄 AUTO-SELECTING POOL:", autoPoolId);
+                    console.log("FOR DRAW:", formData.drawNo);
+                    
+                    setFormData((prev) => ({
+                        ...prev,
+                        gamePoolId: autoPoolId,
+                    }));
+                    
+                    dispatch(
+                        getUnselectedPowerballNumbers({
+                            gamePoolId: autoPoolId,
+                        })
+                    );
+                }
+            }
+        }
+    }, [groupedGames, formData.drawNo]);
 
     // Get unique draw numbers from pending games
     const getUniqueDrawNumbers = () => {
@@ -185,7 +222,7 @@ const PakistanPowerballResult = () => {
         const drawNumbers = new Set();
         pendingGames.forEach(game => {
             if (game.drawNo) {
-                drawNumbers.add(game.drawNo);
+                drawNumbers.add(Number(game.drawNo));
             }
         });
         return Array.from(drawNumbers).sort((a, b) => a - b);
@@ -196,7 +233,7 @@ const PakistanPowerballResult = () => {
         if (selectedDrawNo === "all") {
             return pendingGames;
         }
-        return pendingGames.filter(game => game.drawNo === parseInt(selectedDrawNo));
+        return pendingGames.filter(game => Number(game.drawNo) === Number(selectedDrawNo));
     };
 
     // Handle success and error states
@@ -237,15 +274,85 @@ const PakistanPowerballResult = () => {
         }
     }, [success, error, dispatch, message, notificationShown]);
 
+    // =========================================================
+    // DRAW CHANGE - AUTO SELECT POOL
+    // =========================================================
+
+    const handleDrawChange = (e) => {
+        const drawNo = e.target.value;
+
+        // Clear previous pool selection when draw changes
+        if (!drawNo) {
+            setFormData((prev) => ({
+                ...prev,
+                drawNo: "",
+                gamePoolId: "",
+            }));
+            return;
+        }
+
+        // Find pools for this draw
+        const poolsForDraw = Object.values(groupedGames).filter(
+            (pool) => Number(pool.drawNo) === Number(drawNo)
+        );
+
+        // Auto select the first pool if available
+        const autoPoolId = poolsForDraw.length > 0 ? poolsForDraw[0].poolId : "";
+
+        console.log("📋 DRAW CHANGED:", drawNo);
+        console.log("📊 AVAILABLE POOLS:", poolsForDraw.length);
+        console.log("🎯 AUTO SELECTED POOL:", autoPoolId);
+
+        setFormData((prev) => ({
+            ...prev,
+            drawNo,
+            gamePoolId: autoPoolId,
+        }));
+
+        // Fetch unselected numbers for auto-selected pool
+        if (autoPoolId) {
+            dispatch(
+                getUnselectedPowerballNumbers({
+                    gamePoolId: autoPoolId,
+                })
+            );
+        }
+    };
+
+    // =========================================================
+    // POOL CHANGE
+    // =========================================================
+
+    const handlePoolChange = (e) => {
+        const gamePoolId = e.target.value;
+
+        setFormData((prev) => ({
+            ...prev,
+            gamePoolId,
+        }));
+
+        // Fetch unselected numbers for selected pool
+        if (gamePoolId) {
+            dispatch(
+                getUnselectedPowerballNumbers({
+                    gamePoolId,
+                })
+            );
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
+
+        // If draw number is changing, use handleDrawChange
+        if (name === "drawNo") {
+            handleDrawChange(e);
+            return;
+        }
 
         setFormData((prev) => ({
             ...prev,
             [name]: value,
-            ...(name === "drawNo"
-                ? { gamePoolId: "" }
-                : {}),
         }));
     };
 
@@ -259,30 +366,36 @@ const PakistanPowerballResult = () => {
         });
     };
 
-    // Pools belonging to the selected draw
-    const poolsForSelectedDraw = Object.values(
-        groupedGames
-    ).filter(
-        (pool) =>
-            Number(pool.drawNo) ===
-            Number(formData.drawNo)
-    );
+    // Pools for currently selected draw
+    const poolsForSelectedDraw = useMemo(() => {
+        if (!formData.drawNo) return [];
+        
+        return Object.values(groupedGames).filter(
+            (pool) =>
+                Number(pool.drawNo) ===
+                Number(formData.drawNo)
+        );
+    }, [groupedGames, formData.drawNo]);
 
-    // Exact pool selected by the admin
-    const selectedPool =
-        poolsForSelectedDraw.find(
+    // Exact selected pool
+    const selectedPool = useMemo(() => {
+        if (!formData.gamePoolId) return null;
+        
+        return poolsForSelectedDraw.find(
             (pool) =>
                 String(pool.poolId) ===
                 String(formData.gamePoolId)
         ) || null;
+    }, [poolsForSelectedDraw, formData.gamePoolId]);
 
-    const selectedDrawHasResult =
-        Array.isArray(results) &&
-        results.some(
-            (result) =>
-                Number(result.drawNo) ===
-                Number(formData.drawNo)
-        );
+    const selectedDrawHasResult = useMemo(() => {
+        return Array.isArray(results) &&
+            results.some(
+                (result) =>
+                    Number(result.drawNo) ===
+                    Number(formData.drawNo)
+            );
+    }, [results, formData.drawNo]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -433,9 +546,7 @@ const PakistanPowerballResult = () => {
             return;
         }
 
-        // IMPORTANT:
-        // Backend expects gamePoolId.
-        // drawNo is intentionally NOT sent.
+        // IMPORTANT: Backend expects gamePoolId. drawNo is intentionally NOT sent.
         const payload = {
             gamePoolId: String(
                 formData.gamePoolId
@@ -634,7 +745,7 @@ const PakistanPowerballResult = () => {
 
     // Get existing draw numbers for display
     const existingDrawNumbers = results && results.length > 0 
-        ? results.map(r => r.drawNo).sort((a, b) => a - b) 
+        ? results.map(r => Number(r.drawNo)).sort((a, b) => a - b) 
         : [];
 
     // Get draw numbers from pending games for dropdown
@@ -650,6 +761,16 @@ const PakistanPowerballResult = () => {
     };
 
     const nextDrawNumber = getNextDrawNumber();
+
+    // Debug logging for auto-selection
+    useEffect(() => {
+        if (formData.drawNo) {
+            console.log("🔍 DEBUG - Current Draw:", formData.drawNo);
+            console.log("🔍 DEBUG - Grouped Games:", Object.keys(groupedGames).length);
+            console.log("🔍 DEBUG - Pools for Draw:", poolsForSelectedDraw.length);
+            console.log("🔍 DEBUG - Selected Pool:", formData.gamePoolId);
+        }
+    }, [formData.drawNo, groupedGames, poolsForSelectedDraw]);
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -685,7 +806,7 @@ const PakistanPowerballResult = () => {
                                             <optgroup label="Existing Draws">
                                                 {existingDrawNumbers.map((num) => (
                                                     <option key={`existing-${num}`} value={num}>
-                                                        Draw #{num} {results?.some(r => r.drawNo === num) ? '✅' : ''}
+                                                        Draw #{num} {results?.some(r => Number(r.drawNo) === num) ? '✅' : ''}
                                                     </option>
                                                 ))}
                                             </optgroup>
@@ -693,7 +814,7 @@ const PakistanPowerballResult = () => {
                                                 <optgroup label="Pending Draws">
                                                     {pendingDrawNumbers.map((num) => (
                                                         <option key={`pending-${num}`} value={num}>
-                                                            Draw #{num} {pendingGames?.some(g => g.drawNo === num) ? '⏳' : ''}
+                                                            Draw #{num} {pendingGames?.some(g => Number(g.drawNo) === num) ? '⏳' : ''}
                                                         </option>
                                                     ))}
                                                 </optgroup>
@@ -714,6 +835,26 @@ const PakistanPowerballResult = () => {
                                     </div>
                                 )}
                             </div>
+                            
+                            {/* Auto-select confirmation */}
+                            {formData.drawNo && formData.gamePoolId && poolsForSelectedDraw.length > 0 && (
+                                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                                    <p className="text-xs text-green-700 flex items-center gap-2">
+                                        <span className="text-lg">✓</span> 
+                                        Pool auto-selected for Draw #{formData.drawNo}
+                                        {poolsForSelectedDraw.length > 1 && (
+                                            <span className="text-gray-500 text-xs ml-1">
+                                                (Multiple pools available - select from dropdown)
+                                            </span>
+                                        )}
+                                    </p>
+                                    {poolsForSelectedDraw.length > 0 && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Found {poolsForSelectedDraw.length} pool(s) for this draw
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                             
                             {/* Show existing draw numbers hint */}
                             {allDrawNumbers.length > 0 && (
@@ -741,11 +882,11 @@ const PakistanPowerballResult = () => {
                             {/* Show selected draw status */}
                             {formData.drawNo && (
                                 <div className="mt-2">
-                                    {results && results.some(r => r.drawNo === Number(formData.drawNo)) ? (
+                                    {results && results.some(r => Number(r.drawNo) === Number(formData.drawNo)) ? (
                                         <span className="text-xs text-red-600 font-semibold">
                                             ⚠️ Draw #{formData.drawNo} already has a result!
                                         </span>
-                                    ) : pendingGames && pendingGames.some(g => g.drawNo === Number(formData.drawNo)) ? (
+                                    ) : pendingGames && pendingGames.some(g => Number(g.drawNo) === Number(formData.drawNo)) ? (
                                         <span className="text-xs text-orange-600 font-semibold">
                                             ⏳ Draw #{formData.drawNo} has pending games
                                         </span>
@@ -765,10 +906,14 @@ const PakistanPowerballResult = () => {
                             </label>
 
                             <select
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white ${
+                                    formData.gamePoolId && poolsForSelectedDraw.length > 0 
+                                        ? 'border-green-400 bg-green-50' 
+                                        : 'border-gray-300'
+                                }`}
                                 name="gamePoolId"
                                 value={formData.gamePoolId}
-                                onChange={handleChange}
+                                onChange={handlePoolChange}
                                 disabled={
                                     isSubmitting ||
                                     createLoading ||
@@ -786,15 +931,12 @@ const PakistanPowerballResult = () => {
                                         <option
                                             key={pool.poolId}
                                             value={pool.poolId}
+                                            className={formData.gamePoolId === pool.poolId ? "font-bold text-green-600" : ""}
                                         >
-                                            Pool #
-                                            {pool.poolId
-                                                ? pool.poolId.slice(-8)
-                                                : "N/A"}{" "}
-                                            —{" "}
-                                            {pool.games?.length || 0}{" "}
-                                            Games —{" "}
+                                            Pool #{pool.poolId ? pool.poolId.slice(-8) : "N/A"} —
+                                            {pool.games?.length || 0} Games —
                                             {pool.poolStatus || "Open"}
+                                            {formData.gamePoolId === pool.poolId && " ✓ (Selected)"}
                                         </option>
                                     )
                                 )}
@@ -862,6 +1004,119 @@ const PakistanPowerballResult = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* =================================================
+                                UNSELECTED NUMBERS
+                            ================================================= */}
+                            {formData.gamePoolId && (
+                                <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h5 className="font-bold text-gray-800">Unselected Numbers</h5>
+                                            <p className="text-xs text-gray-500">
+                                                Numbers not selected in this game pool
+                                            </p>
+                                        </div>
+                                        {unselectedNumbersLoading && (
+                                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                <div className="w-4 h-4 border-2 border-gray-400 border-r-transparent rounded-full animate-spin" />
+                                                Loading...
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* MAIN NUMBERS */}
+                                    <div className="mb-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <p className="text-sm font-semibold text-gray-700">Main Numbers</p>
+                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+                                                {unselectedCounts?.unselectedMainNumbers || 0} Unselected
+                                            </span>
+                                        </div>
+                                        {Array.isArray(unselectedNumbers?.mainNumbers) && unselectedNumbers.mainNumbers.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {unselectedNumbers.mainNumbers.map((number) => (
+                                                    <span
+                                                        key={number}
+                                                        className="w-10 h-10 rounded-full bg-green-100 text-green-700 border border-green-200 flex items-center justify-center font-bold"
+                                                    >
+                                                        {number}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500">No unselected main numbers found.</p>
+                                        )}
+                                    </div>
+
+                                    {/* POWERBALL - RED BALL */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <p className="text-sm font-semibold text-gray-700">Powerball</p>
+                                            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-semibold">
+                                                {unselectedCounts?.unselectedPowerballs || 0} Unselected
+                                            </span>
+                                        </div>
+                                        {Array.isArray(unselectedNumbers?.powerballs) && unselectedNumbers.powerballs.length > 0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {unselectedNumbers.powerballs.map((number) => (
+                                                    <span
+                                                        key={number}
+                                                        className="w-10 h-10 rounded-full bg-red-100 text-red-700 border border-red-200 flex items-center justify-center font-bold"
+                                                    >
+                                                        {number}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500">No unselected Powerball numbers found.</p>
+                                        )}
+                                    </div>
+
+                                    {/* SELECTED SUMMARY */}
+                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                        <p className="text-xs font-semibold text-gray-500 mb-3">
+                                            Selected Numbers Summary
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="bg-white rounded-lg border p-3">
+                                                <p className="text-xs text-gray-500 mb-2">Selected Main Numbers</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedNumbers?.mainNumbers?.length > 0 ? (
+                                                        selectedNumbers.mainNumbers.map((number) => (
+                                                            <span
+                                                                key={number}
+                                                                className="px-2 py-1 rounded bg-blue-100 text-blue-700 text-xs font-bold"
+                                                            >
+                                                                {number}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">None</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="bg-white rounded-lg border p-3">
+                                                <p className="text-xs text-gray-500 mb-2">Selected Powerballs</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedNumbers?.powerballs?.length > 0 ? (
+                                                        selectedNumbers.powerballs.map((number) => (
+                                                            <span
+                                                                key={number}
+                                                                className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-bold"
+                                                            >
+                                                                {number}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400">None</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="mb-4">
@@ -912,16 +1167,16 @@ const PakistanPowerballResult = () => {
                         {/* Show current draw number being declared */}
                         {formData.drawNo && (
                             <div className={`mb-4 p-3 rounded-md ${
-                                results && results.some(r => r.drawNo === Number(formData.drawNo))
+                                results && results.some(r => Number(r.drawNo) === Number(formData.drawNo))
                                     ? 'bg-red-50 border border-red-200'
-                                    : pendingGames && pendingGames.some(g => g.drawNo === Number(formData.drawNo))
+                                    : pendingGames && pendingGames.some(g => Number(g.drawNo) === Number(formData.drawNo))
                                     ? 'bg-orange-50 border border-orange-200'
                                     : 'bg-green-50 border border-green-200'
                             }`}>
                                 <p className={`text-sm ${
-                                    results && results.some(r => r.drawNo === Number(formData.drawNo))
+                                    results && results.some(r => Number(r.drawNo) === Number(formData.drawNo))
                                         ? 'text-red-800'
-                                        : pendingGames && pendingGames.some(g => g.drawNo === Number(formData.drawNo))
+                                        : pendingGames && pendingGames.some(g => Number(g.drawNo) === Number(formData.drawNo))
                                         ? 'text-orange-800'
                                         : 'text-green-800'
                                 }`}>
@@ -940,14 +1195,14 @@ const PakistanPowerballResult = () => {
                                             Game Pool ID: {formData.gamePoolId}
                                         </div>
                                     )}
-                                    {results && results.some(r => r.drawNo === Number(formData.drawNo)) && (
+                                    {results && results.some(r => Number(r.drawNo) === Number(formData.drawNo)) && (
                                         <span className="ml-2 font-semibold">(⚠️ This draw already has a result!)</span>
                                     )}
-                                    {pendingGames && pendingGames.some(g => g.drawNo === Number(formData.drawNo)) && (
-                                        <span className="ml-2">({pendingGames.filter(g => g.drawNo === Number(formData.drawNo)).length} pending games)</span>
+                                    {pendingGames && pendingGames.some(g => Number(g.drawNo) === Number(formData.drawNo)) && (
+                                        <span className="ml-2">({pendingGames.filter(g => Number(g.drawNo) === Number(formData.drawNo)).length} pending games)</span>
                                     )}
-                                    {!results?.some(r => r.drawNo === Number(formData.drawNo)) && 
-                                     !pendingGames?.some(g => g.drawNo === Number(formData.drawNo)) && (
+                                    {!results?.some(r => Number(r.drawNo) === Number(formData.drawNo)) && 
+                                     !pendingGames?.some(g => Number(g.drawNo) === Number(formData.drawNo)) && (
                                         <span className="ml-2">(✓ New draw)</span>
                                     )}
                                 </p>
@@ -957,7 +1212,7 @@ const PakistanPowerballResult = () => {
                         <button
                             type="submit"
                             className="w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isSubmitting || createLoading}
+                            disabled={isSubmitting || createLoading || !formData.gamePoolId}
                         >
                             {isSubmitting || createLoading ? "Declaring..." : "Declare Result"}
                         </button>
@@ -1071,7 +1326,7 @@ const PakistanPowerballResult = () => {
                 </div>
             </div>
 
-            {/* Pending Games Section - Grouped by Pool ID with Draw Number Filter */}
+            {/* Pending Games Section */}
             {showPendingGames && (
                 <div className="bg-white rounded-lg shadow-lg overflow-hidden mt-8">
                     <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
@@ -1085,7 +1340,6 @@ const PakistanPowerballResult = () => {
                                 </h5>
                             </div>
                             <div className="flex items-center gap-4 flex-wrap">
-                                {/* Draw Number Filter Dropdown */}
                                 {uniqueDrawNumbers.length > 0 && (
                                     <div className="flex items-center gap-2">
                                         <label className="text-white text-sm font-medium">Filter by Draw:</label>
@@ -1112,7 +1366,6 @@ const PakistanPowerballResult = () => {
                             </div>
                         </div>
                         
-                        {/* Show current filter status */}
                         {selectedDrawNo !== "all" && (
                             <div className="mt-2 text-purple-200 text-sm">
                                 Showing games for Draw #{selectedDrawNo}
@@ -1136,7 +1389,6 @@ const PakistanPowerballResult = () => {
                             <div className="grid grid-cols-1 gap-6">
                                 {Object.values(filteredGroupedGames).map((pool) => (
                                     <div key={pool.poolId} className="border-2 border-purple-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-                                        {/* Pool Header with Draw Number */}
                                         <div className="bg-gradient-to-r from-purple-500 to-indigo-500 px-6 py-3">
                                             <div className="flex justify-between items-center flex-wrap gap-2">
                                                 <div>
@@ -1170,7 +1422,6 @@ const PakistanPowerballResult = () => {
                                             </div>
                                         </div>
 
-                                        {/* Pool Games */}
                                         <div className="p-4">
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                 {pool.games && pool.games.map((game, idx) => (
@@ -1237,7 +1488,6 @@ const PakistanPowerballResult = () => {
                                                 ))}
                                             </div>
 
-                                            {/* Unique Users in Pool */}
                                             {pool.games && pool.games.length > 0 && (
                                                 <div className="mt-4 pt-3 border-t border-gray-200">
                                                     <p className="text-xs text-gray-500">
@@ -1277,7 +1527,6 @@ const PakistanPowerballResult = () => {
                         </div>
 
                         <div className="p-6">
-                            {/* User Information */}
                             <div className="mb-6">
                                 <h6 className="text-sm font-medium text-gray-500 mb-3">User Information</h6>
                                 <div className="bg-gray-50 rounded-lg p-4">
@@ -1304,7 +1553,6 @@ const PakistanPowerballResult = () => {
                                 </div>
                             </div>
 
-                            {/* Game Information */}
                             <div className="mb-6">
                                 <h6 className="text-sm font-medium text-gray-500 mb-3">Game Information</h6>
                                 <div className="bg-gray-50 rounded-lg p-4">
@@ -1333,7 +1581,6 @@ const PakistanPowerballResult = () => {
                                 </div>
                             </div>
 
-                            {/* Ticket Information */}
                             <div className="mb-6">
                                 <h6 className="text-sm font-medium text-gray-500 mb-3">Ticket Information</h6>
                                 <div className="bg-gray-50 rounded-lg p-4">
@@ -1360,7 +1607,6 @@ const PakistanPowerballResult = () => {
                                 </div>
                             </div>
 
-                            {/* Currency Details */}
                             {selectedGame.currencyDetails && (
                                 <div className="mb-6">
                                     <h6 className="text-sm font-medium text-gray-500 mb-3">Currency Details</h6>
@@ -1395,7 +1641,6 @@ const PakistanPowerballResult = () => {
                                 </div>
                             )}
 
-                            {/* Game Numbers */}
                             <div className="mb-6">
                                 <h6 className="text-sm font-medium text-gray-500 mb-3">Game Numbers</h6>
                                 <div className="bg-gray-50 rounded-lg p-4">
@@ -1424,7 +1669,6 @@ const PakistanPowerballResult = () => {
                                 </div>
                             </div>
 
-                            {/* Pool Information */}
                             {(selectedGame.poolTotalPlayers || selectedGame.poolTotalAmount) && (
                                 <div className="mb-6">
                                     <h6 className="text-sm font-medium text-gray-500 mb-3">Pool Information</h6>
@@ -1463,7 +1707,6 @@ const PakistanPowerballResult = () => {
                                 </div>
                             )}
 
-                            {/* Created At */}
                             <div className="mb-6">
                                 <div className="bg-gray-50 rounded-lg p-4">
                                     <div className="grid grid-cols-1">

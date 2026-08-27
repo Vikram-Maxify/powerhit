@@ -2137,3 +2137,181 @@ exports.getUserBalance =
       });
     }
   };
+
+
+exports.getUnselectedPowerballNumbers = async (req, res) => {
+    try {
+        const { GamePool } = getCountryContext(req);
+
+        const {
+            gamePoolId,
+            country,
+        } = req.query;
+
+        // ------------------------------------------------------
+        // VALIDATION
+        // ------------------------------------------------------
+
+        if (!gamePoolId && !country) {
+            return res.status(400).json({
+                success: false,
+                message: "gamePoolId or country is required.",
+            });
+        }
+
+        // ------------------------------------------------------
+        // FIND GAME POOL
+        // ------------------------------------------------------
+
+        let gamePool;
+
+        if (gamePoolId) {
+            gamePool = await GamePool.findById(gamePoolId).lean();
+        } else {
+            gamePool = await GamePool.findOne({
+                country: String(country).trim().toUpperCase(),
+                status: "Open",
+            })
+                .sort({
+                    drawNo: -1,
+                    createdAt: -1,
+                })
+                .lean();
+        }
+
+        if (!gamePool) {
+            return res.status(404).json({
+                success: false,
+                message: "Game pool not found.",
+            });
+        }
+
+        // ------------------------------------------------------
+        // MAIN NUMBER RANGE
+        // ------------------------------------------------------
+
+        // Powerball main numbers:
+        // 1 - 69
+
+        const ALL_MAIN_NUMBERS = Array.from(
+            { length: 69 },
+            (_, index) => index + 1
+        );
+
+        // Powerball:
+        // 1 - 20
+
+        const ALL_POWERBALLS = Array.from(
+            { length: 20 },
+            (_, index) => index + 1
+        );
+
+        // ------------------------------------------------------
+        // COLLECT SELECTED NUMBERS
+        // ------------------------------------------------------
+
+        const selectedMainSet = new Set();
+        const selectedPowerballSet = new Set();
+
+        for (const player of gamePool.players || []) {
+            for (const game of player.games || []) {
+
+                // Main numbers
+                for (const number of game.numbers || []) {
+                    const num = Number(number);
+
+                    if (
+                        Number.isInteger(num) &&
+                        num >= 1 &&
+                        num <= 69
+                    ) {
+                        selectedMainSet.add(num);
+                    }
+                }
+
+                // Powerball
+                if (
+                    game.powerball !== undefined &&
+                    game.powerball !== null
+                ) {
+                    const powerball = Number(game.powerball);
+
+                    if (
+                        Number.isInteger(powerball) &&
+                        powerball >= 1 &&
+                        powerball <= 20
+                    ) {
+                        selectedPowerballSet.add(powerball);
+                    }
+                }
+            }
+        }
+
+        // ------------------------------------------------------
+        // GET UNSELECTED NUMBERS
+        // ------------------------------------------------------
+
+        const selectedMainNumbers = [...selectedMainSet]
+            .sort((a, b) => a - b);
+
+        const selectedPowerballs = [...selectedPowerballSet]
+            .sort((a, b) => a - b);
+
+        const unselectedMainNumbers = ALL_MAIN_NUMBERS.filter(
+            (number) => !selectedMainSet.has(number)
+        );
+
+        const unselectedPowerballs = ALL_POWERBALLS.filter(
+            (number) => !selectedPowerballSet.has(number)
+        );
+
+        // ------------------------------------------------------
+        // RESPONSE
+        // ------------------------------------------------------
+
+        return res.status(200).json({
+            success: true,
+
+            country: gamePool.country,
+
+            gamePoolId: gamePool._id,
+
+            drawNo: gamePool.drawNo,
+
+            selected: {
+                mainNumbers: selectedMainNumbers,
+                powerballs: selectedPowerballs,
+            },
+
+            unselected: {
+                mainNumbers: unselectedMainNumbers,
+                powerballs: unselectedPowerballs,
+            },
+
+            counts: {
+                selectedMainNumbers:
+                    selectedMainNumbers.length,
+
+                unselectedMainNumbers:
+                    unselectedMainNumbers.length,
+
+                selectedPowerballs:
+                    selectedPowerballs.length,
+
+                unselectedPowerballs:
+                    unselectedPowerballs.length,
+            },
+        });
+
+    } catch (error) {
+        console.error(
+            "Get Unselected Powerball Numbers Error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
