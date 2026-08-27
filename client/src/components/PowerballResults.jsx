@@ -7,7 +7,6 @@ import {
   History,
   Play,
   Sparkles,
-  Zap,
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -110,9 +109,9 @@ const PowerballResults = () => {
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
         {/* ===== LATEST RESULT ===== */}
         <div
-          className="relative rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+          className="relative rounded-xl overflow-hidden"
           style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1655159428752-c700435e9983?q=80&w=3732&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`,
+            backgroundImage: `url('https://i.ibb.co/7J7T2sRB/Chat-GPT-Image-Aug-26-2026-12-20-01-PM.png')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
@@ -121,11 +120,11 @@ const PowerballResults = () => {
           {/* <div className="absolute inset-0 bg-gradient-to-br from-amber-950/85 via-amber-900/75 to-amber-800/70"></div> */}
 
           {/* Content */}
-          <div className="relative z-10 p-4">
+          <div className="relative z-10">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Zap size={16} className="text-amber-300" />
-                <span className="text-xs font-bold text-amber-100">
+                {/* <Zap size={16} className="text-amber-300" /> */}
+                <span className="text-[12px] font-medium text-amber-100 ml-[7.1rem] mt-3">
                   LATEST POWERBALL RESULT
                 </span>
               </div>
@@ -135,50 +134,45 @@ const PowerballResults = () => {
               </span>
             </div>
 
-            <div className="border-t border-amber-700/40 pt-3">
-              <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
+            <div className="border-t border-amber-700/40 pt-3 ml-4">
+              <h3 className="text-lg font-extrabold text-black flex items-center gap-2">
                 <span>
                   {countries.find((c) => c.name === selectedCountry)?.flag}
                 </span>
                 {selectedCountry} POWERBALL
               </h3>
               <div className="flex items-center gap-3 text-xs text-amber-200/80 mt-0.5">
-                <span className="font-bold text-amber-300">
+                <span className="font-bold text-amber-900">
                   {latestResult.drawNo}
                 </span>
                 <span className="w-px h-3 bg-amber-700/50"></span>
-                <span className="flex items-center gap-1">
-                  <Calendar size={12} className="text-amber-300" />
+                <span className="flex text-black items-center gap-1">
+                  <Calendar size={12} className="text-amber-900" />
                   {latestResult.date}
                 </span>
                 <span className="w-px h-3 bg-amber-700/50"></span>
-                <span className="flex items-center gap-1">
-                  <Clock size={12} className="text-amber-300" />
+                <span className="flex text-black items-center gap-1">
+                  <Clock size={12} className="text-amber-700" />
                   {latestResult.time}
                 </span>
               </div>
             </div>
 
             {/* Numbers */}
-            <div className="flex items-center gap-3 py-3 px-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 mt-3">
+            <div className="flex items-center gap-3 py-3 rounded-lg mt-3 ml-3">
               <div className="flex items-center gap-2">
                 {latestResult.numbers.map((num, i) => (
                   <div
                     key={i}
-                    className="w-9 h-9 rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
-border border-[#FFD75A]
-shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center text-white font-extrabold text-sm shadow-lg shadow-amber-500/30"
+                    className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-black font-extrabold text-sm shadow-amber-500/30"
                   >
                     {num}
                   </div>
                 ))}
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-amber-200/60 font-bold">|</span>
-                <span className="text-[10px] text-amber-200/80 font-medium">
-                  Powerball
-                </span>
-                <div className="w-9 h-9 rounded-full bg-red-500 flex items-center justify-center text-white font-extrabold text-sm shadow-lg shadow-red-500/30">
+                <span className="text-xs text-gray-700 font-bold">|</span>
+                <div className="w-9 h-9 rounded-full bg-[radial-gradient(circle_at_30%_25%,#ff6666_0%,#ed0000_25%,#a80000_55%,#420000_100%)] border border-red-300/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.5),inset_0_-4px_8px_rgba(40,0,0,0.7),0_4px_10px_rgba(120,0,0,0.4)] flex items-center justify-center text-white font-extrabold text-sm shadow-red-500/30">
                   {latestResult.powerball}
                 </div>
               </div>
@@ -186,20 +180,20 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
 
             {/* Next Draw & Jackpot */}
             <div className="grid grid-cols-2 gap-3 mt-3">
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
-                <p className="text-[8px] font-bold text-amber-300/80 uppercase tracking-wider">
+              <div className="rounded-lg px-3 py-2">
+                <p className="text-[8px] font-bold text-amber-900 uppercase tracking-wider">
                   NEXT DRAW
                 </p>
-                <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Calendar size={13} className="text-amber-300" />
+                <p className="text-xs font-bold text-black flex items-center gap-1.5">
+                  {/* <Calendar size={13} className="text-amber-300" /> */}
                   {latestResult.nextDraw}
                 </p>
               </div>
-              <div className="bg-amber-500/20 backdrop-blur-sm rounded-lg px-3 py-2 border border-amber-400/30">
-                <p className="text-[8px] font-bold text-amber-300/80 uppercase tracking-wider">
+              <div className=" rounded-lg px-3 py-2 border border-amber-400/30">
+                <p className="text-[8px] font-bold text-amber-900/80 uppercase tracking-wider">
                   EST. JACKPOT
                 </p>
-                <p className="text-sm font-extrabold text-amber-200">
+                <p className="text-sm font-extrabold text-black">
                   {latestResult.jackpot}
                 </p>
               </div>
@@ -291,7 +285,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                             key={idx}
                             className="w-6 h-6 rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
 border border-[#FFD75A]
-shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center text-white font-extrabold text-[8px] shadow-sm flex-shrink-0"
+shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center text-white font-extrabold text-[8px] flex-shrink-0"
                           >
                             {String(n).padStart(2, "0")}
                           </div>
