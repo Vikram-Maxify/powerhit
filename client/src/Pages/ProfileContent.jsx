@@ -209,13 +209,13 @@ export default function ProfileContent({
   const stats = [
     {
       title: "Available Balance",
-      value: formatCurrency(user?.balance?.local || 0),
+      value: formatCurrency(user?.balance || 0),
       icon: WalletCards,
       color: "text-amber-500",
     },
     {
       title: "Wallet Balance",
-      value: formatCurrency(user?.balance?.local || 0),
+      value: formatCurrency(user?.balance || 0),
       icon: Wallet,
       color: "text-green-600",
     },

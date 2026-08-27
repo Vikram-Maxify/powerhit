@@ -11,6 +11,7 @@ const WinMultiplier = require("../models/WinMultiplier");
 // 2-digit market:
 // jodi, last-digit, first-digit
 const TWO_DIGIT_GAME_TYPES = [
+  "single",
   "jodi",
   "last-digit",
   "first-digit",
@@ -20,6 +21,10 @@ const TWO_DIGIT_GAME_TYPES = [
 // jodi, panna, half-sangam, full-sangam,
 // last-digit, first-digit
 const THREE_DIGIT_GAME_TYPES = [
+  "single",
+  "single-Patti",
+  "double-Patti",
+  "triple-Patti",
   "jodi",
   "panna",
   "half-sangam",
@@ -44,9 +49,9 @@ const normalizeDigitType = (market) => {
 
   const raw = String(
     market.digitType ||
-      market.numberType ||
-      market.digitsType ||
-      ""
+    market.numberType ||
+    market.digitsType ||
+    ""
   )
     .trim()
     .toLowerCase()
@@ -1593,7 +1598,7 @@ exports.getBiddingHistory =
           })
           .skip(
             (page - 1) *
-              limit
+            limit
           )
           .limit(
             parseInt(limit)
@@ -1671,7 +1676,7 @@ exports.getBiddingHistory =
             pages:
               Math.ceil(
                 total /
-                  limit
+                limit
               ),
           },
         },
@@ -1846,7 +1851,7 @@ exports.getUserBids =
           })
           .skip(
             (page - 1) *
-              limit
+            limit
           )
           .limit(
             parseInt(limit)
@@ -1959,7 +1964,7 @@ exports.getUserBids =
             pages:
               Math.ceil(
                 total /
-                  limit
+                limit
               ),
           },
         },
@@ -2021,7 +2026,7 @@ exports.getTodayBidsSummary =
 
       tomorrow.setDate(
         tomorrow.getDate() +
-          1
+        1
       );
 
       const dateFilter = {
@@ -2602,7 +2607,7 @@ exports.adminGetAllBids =
           })
           .skip(
             (page - 1) *
-              limit
+            limit
           )
           .limit(
             parseInt(limit)
@@ -2732,7 +2737,7 @@ exports.adminGetAllBids =
             pages:
               Math.ceil(
                 total /
-                  limit
+                limit
               ),
           },
         },
@@ -2773,35 +2778,35 @@ exports.adminGetBidStats =
         case "7d":
           startDate.setDate(
             now.getDate() -
-              7
+            7
           );
           break;
 
         case "30d":
           startDate.setDate(
             now.getDate() -
-              30
+            30
           );
           break;
 
         case "90d":
           startDate.setDate(
             now.getDate() -
-              90
+            90
           );
           break;
 
         case "1y":
           startDate.setFullYear(
             now.getFullYear() -
-              1
+            1
           );
           break;
 
         default:
           startDate.setDate(
             now.getDate() -
-              30
+            30
           );
       }
 
@@ -2823,7 +2828,7 @@ exports.adminGetBidStats =
 
       tomorrow.setDate(
         tomorrow.getDate() +
-          1
+        1
       );
 
       const todayBids =
@@ -3235,7 +3240,7 @@ exports.adminGetTodayBids =
 
       tomorrow.setDate(
         tomorrow.getDate() +
-          1
+        1
       );
 
       const bids =
@@ -3573,7 +3578,7 @@ exports.adminDeleteBid =
 
       if (
         bid.status ===
-          "won" &&
+        "won" &&
         bid.winAmount
       ) {
         const user =
@@ -3687,9 +3692,9 @@ exports.declareResult =
 
       if (
         winningNumber ===
-          undefined ||
+        undefined ||
         winningNumber ===
-          null ||
+        null ||
         String(
           winningNumber
         ).trim() === ""
@@ -3804,25 +3809,25 @@ exports.declareResult =
         )
       ) {
         const formatHints =
-          {
-            jodi:
-              "2-digit number (00-99)",
+        {
+          jodi:
+            "2-digit number (00-99)",
 
-            panna:
-              "3-digit number (000-999)",
+          panna:
+            "3-digit number (000-999)",
 
-            "half-sangam":
-              "Panna + Digit (123-5) or Digit + Panna (5-123)",
+          "half-sangam":
+            "Panna + Digit (123-5) or Digit + Panna (5-123)",
 
-            "full-sangam":
-              "Panna + Panna (123-456)",
+          "full-sangam":
+            "Panna + Panna (123-456)",
 
-            "last-digit":
-              "2-digit number (00-99)",
+          "last-digit":
+            "2-digit number (00-99)",
 
-            "first-digit":
-              "2-digit number (00-99)",
-          };
+          "first-digit":
+            "2-digit number (00-99)",
+        };
 
         await session.abortTransaction();
         session.endSession();
@@ -3830,11 +3835,10 @@ exports.declareResult =
         return res.status(400).json({
           success: false,
           message:
-            `Invalid winning number format for ${gameType}. Expected: ${
-              formatHints[
-                gameType
-              ] ||
-              "valid number"
+            `Invalid winning number format for ${gameType}. Expected: ${formatHints[
+            gameType
+            ] ||
+            "valid number"
             }`,
         });
       }
@@ -3945,8 +3949,8 @@ exports.declareResult =
         resultDate:
           resultDate
             ? new Date(
-                resultDate
-              )
+              resultDate
+            )
             : new Date(),
 
         declaredBy:
@@ -4082,182 +4086,370 @@ exports.declareResult =
 // GET LOWEST BID NUMBER
 // ============================================================
 
-exports.getLowestBidNumber =
-  async (req, res) => {
-    try {
-      const {
-        marketId,
-      } = req.params;
+// ============================================================
+// GET UNUSED / LOWEST-BET NUMBER
+// ============================================================
+//
+// Priority:
+// 1. Numbers with ZERO pending bets are preferred.
+// 2. If every valid number has at least one pending bet,
+//    return the number(s) having the LOWEST number of bets.
+// 3. Tie-breaker is numeric/lexical ascending order.
+// 4. Only pending bids for this market are counted.
+//
+// IMPORTANT:
+// - This endpoint returns a practical candidate number.
+// - It does NOT expose all 90,000+ full-sangam combinations.
+// ============================================================
 
-      if (!marketId) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Market ID is required",
-        });
-      }
+const generatePannaNumbersForUnused = () => {
+  const numbers = [];
 
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          marketId
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid Market ID",
-        });
-      }
-
-      const market =
-        await Market.findById(
-          marketId
-        ).select(
-          "digitType numberType gameTypes"
-        );
-
-      if (!market) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Market not found",
-        });
-      }
-
-      const gameTypes =
-        getMarketGameTypes(
-          market
-        );
-
-      const result =
-        await Bid.aggregate([
-          {
-            $match: {
-              marketId:
-                new mongoose.Types.ObjectId(
-                  marketId
-                ),
-
-              status:
-                "pending",
-
-              gameType: {
-                $in:
-                  gameTypes,
-              },
-            },
-          },
-
-          {
-            $addFields: {
-              numericNumber: {
-                $convert: {
-                  input:
-                    "$number",
-
-                  to: "int",
-
-                  onError:
-                    null,
-
-                  onNull:
-                    null,
-                },
-              },
-            },
-          },
-
-          {
-            $sort: {
-              gameType: 1,
-              numericNumber: 1,
-            },
-          },
-
-          {
-            $group: {
-              _id:
-                "$gameType",
-
-              number: {
-                $first:
-                  "$number",
-              },
-
-              bidAmount: {
-                $first:
-                  "$bidAmount",
-              },
-
-              userId: {
-                $first:
-                  "$userId",
-              },
-            },
-          },
-        ]);
-
-      const lowestBids = {};
-
-      gameTypes.forEach(
-        (type) => {
-          lowestBids[type] = {
-            number: null,
-            bidAmount: 0,
-            userId: null,
-          };
+  // Panna = 3 different digits.
+  for (let a = 0; a <= 9; a++) {
+    for (let b = 0; b <= 9; b++) {
+      for (let c = 0; c <= 9; c++) {
+        if (a !== b && b !== c && a !== c) {
+          numbers.push(`${a}${b}${c}`);
         }
+      }
+    }
+  }
+
+  return numbers;
+};
+
+const getAllValidNumbersForUnused = (gameType) => {
+  switch (gameType) {
+    case "jodi":
+      // 00-99
+      return Array.from(
+        { length: 100 },
+        (_, i) => String(i).padStart(2, "0")
       );
 
-      result.forEach(
-        (item) => {
-          lowestBids[
-            item._id
-          ] = {
-            number:
-              item.number,
+    case "last-digit":
+    case "first-digit":
+      // 0-9
+      return Array.from(
+        { length: 10 },
+        (_, i) => String(i)
+      );
 
-            bidAmount:
-              item.bidAmount,
+    case "panna":
+      return generatePannaNumbersForUnused();
 
-            userId:
-              item.userId,
-          };
+    case "half-sangam": {
+      // Panna-Digit + Digit-Panna
+      const pannaNumbers =
+        generatePannaNumbersForUnused();
+
+      const numbers = [];
+
+      for (const panna of pannaNumbers) {
+        for (let digit = 0; digit <= 9; digit++) {
+          numbers.push(`${panna}-${digit}`);
+          numbers.push(`${digit}-${panna}`);
         }
-      );
+      }
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Lowest bid number fetched successfully",
+      return numbers;
+    }
 
-        marketId,
+    case "full-sangam": {
+      // Panna-Panna
+      const pannaNumbers =
+        generatePannaNumbersForUnused();
 
-        digitType:
-          normalizeDigitType(
-            market
-          ),
+      const numbers = [];
 
-        gameTypes,
+      for (const openPanna of pannaNumbers) {
+        for (const closePanna of pannaNumbers) {
+          numbers.push(`${openPanna}-${closePanna}`);
+        }
+      }
 
-        lowestBids,
-      });
-    } catch (error) {
-      console.error(
-        "Get Lowest Bid Error:",
-        error
-      );
+      return numbers;
+    }
 
-      return res.status(500).json({
+    default:
+      return [];
+  }
+};
+
+const normalizeUnusedBidNumber = (gameType, number) => {
+  if (number === undefined || number === null) {
+    return null;
+  }
+
+  let value = String(number).trim().replace(/\s+/g, "");
+
+  if (
+    gameType === "jodi" ||
+    gameType === "last-digit" ||
+    gameType === "first-digit"
+  ) {
+    // Existing bid validation stores these as 2 digits.
+    if (gameType === "jodi") {
+      return value.padStart(2, "0");
+    }
+
+    // Keep last/first digit compatible with existing 2-digit
+    // bid storage, while candidate numbers remain 0-9.
+    if (/^\d$/.test(value)) {
+      return value;
+    }
+
+    return value;
+  }
+
+  if (gameType === "panna") {
+    return value.padStart(3, "0");
+  }
+
+  // Sangam combinations are kept as complete strings:
+  // 123-5, 5-123, 123-456
+  if (
+    gameType === "half-sangam" ||
+    gameType === "full-sangam"
+  ) {
+    return value;
+  }
+
+  return value;
+};
+
+const sortUnusedCandidates = (a, b) => {
+  if (a.betCount !== b.betCount) {
+    return a.betCount - b.betCount;
+  }
+
+  return String(a.number).localeCompare(
+    String(b.number),
+    undefined,
+    { numeric: true }
+  );
+};
+
+exports.getLowestBidNumber = async (req, res) => {
+  try {
+    const { marketId } = req.params;
+
+    // ========================================================
+    // VALIDATE MARKET ID
+    // ========================================================
+
+    if (!marketId) {
+      return res.status(400).json({
         success: false,
-        message:
-          "Server error",
-
-        error:
-          error.message,
+        message: "Market ID is required",
       });
     }
-  };
+
+    if (!mongoose.Types.ObjectId.isValid(marketId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Market ID",
+      });
+    }
+
+    // ========================================================
+    // FIND MARKET
+    // ========================================================
+
+    const market = await Market.findById(marketId).select(
+      "name marketId digitType numberType gameTypes"
+    );
+
+    if (!market) {
+      return res.status(404).json({
+        success: false,
+        message: "Market not found",
+      });
+    }
+
+    // ========================================================
+    // GET MARKET GAME TYPES
+    // ========================================================
+
+    const gameTypes = getMarketGameTypes(market);
+
+    if (!gameTypes.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid game types configured for this market",
+      });
+    }
+
+    // ========================================================
+    // FETCH ONLY PENDING BIDS
+    // ========================================================
+
+    const pendingBids = await Bid.find({
+      marketId: new mongoose.Types.ObjectId(marketId),
+      status: "pending",
+      gameType: { $in: gameTypes },
+    })
+      .select("gameType number bidAmount userId")
+      .lean();
+
+    // ========================================================
+    // COUNT BIDS PER NUMBER
+    // ========================================================
+
+    const betCounts = {};
+
+    for (const gameType of gameTypes) {
+      betCounts[gameType] = new Map();
+    }
+
+    for (const bid of pendingBids) {
+      const gameType = bid.gameType;
+
+      if (!betCounts[gameType]) {
+        betCounts[gameType] = new Map();
+      }
+
+      const normalizedNumber =
+        normalizeUnusedBidNumber(
+          gameType,
+          bid.number
+        );
+
+      if (!normalizedNumber) {
+        continue;
+      }
+
+      const current =
+        betCounts[gameType].get(normalizedNumber) || 0;
+
+      betCounts[gameType].set(
+        normalizedNumber,
+        current + 1
+      );
+    }
+
+    // ========================================================
+    // BUILD RESULT
+    // ========================================================
+
+    const lowestBids = {};
+
+    for (const gameType of gameTypes) {
+      const allNumbers =
+        getAllValidNumbersForUnused(gameType);
+
+      const counts =
+        betCounts[gameType] || new Map();
+
+      const candidates = allNumbers.map((number) => ({
+        number,
+        betCount: counts.get(number) || 0,
+      }));
+
+      // ------------------------------------------------------
+      // Sort:
+      //   0 bets first
+      //   otherwise lowest bet count first
+      // ------------------------------------------------------
+
+      candidates.sort(sortUnusedCandidates);
+
+      const selected = candidates[0] || null;
+
+      // ------------------------------------------------------
+      // All currently unused numbers
+      // ------------------------------------------------------
+
+      const unusedNumbers = candidates
+        .filter((item) => item.betCount === 0)
+        .map((item) => item.number);
+
+      // ------------------------------------------------------
+      // All numbers tied at the minimum count
+      // ------------------------------------------------------
+
+      const minimumBetCount =
+        selected ? selected.betCount : 0;
+
+      const lowestNumbers = candidates
+        .filter(
+          (item) =>
+            item.betCount === minimumBetCount
+        )
+        .map((item) => item.number);
+
+      const numbersWithBet = candidates.filter(
+        (item) => item.betCount > 0
+      ).length;
+
+      const allNumbersHaveBets =
+        candidates.length > 0 &&
+        numbersWithBet === candidates.length;
+
+      // ------------------------------------------------------
+      // Return the selected candidate.
+      //
+      // If unused numbers exist:
+      //   selected = first unused number.
+      //
+      // If every number has a bet:
+      //   selected = lowest-bet number.
+      // ------------------------------------------------------
+
+      lowestBids[gameType] = {
+        number: selected ? selected.number : null,
+        betCount: selected ? selected.betCount : 0,
+
+        // true = there is no unused number left.
+        allNumbersHaveBets,
+
+        // Total valid numbers for this game.
+        totalValidNumbers: candidates.length,
+
+        // How many valid numbers currently have >= 1 pending bet.
+        totalNumbersWithBet: numbersWithBet,
+
+        // All zero-bet numbers. This can be used by the caller
+        // if it wants to choose randomly/otherwise among unused.
+        unusedNumbers,
+
+        // If all numbers are covered, this contains every
+        // number tied for the lowest bet count.
+        lowestNumbers,
+      };
+    }
+
+    // ========================================================
+    // RESPONSE
+    // ========================================================
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Unused numbers / lowest-bet numbers fetched successfully",
+
+      marketId,
+
+      digitType: normalizeDigitType(market),
+
+      gameTypes,
+
+      lowestBids,
+    });
+  } catch (error) {
+    console.error(
+      "Get Lowest/Unused Bid Number Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 
 // ============================================================
 // GET MARKET RESULTS

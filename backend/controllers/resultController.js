@@ -9,12 +9,17 @@ const mongoose = require("mongoose");
 // ============================================================
 
 const TWO_DIGIT_GAME_TYPES = Object.freeze([
+  "single",
   "jodi",
   "last-digit",
   "first-digit",
 ]);
 
 const THREE_DIGIT_GAME_TYPES = Object.freeze([
+  "single",
+  "single-Patti",
+  "double-Patti",
+  "triple-Patti",
   "jodi",
   "panna",
   "half-sangam",
@@ -41,11 +46,15 @@ const endSession = async (session) => {
 };
 
 // ============================================================
-// ================= DECLARE RESULT ============================
+// DECLARE RESULT CONTROLLER (FULL FIXED CODE)
 // ============================================================
 
 exports.declareResult = async (req, res) => {
   const session = await mongoose.startSession();
+
+  // ============================================================
+  // HELPER FUNCTIONS
+  // ============================================================
 
   const str = (value) => {
     if (value === undefined || value === null) {
@@ -54,103 +63,209 @@ exports.declareResult = async (req, res) => {
     return String(value).trim();
   };
 
-  const getFirstDigit = (value) => {
-    const valueStr = str(value);
-    if (!valueStr) return "";
-    return valueStr.charAt(0);
+  // ============================================================
+  // RESULT / BID HELPERS
+  // ============================================================
+
+  // Keep all values as strings so leading zeroes are preserved.
+  const digitsOnly = (value) =>
+    str(value).replace(/[^0-9]/g, "");
+
+  // SINGLE DIGIT
+  // 45 -> 9
+  // 989712 -> 9
+  const getSingleDigit = (value) => {
+    const digits = digitsOnly(value);
+    if (!digits) return "";
+
+    let sum = 0;
+
+    for (const digit of digits) {
+      sum += Number(digit);
+    }
+
+    while (sum >= 10) {
+      sum = String(sum)
+        .split("")
+        .reduce(
+          (total, digit) => total + Number(digit),
+          0
+        );
+    }
+
+    return String(sum);
   };
 
-  // ============================================================
-  // JODI RESULT LOGIC
-  // ============================================================
-  // 2-digit result:
-  //   36 -> 36
-  //   63 -> 63
-  //
-  // Full Sangam:
-  //   123-456 -> 36
-  //   456-123 -> 63
-  //
-  // Full Sangam me:
-  // First Panna ka LAST digit
-  // +
-  // Second Panna ka LAST digit
-  //
-  // Order preserve rahega.
+  const getFirstDigit = (value) => {
+    const digits = digitsOnly(value);
+    return digits ? digits.charAt(0) : "";
+  };
+
+  const getLastDigit = (value) => {
+    const digits = digitsOnly(value);
+    return digits
+      ? digits.charAt(digits.length - 1)
+      : "";
+  };
+
+  const getThreeDigit = (value) => {
+    const digits = digitsOnly(value);
+    if (!digits) return "";
+
+    return digits.length >= 3
+      ? digits.substring(0, 3)
+      : digits.padStart(3, "0");
+  };
+
+  // SINGLE PATTI = all 3 digits different.
+  const isSinglePatti = (value) => {
+    const digits = getThreeDigit(value);
+
+    return (
+      digits.length === 3 &&
+      new Set(digits.split("")).size === 3
+    );
+  };
+
+  // DOUBLE PATTI = exactly one pair.
+  // Examples: 112, 121, 211, 505.
+  const isDoublePatti = (value) => {
+    const digits = getThreeDigit(value);
+
+    if (digits.length !== 3) return false;
+
+    const counts = {};
+
+    for (const digit of digits) {
+      counts[digit] = (counts[digit] || 0) + 1;
+    }
+
+    return (
+      Object.values(counts).sort().join(",") ===
+      "1,2"
+    );
+  };
+
+  // TRIPLE PATTI = AAA.
+  const isTriplePatti = (value) => {
+    const digits = getThreeDigit(value);
+
+    return (
+      digits.length === 3 &&
+      digits.charAt(0) === digits.charAt(1) &&
+      digits.charAt(1) === digits.charAt(2)
+    );
+  };
+
+  // JODI
+  // 36 -> 36
+  // 123456 -> 36
+  // 123-456 -> 36
   const getJodi = (value) => {
-    const valueStr = str(value);
-    if (!valueStr) return "";
+    const input = str(value);
+    if (!input) return "";
 
-    // Full Sangam: Panna-Panna
-    const sangamParts = valueStr.split("-");
+    const parts = input
+      .split("-")
+      .map((part) => part.trim());
 
+    // Full Sangam: last digit of each panna.
     if (
-      sangamParts.length === 2 &&
-      /^\d{3}$/.test(sangamParts[0].trim()) &&
-      /^\d{3}$/.test(sangamParts[1].trim())
+      parts.length === 2 &&
+      /^\d{3}$/.test(parts[0]) &&
+      /^\d{3}$/.test(parts[1])
     ) {
-      const firstPanna = sangamParts[0].trim();
-      const secondPanna = sangamParts[1].trim();
-
       return (
-        firstPanna.charAt(firstPanna.length - 1) +
-        secondPanna.charAt(secondPanna.length - 1)
+        parts[0].charAt(2) +
+        parts[1].charAt(2)
       );
     }
 
-    // Normal 2-digit Jodi result
-    if (/^\d{2}$/.test(valueStr)) {
-      return valueStr;
+    const digits = digitsOnly(input);
+
+    // Full 6-digit result: last digit of
+    // first panna + last digit of second panna.
+    if (digits.length === 6) {
+      return (
+        digits.charAt(2) +
+        digits.charAt(5)
+      );
     }
 
-    // 3-digit value
-    if (/^\d{3}$/.test(valueStr)) {
-      return valueStr.substring(0, 2);
+    if (digits.length === 2) return digits;
+
+    if (digits.length === 3) {
+      return digits.substring(0, 2);
+    }
+
+    if (digits.length === 4) {
+      return digits.substring(0, 2);
     }
 
     return "";
   };
 
-  // ============================================================
-  // HALF SANGAM NORMALIZER
-  // Supports:
-  //   123-6
-  //   6-123
-  // ============================================================
-
+  // HALF SANGAM
+  // 123-6
+  // 6-123
+  // 123456 -> 123-6
+  // 1234 -> 123-4
   const normalizeHalfSangam = (value) => {
     const input = str(value);
     if (!input) return null;
 
-    const parts = input.split("-");
+    const parts = input
+      .split("-")
+      .map((part) => part.trim());
 
-    if (parts.length !== 2) return null;
-
-    const left = parts[0].trim();
-    const right = parts[1].trim();
-
-    // 123-6
-    if (/^\d{3}$/.test(left) && /^\d$/.test(right)) {
+    if (
+      parts.length === 2 &&
+      /^\d{3}$/.test(parts[0]) &&
+      /^\d$/.test(parts[1])
+    ) {
       return {
-        panna: left,
-        digit: right,
+        panna: parts[0],
+        digit: parts[1],
       };
     }
 
-    // 6-123
-    if (/^\d$/.test(left) && /^\d{3}$/.test(right)) {
+    if (
+      parts.length === 2 &&
+      /^\d$/.test(parts[0]) &&
+      /^\d{3}$/.test(parts[1])
+    ) {
       return {
-        panna: right,
-        digit: left,
+        panna: parts[1],
+        digit: parts[0],
+      };
+    }
+
+    const digits = digitsOnly(input);
+
+    if (digits.length === 6) {
+      return {
+        panna: digits.substring(0, 3),
+        digit: digits.charAt(5),
+      };
+    }
+
+    if (digits.length === 4) {
+      return {
+        panna: digits.substring(0, 3),
+        digit: digits.charAt(3),
       };
     }
 
     return null;
   };
 
-  const checkHalfSangamWin = (bidNumber, winningNumber) => {
+  const checkHalfSangamWin = (
+    bidNumber,
+    winningNumber
+  ) => {
     const bid = normalizeHalfSangam(bidNumber);
-    const winning = normalizeHalfSangam(winningNumber);
+    const winning =
+      normalizeHalfSangam(winningNumber);
 
     if (!bid || !winning) return false;
 
@@ -160,19 +275,55 @@ exports.declareResult = async (req, res) => {
     );
   };
 
+  // FULL SANGAM
+  const normalizeFullSangam = (value) => {
+    const input = str(value);
+    if (!input) return "";
+
+    const parts = input
+      .split("-")
+      .map((part) => part.trim());
+
+    if (
+      parts.length === 2 &&
+      /^\d{3}$/.test(parts[0]) &&
+      /^\d{3}$/.test(parts[1])
+    ) {
+      return `${parts[0]}-${parts[1]}`;
+    }
+
+    const digits = digitsOnly(input);
+
+    if (digits.length === 6) {
+      return (
+        `${digits.substring(0, 3)}-` +
+        `${digits.substring(3, 6)}`
+      );
+    }
+
+    return "";
+  };
+
   // ============================================================
   // CHECK BID WIN
   // ============================================================
 
-  const checkBidWin = (bid, formattedWinningNumbers) => {
+  const checkBidWin = (
+    bid,
+    formattedWinningNumbers
+  ) => {
     if (!bid) return false;
 
-    const gameType = str(bid.gameType).toLowerCase();
+    const gameType = str(bid.gameType)
+      .toLowerCase()
+      .replace(/_/g, "-");
+
     const bidNumber = str(bid.number);
 
     if (!gameType || !bidNumber) return false;
 
-    const winningNumber = formattedWinningNumbers[gameType];
+    const winningNumber =
+      formattedWinningNumbers[gameType];
 
     if (
       winningNumber === undefined ||
@@ -182,21 +333,39 @@ exports.declareResult = async (req, res) => {
       return false;
     }
 
-    // ==========================================================
-    // FIRST DIGIT
-    // ==========================================================
+    const bidDigits = digitsOnly(bidNumber);
+    const winningDigits =
+      digitsOnly(winningNumber);
 
-    if (gameType === "first-digit") {
-      const resultFirstDigit = getFirstDigit(winningNumber);
-      const bidFirstDigit = getFirstDigit(bidNumber);
-
-      return bidFirstDigit === resultFirstDigit;
+    if (!bidDigits || !winningDigits) {
+      return false;
     }
 
-    // ==========================================================
-    // JODI
-    // ==========================================================
+    // SINGLE
+    if (gameType === "single") {
+      return (
+        getSingleDigit(bidNumber) ===
+        getSingleDigit(winningNumber)
+      );
+    }
 
+    // FIRST DIGIT
+    if (gameType === "first-digit") {
+      return (
+        getFirstDigit(bidNumber) ===
+        getFirstDigit(winningNumber)
+      );
+    }
+
+    // LAST DIGIT
+    if (gameType === "last-digit") {
+      return (
+        getLastDigit(bidNumber) ===
+        getLastDigit(winningNumber)
+      );
+    }
+
+    // JODI
     if (gameType === "jodi") {
       const resultJodi = getJodi(winningNumber);
       const bidJodi = getJodi(bidNumber);
@@ -208,40 +377,101 @@ exports.declareResult = async (req, res) => {
       );
     }
 
-    // ==========================================================
-    // LAST DIGIT
-    // ==========================================================
-
-    if (gameType === "last-digit") {
-      const resultStr = str(winningNumber);
-      const bidStr = str(bidNumber);
-
-      if (!resultStr || !bidStr) return false;
-
+    // SINGLE PATTI
+    if (gameType === "single-patti") {
       return (
-        bidStr.charAt(bidStr.length - 1) ===
-        resultStr.charAt(resultStr.length - 1)
+        bidDigits.length === 3 &&
+        winningDigits.length >= 3 &&
+        isSinglePatti(bidNumber) &&
+        isSinglePatti(winningNumber) &&
+        getThreeDigit(bidNumber) ===
+          getThreeDigit(winningNumber)
       );
     }
 
-    // ==========================================================
-    // PANNA
-    // ==========================================================
-
-    if (gameType === "panna") {
-      const resultStr = str(winningNumber);
-      const bidStr = str(bidNumber);
-
-      if (!/^\d{3}$/.test(resultStr)) return false;
-      if (!/^\d{3}$/.test(bidStr)) return false;
-
-      return bidStr === resultStr;
+    // DOUBLE PATTI
+    if (gameType === "double-patti") {
+      return (
+        bidDigits.length === 3 &&
+        winningDigits.length >= 3 &&
+        isDoublePatti(bidNumber) &&
+        isDoublePatti(winningNumber) &&
+        getThreeDigit(bidNumber) ===
+          getThreeDigit(winningNumber)
+      );
     }
 
-    // ==========================================================
-    // HALF SANGAM
-    // ==========================================================
+    // TRIPLE PATTI
+    if (gameType === "triple-patti") {
+      return (
+        bidDigits.length === 3 &&
+        winningDigits.length >= 3 &&
+        isTriplePatti(bidNumber) &&
+        isTriplePatti(winningNumber) &&
+        getThreeDigit(bidNumber) ===
+          getThreeDigit(winningNumber)
+      );
+    }
 
+    // PANNA
+    if (gameType === "panna") {
+      return (
+        bidDigits.length === 3 &&
+        winningDigits.length >= 3 &&
+        getThreeDigit(bidNumber) ===
+          getThreeDigit(winningNumber)
+      );
+    }
+
+    // OPEN
+    // 1 digit = open panna ka single digit.
+    // 3 digits = exact open panna.
+    if (gameType === "open") {
+      if (bidDigits.length === 1) {
+        return (
+          getSingleDigit(
+            getThreeDigit(winningNumber)
+          ) === bidDigits
+        );
+      }
+
+      if (bidDigits.length === 3) {
+        return (
+          getThreeDigit(bidNumber) ===
+          getThreeDigit(winningNumber)
+        );
+      }
+
+      return false;
+    }
+
+    // CLOSE
+    // 1 digit = close panna ka single digit.
+    // 3 digits = exact close panna.
+    if (gameType === "close") {
+      const closePanna =
+        winningDigits.length >= 6
+          ? winningDigits.substring(3, 6)
+          : getThreeDigit(winningNumber);
+
+      if (bidDigits.length === 1) {
+        return (
+          getSingleDigit(closePanna) ===
+          bidDigits
+        );
+      }
+
+      if (bidDigits.length === 3) {
+        return (
+          getThreeDigit(bidNumber) ===
+          closePanna
+        );
+      }
+
+      return false;
+    }
+
+    // HALF SANGAM
     if (gameType === "half-sangam") {
       return checkHalfSangamWin(
         bidNumber,
@@ -249,12 +479,19 @@ exports.declareResult = async (req, res) => {
       );
     }
 
-    // ==========================================================
     // FULL SANGAM
-    // ==========================================================
-
     if (gameType === "full-sangam") {
-      return str(bidNumber) === str(winningNumber);
+      const bidFull =
+        normalizeFullSangam(bidNumber);
+
+      const resultFull =
+        normalizeFullSangam(winningNumber);
+
+      return (
+        bidFull !== "" &&
+        resultFull !== "" &&
+        bidFull === resultFull
+      );
     }
 
     return false;
@@ -417,14 +654,23 @@ exports.declareResult = async (req, res) => {
     // ============================================================
 
     const TWO_DIGIT_GAME_TYPES = [
+      "single",
       "jodi",
+      "open",
+      "close",
       "last-digit",
       "first-digit",
     ];
 
     const THREE_DIGIT_GAME_TYPES = [
-      "jodi",
+      "single",
+      "single-patti",
+      "double-patti",
+      "triple-patti",
       "panna",
+      "open",
+      "close",
+      "jodi",
       "half-sangam",
       "full-sangam",
       "last-digit",
@@ -469,7 +715,9 @@ exports.declareResult = async (req, res) => {
           }
 
           return !allowedGameTypes.includes(
-            gameType
+            str(gameType)
+              .toLowerCase()
+              .replace(/_/g, "-")
           );
         }
       );
@@ -605,7 +853,16 @@ exports.declareResult = async (req, res) => {
       // INVALID / OLD GAME TYPE
       // ----------------------------------------------------------
 
-      if (!allowedGameTypes.includes(bid.gameType)) {
+      const normalizedBidGameType =
+        str(bid.gameType)
+          .toLowerCase()
+          .replace(/_/g, "-");
+
+      if (
+        !allowedGameTypes.includes(
+          normalizedBidGameType
+        )
+      ) {
         bid.status = "lost";
         bid.lostAt = new Date();
         bid.winAmount = 0;
@@ -623,9 +880,9 @@ exports.declareResult = async (req, res) => {
       // TOTAL GAME TYPE BIDS
       // ----------------------------------------------------------
 
-      if (gameTypeStats[bid.gameType]) {
+      if (gameTypeStats[normalizedBidGameType]) {
         gameTypeStats[
-          bid.gameType
+          normalizedBidGameType
         ].total++;
       }
 
@@ -634,7 +891,10 @@ exports.declareResult = async (req, res) => {
       // ----------------------------------------------------------
 
       const isWin = checkBidWin(
-        bid,
+        {
+          ...bid.toObject(),
+          gameType: normalizedBidGameType,
+        },
         formattedWinningNumbers
       );
 
@@ -654,7 +914,7 @@ exports.declareResult = async (req, res) => {
 
         bid.resultNumber =
           formattedWinningNumbers[
-            bid.gameType
+          bid.gameType
           ] || null;
 
         // --------------------------------------------------------
@@ -684,9 +944,9 @@ exports.declareResult = async (req, res) => {
 
         winningBidsList.push(bid);
 
-        if (gameTypeStats[bid.gameType]) {
+        if (gameTypeStats[normalizedBidGameType]) {
           gameTypeStats[
-            bid.gameType
+            normalizedBidGameType
           ].won++;
         }
 
@@ -703,14 +963,14 @@ exports.declareResult = async (req, res) => {
 
         bid.resultNumber =
           formattedWinningNumbers[
-            bid.gameType
+          bid.gameType
           ] || null;
 
         totalLost++;
 
-        if (gameTypeStats[bid.gameType]) {
+        if (gameTypeStats[normalizedBidGameType]) {
           gameTypeStats[
-            bid.gameType
+            normalizedBidGameType
           ].lost++;
         }
       }

@@ -42,7 +42,7 @@ export default function WalletBalanceCard() {
   const currencySymbol = getCurrencySymbol(user?.country);
   
   // Get balance with fallback
-  const balance = user?.balance?.local || 0;
+  const balance = user?.balance || 0;
   
   const formatBalance = (amount) => {
     return amount.toLocaleString('en-IN', {

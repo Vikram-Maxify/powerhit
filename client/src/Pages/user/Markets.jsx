@@ -37,22 +37,21 @@ const DEFAULT_MARKET_IMAGE =
 const GAME_TYPE_IMAGES = {
   single:
     "https://images.unsplash.com/photo-1518544801976-3e159e50e5bb?auto=format&fit=crop&w=500&q=80",
-
+  "single-patti":
+    "https://images.unsplash.com/photo-1518544801976-3e159e50e5bb?auto=format&fit=crop&w=500&q=80",
+  "double-patti":
+    "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=500&q=80",
+  "triple-patti":
+    "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80",
   jodi: "https://i.ibb.co/5X47nGm7/Chat-GPT-Image-Aug-26-2026-04-52-31-PM.png",
-
   panna: "https://i.ibb.co/dwZ2Zy6v/Chat-GPT-Image-Aug-26-2026-04-54-23-PM.png",
-
   spot: "https://images.unsplash.com/photo-1518544889287-6d7a6d3f0f4a?auto=format&fit=crop&w=500&q=80",
-
   "half-sangam":
     "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=500&q=80",
-
   "full-sangam":
     "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80",
-
   "last-digit":
     "https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=500&q=80",
-
   "first-digit":
     "https://images.unsplash.com/photo-1557682260-96773eb01377?auto=format&fit=crop&w=500&q=80",
 };
@@ -177,6 +176,33 @@ const GAME_TYPES = [
   },
 
   {
+    key: "single-patti",
+    label: "SINGLE PATTI",
+    sub: "Choose Single Patti",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["single-patti"],
+    icon: Dice5,
+  },
+
+  {
+    key: "double-patti",
+    label: "DOUBLE PATTI",
+    sub: "Choose Double Patti",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["double-patti"],
+    icon: Dice5,
+  },
+
+  {
+    key: "triple-patti",
+    label: "TRIPLE PATTI",
+    sub: "Choose Triple Patti",
+    mode: "icon",
+    image: GAME_TYPE_IMAGES["triple-patti"],
+    icon: Dice5,
+  },
+
+  {
     key: "jodi",
     label: "JODI",
     sub: "Choose Two Numbers",
@@ -242,6 +268,7 @@ const GAME_TYPES = [
   },
 ];
 
+// ✅ FIXED: Removed "open" and "close" from allowed game types
 const getAllowedGameTypes = (market) => {
   if (!market) return [];
   if (market.digitType === "2-digit") {
@@ -252,6 +279,10 @@ const getAllowedGameTypes = (market) => {
   if (market.digitType === "3-digit") {
     return GAME_TYPES.filter((game) =>
       [
+        "single",
+        "single-patti",
+        "double-patti",
+        "triple-patti",
         "jodi",
         "panna",
         "half-sangam",
@@ -307,7 +338,7 @@ const MatkaMarkets = () => {
   const navigate = useNavigate();
 
   const { activeMarkets, loading } = useSelector((state) => state.market);
-  const { user } = useSelector((state) => state.auth); // adjust slice name if different
+  const { user } = useSelector((state) => state.auth);
 
   const walletBalance = user?.balance;
 
@@ -414,9 +445,14 @@ const MatkaMarkets = () => {
      ============================================================ */
 
   const handlePlaceBid = (marketId, gameType) => {
+    const normalizedGameType = String(gameType || "")
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, "-");
+
     navigate(`/matka/place-bid/${marketId}`, {
       state: {
-        gameType,
+        gameType: normalizedGameType,
         marketId,
       },
     });
@@ -697,9 +733,9 @@ const MatkaMarkets = () => {
                       ₹{" "}
                     </span>
                     <span className="text-xs font-bold text-gray-800">
-                      {walletBalance.toLocaleString("en-IN", {
+                      {walletBalance?.toLocaleString("en-IN", {
                         maximumFractionDigits: 2,
-                      })}
+                      }) || "0.00"}
                     </span>
                   </div>
                 </div>
@@ -842,7 +878,9 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                 {showAllGameTypes ? "SHOW LESS" : "VIEW ALL"}
                 <ChevronRight
                   size={14}
-                  className={`transition-transform duration-200 ${showAllGameTypes ? "rotate-90" : ""}`}
+                  className={`transition-transform duration-200 ${
+                    showAllGameTypes ? "rotate-90" : ""
+                  }`}
                 />
               </button>
             )}
@@ -882,27 +920,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                     </div>
 
                     <div className="p-2 sm:p-3">
-                      {/* DIGIT BADGE */}
-
-                      {/* <div className="mx-auto mb-2 flex min-h-[36px] items-center justify-center">
-                        {gt.mode === "digits" ? (
-                          <div className="flex items-center justify-center gap-1">
-                            {gt.digits.map((d, i) => (
-                              <span
-                                key={i}
-                                className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-sm font-extrabold text-white ring-2 ring-amber-200"
-                              >
-                                {d}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 text-white ring-2 ring-amber-200">
-                            <Icon size={18} />
-                          </span>
-                        )}
-                      </div> */}
-
                       <p className="mb-2 min-h-[16px] text-[8px] text-gray-400 sm:text-[10px]">
                         {gt.sub}
                       </p>

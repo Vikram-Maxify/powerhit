@@ -36,6 +36,10 @@ const marketSchema = new mongoose.Schema(
         {
           type: String,
           enum: [
+            "single",
+            "single-Patti",
+            "double-Patti",
+            "triple-Patti",
             "jodi",
             "panna",
             "half-sangam",

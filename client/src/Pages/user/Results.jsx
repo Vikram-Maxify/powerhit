@@ -59,9 +59,22 @@ const MatkaResults = () => {
     });
   };
 
+  const normalizeGameType = (gameType) =>
+    String(gameType || "")
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, "-")
+      .replace(/\s+/g, "-");
+
+  const normalizeWinningNumber = (value) => {
+    if (value === null || value === undefined || value === "") return "";
+    return String(value).trim();
+  };
+
   // ============================================================
   // WINNING NUMBER DISPLAY
   // ============================================================
+
 
   const getWinningNumberDisplay = (result) => {
     if (
@@ -72,47 +85,33 @@ const MatkaResults = () => {
       return [];
     }
 
-    const winningNumber =
-      result.winningNumber;
+    const winningNumber = result.winningNumber;
+    const digitType = getDigitType(result);
+    const allowedTypes = getAllowedGameTypes(digitType);
 
-    // New format:
-    // {
-    //   jodi: "45",
-    //   panna: "123",
-    //   half-sangam: "123",
-    //   ...
-    // }
     if (
       typeof winningNumber === "object" &&
       !Array.isArray(winningNumber)
     ) {
-      const digitType = getDigitType(result);
-      const allowedTypes =
-        getAllowedGameTypes(digitType);
-
       return Object.entries(winningNumber)
-        .filter(
-          ([gameType, value]) =>
-            value !== null &&
-            value !== undefined &&
-            String(value).trim() !== "" &&
-            (
-              allowedTypes.length === 0 ||
-              allowedTypes.includes(gameType)
-            )
-        )
-        .map(([gameType, number]) => ({
-          gameType,
-          number: String(number),
-        }));
+        .map(([rawGameType, rawNumber]) => ({
+          gameType: normalizeGameType(rawGameType),
+          number: normalizeWinningNumber(rawNumber),
+        }))
+        .filter(({ gameType, number }) => {
+          if (!number) return false;
+
+          return (
+            allowedTypes.length === 0 ||
+            allowedTypes.includes(gameType)
+          );
+        });
     }
 
-    // Old format:
-    // "45"
     return [
       {
         gameType: "winning-number",
-        number: String(winningNumber),
+        number: normalizeWinningNumber(winningNumber),
       },
     ];
   };
@@ -149,27 +148,49 @@ const MatkaResults = () => {
   };
 
   const getGameTypeLabel = (gameType) => {
+    const type = normalizeGameType(gameType);
+
     const labels = {
+      single: "SINGLE",
       jodi: "JODI",
+      "single-patti": "SINGLE PATTI",
+      "double-patti": "DOUBLE PATTI",
+      "triple-patti": "TRIPLE PATTI",
       panna: "PANNA",
+      open: "OPEN",
+      close: "CLOSE",
       "half-sangam": "HALF SANGAM",
       "full-sangam": "FULL SANGAM",
       "last-digit": "LAST DIGIT",
       "first-digit": "FIRST DIGIT",
+      "winning-number": "WINNING NUMBER",
     };
 
-    return labels[gameType] || gameType;
+    return labels[type] || String(gameType || "").toUpperCase();
   };
 
   const getAllowedGameTypes = (digitType) => {
     if (digitType === "2-digit") {
-      return ["jodi", "last-digit", "first-digit"];
+      return [
+        "single",
+        "jodi",
+        "open",
+        "close",
+        "last-digit",
+        "first-digit",
+      ];
     }
 
     if (digitType === "3-digit") {
       return [
-        "jodi",
+        "single",
+        "single-patti",
+        "double-patti",
+        "triple-patti",
         "panna",
+        "open",
+        "close",
+        "jodi",
         "half-sangam",
         "full-sangam",
         "last-digit",

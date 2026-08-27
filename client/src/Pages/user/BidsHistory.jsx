@@ -92,9 +92,20 @@ const BidsHistory = () => {
     return configs[status] || configs.pending;
   };
 
+  const normalizeGameType = (gameType) =>
+    String(gameType || "")
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, "-");
+
   const getGameTypeDisplay = (type) => {
+    type = normalizeGameType(type);
     const display = {
+      single: "Single",
       jodi: "Jodi",
+      "single-patti": "Single Patti",
+      "double-patti": "Double Patti",
+      "triple-patti": "Triple Patti",
       panna: "Panna",
       "half-sangam": "Half-Sangam",
       "full-sangam": "Full-Sangam",
@@ -135,8 +146,13 @@ const BidsHistory = () => {
   };
 
   const getGameTypeLabel = (type) => {
+    type = normalizeGameType(type);
     const display = {
+      single: "Single",
       jodi: "Jodi",
+      "single-patti": "Single Patti",
+      "double-patti": "Double Patti",
+      "triple-patti": "Triple Patti",
       panna: "Panna",
       "half-sangam": "Half-Sangam",
       "full-sangam": "Full-Sangam",
@@ -171,9 +187,15 @@ const BidsHistory = () => {
   // ============================================================
 
   const getDigitCount = (gameType) => {
+    gameType = normalizeGameType(gameType);
     switch (gameType) {
+      case "single":
+        return 1;
       case "jodi":
         return 2;
+      case "single-patti":
+      case "double-patti":
+      case "triple-patti":
       case "panna":
         return 3;
       case "half-sangam":
@@ -181,9 +203,8 @@ const BidsHistory = () => {
       case "full-sangam":
         return 6;
       case "last-digit":
-        return 2;
       case "first-digit":
-        return 2;
+        return 1;
       default:
         return 2;
     }
@@ -195,10 +216,10 @@ const BidsHistory = () => {
   };
 
   const isHalfSangam = (gameType) =>
-    gameType === "half-sangam";
+    normalizeGameType(gameType) === "half-sangam";
 
   const isFullSangam = (gameType) =>
-    gameType === "full-sangam";
+    normalizeGameType(gameType) === "full-sangam";
 
   const getSangamParts = (number, gameType) => {
     const str = normalizeNumber(number);
@@ -231,6 +252,7 @@ const BidsHistory = () => {
   };
 
   const getResultDigits = (number, gameType) => {
+    gameType = normalizeGameType(gameType);
     const str = normalizeNumber(number);
 
     if (!str) return [];

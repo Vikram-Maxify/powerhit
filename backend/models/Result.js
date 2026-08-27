@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 
 // 2-digit market
 const TWO_DIGIT_GAME_TYPES = [
+  "single",
   "jodi",
   "last-digit",
   "first-digit",
@@ -13,6 +14,10 @@ const TWO_DIGIT_GAME_TYPES = [
 
 // 3-digit market
 const THREE_DIGIT_GAME_TYPES = [
+  "single",
+  "single-Patti",
+  "double-Patti",
+  "triple-Patti",
   "jodi",
   "panna",
   "half-sangam",
@@ -187,7 +192,7 @@ resultSchema.statics.isGameTypeAllowed = function (digitType, gameType) {
 };
 
 // ==========================================================
-// STATIC: FORMAT WINNING NUMBER (FIXED)
+// STATIC: FORMAT WINNING NUMBER (UPDATED - Supports both 6-digit and 2/3-digit)
 // ==========================================================
 
 resultSchema.statics.formatWinningNumber = function (value, gameType) {
@@ -197,91 +202,119 @@ resultSchema.statics.formatWinningNumber = function (value, gameType) {
 
   let number = String(value).trim();
 
+  // Remove any non-digit characters (keep only digits)
+  number = number.replace(/[^0-9]/g, '');
+
+  if (!number) {
+    throw new Error("Invalid winning number: must contain digits");
+  }
+
   switch (gameType) {
     // ====================================================
-    // JODI - First 2 digits from 6-digit number
+    // JODI - First 2 digits
     // ====================================================
     case "jodi":
-      if (/^[0-9]{6}$/.test(number)) {
+      if (number.length === 6) {
         return number.substring(0, 2); // "123456" → "12"
       }
-      if (/^[0-9]{1,2}$/.test(number)) {
+      if (number.length >= 1 && number.length <= 2) {
         return number.padStart(2, "0");
       }
-      throw new Error("Jodi winning number must be either 2 digits (00-99) or a 6-digit number");
+      throw new Error("Jodi winning number must be 2 digits (00-99) or 6-digit number");
 
     // ====================================================
-    // PANNA - First 3 digits from 6-digit number
+    // PANNA - First 3 digits
     // ====================================================
     case "panna":
-      if (/^[0-9]{6}$/.test(number)) {
+      if (number.length === 6) {
         return number.substring(0, 3); // "123456" → "123"
       }
-      if (!/^[0-9]{1,3}$/.test(number)) {
-        throw new Error("Panna winning number must be 000-999");
+      if (number.length >= 1 && number.length <= 3) {
+        return number.padStart(3, "0");
       }
-      return number.padStart(3, "0");
+      throw new Error("Panna winning number must be 3 digits (000-999) or 6-digit number");
 
     // ====================================================
-    // HALF SANGAM - First 3 digits + Last 1 digit from 6-digit number
+    // HALF SANGAM - Panna + Digit
     // ====================================================
     case "half-sangam": {
-      // If 6-digit number, split into panna + digit
-      // Example: "123456" → "123-6" (first 3 digits + last 1 digit)
-      if (/^[0-9]{6}$/.test(number)) {
-        const panna = number.substring(0, 3); // "123"
-        const digit = number.substring(5, 6); // "6"
-        return `${panna}-${digit}`; // "123-6"
+      // If 6-digit: first 3 + last 1
+      if (number.length === 6) {
+        const panna = number.substring(0, 3);
+        const digit = number.substring(5, 6);
+        return `${panna}-${digit}`; // "123456" → "123-6"
       }
 
-      // Already in proper format
-      if (!/^[0-9]{3}-[0-9]$/.test(number) && !/^[0-9]-[0-9]{3}$/.test(number)) {
-        throw new Error("Half Sangam winning number must be Panna + Digit (123-6) or Digit + Panna (6-123)");
+      // If 4-digit: first 3 + last 1
+      if (number.length === 4) {
+        const panna = number.substring(0, 3);
+        const digit = number.substring(3, 4);
+        return `${panna}-${digit}`; // "1234" → "123-4"
       }
-      return number;
+
+      // If already in proper format
+      if (/^\d{3}-\d$/.test(number) || /^\d-\d{3}$/.test(number)) {
+        return number;
+      }
+
+      // Try to parse if number is 3 digits (treat as panna)
+      if (number.length === 3) {
+        return `${number}-0`;
+      }
+
+      // Try to parse if number is 1 digit (treat as digit)
+      if (number.length === 1) {
+        return `000-${number}`;
+      }
+
+      throw new Error("Half Sangam winning number must be Panna-Digit (123-6) or 6-digit number");
     }
 
     // ====================================================
-    // FULL SANGAM - First 3 digits + Last 3 digits from 6-digit number
+    // FULL SANGAM - Panna + Panna
     // ====================================================
     case "full-sangam": {
-      // If 6-digit number, split into two pannas
-      // Example: "123456" → "123-456"
-      if (/^[0-9]{6}$/.test(number)) {
-        const firstPanna = number.substring(0, 3); // "123"
-        const secondPanna = number.substring(3, 6); // "456"
-        return `${firstPanna}-${secondPanna}`; // "123-456"
+      // If 6-digit: split into two pannas
+      if (number.length === 6) {
+        const firstPanna = number.substring(0, 3);
+        const secondPanna = number.substring(3, 6);
+        return `${firstPanna}-${secondPanna}`; // "123456" → "123-456"
       }
 
-      if (!/^[0-9]{3}-[0-9]{3}$/.test(number)) {
-        throw new Error("Full Sangam winning number must be Panna + Panna (123-456)");
+      // If already in proper format
+      if (/^\d{3}-\d{3}$/.test(number)) {
+        return number;
       }
-      return number;
+
+      throw new Error("Full Sangam winning number must be Panna-Panna (123-456) or 6-digit number");
     }
 
     // ====================================================
-    // LAST DIGIT - Last 1 digit from 6-digit number
+    // LAST DIGIT - Last digit
     // ====================================================
     case "last-digit":
-      if (/^[0-9]{6}$/.test(number)) {
+      if (number.length === 6) {
         return number.substring(5, 6); // "123456" → "6"
       }
-      if (!/^[0-9]{1,2}$/.test(number)) {
-        throw new Error("Last digit winning number must be 00-99");
+      if (number.length >= 1 && number.length <= 2) {
+        return number.padStart(2, "0");
       }
-      return number.padStart(2, "0");
+      throw new Error("Last digit winning number must be 1-2 digits (0-99) or 6-digit number");
 
     // ====================================================
-    // FIRST DIGIT - First 1 digit from 6-digit number
+    // FIRST DIGIT - First digit
     // ====================================================
     case "first-digit":
-      if (/^[0-9]{6}$/.test(number)) {
-        return number.substring(0, 1); // "123456" → "1"
+      if (number.length === 6) {
+        return number.substring(0, 1); // "012345" → "0"
       }
-      if (!/^[0-9]{1}$/.test(number)) {
-        throw new Error("First digit winning number must be a single digit (0-9)");
+      if (number.length === 1) {
+        return number; // "0" → "0"
       }
-      return number;
+      if (number.length === 2) {
+        return number.substring(0, 1); // "01" → "0"
+      }
+      throw new Error("First digit winning number must be single digit (0-9) or 6-digit number");
 
     default:
       throw new Error(`Invalid game type: ${gameType}`);
@@ -424,7 +457,7 @@ resultSchema.methods.getWinningNumber = function (gameType) {
 };
 
 // ==========================================================
-// METHOD: CHECK BID WIN (FIXED)
+// METHOD: CHECK BID WIN (UPDATED - Supports both formats)
 // ==========================================================
 
 resultSchema.methods.checkBidWin = function (bidNumber, bidGameType) {
@@ -441,27 +474,66 @@ resultSchema.methods.checkBidWin = function (bidNumber, bidGameType) {
     // ====================================================
     // JODI - First 2 digits
     // ====================================================
-    case "jodi":
-      return winningNumStr === bidNumStr.padStart(2, "0").substring(0, 2);
+    case "jodi": {
+      // Remove non-digits from bid
+      const bidDigits = bidNumStr.replace(/[^0-9]/g, '');
+      if (!bidDigits) return false;
+
+      // Pad bid to 2 digits and take first 2
+      const formattedBid = bidDigits.padStart(2, "0").substring(0, 2);
+      return winningNumStr === formattedBid;
+    }
 
     // ====================================================
     // PANNA - First 3 digits
     // ====================================================
-    case "panna":
-      return winningNumStr === bidNumStr.padStart(3, "0");
+    case "panna": {
+      // Remove non-digits from bid
+      const bidDigits = bidNumStr.replace(/[^0-9]/g, '');
+      if (!bidDigits) return false;
+
+      // Pad bid to 3 digits
+      const formattedBid = bidDigits.padStart(3, "0");
+      return winningNumStr === formattedBid;
+    }
 
     // ====================================================
-    // HALF SANGAM - Supports both formats
+    // HALF SANGAM - Supports multiple formats
     // ====================================================
     case "half-sangam": {
+      // Remove non-digits from bid
+      const bidDigits = bidNumStr.replace(/[^0-9]/g, '');
+      if (!bidDigits) return false;
+
       // Check if bid is single digit (0-9)
-      if (/^[0-9]$/.test(bidNumStr)) {
-        return winningNumStr.slice(-1) === bidNumStr;
+      if (bidDigits.length === 1) {
+        return winningNumStr.slice(-1) === bidDigits;
       }
+
       // Check if bid is 3 digits (000-999)
-      if (/^[0-9]{3}$/.test(bidNumStr)) {
-        return winningNumStr.substring(0, 3) === bidNumStr;
+      if (bidDigits.length === 3) {
+        const winningPanna = winningNumStr.substring(0, 3);
+        return winningPanna === bidDigits;
       }
+
+      // Check if bid is 4 digits (panna + digit)
+      if (bidDigits.length === 4) {
+        const bidPanna = bidDigits.substring(0, 3);
+        const bidDigit = bidDigits.substring(3, 4);
+        const winningPanna = winningNumStr.substring(0, 3);
+        const winningDigit = winningNumStr.slice(-1);
+        return bidPanna === winningPanna && bidDigit === winningDigit;
+      }
+
+      // Check if bid is 6 digits
+      if (bidDigits.length === 6) {
+        const bidPanna = bidDigits.substring(0, 3);
+        const bidDigit = bidDigits.substring(5, 6);
+        const winningPanna = winningNumStr.substring(0, 3);
+        const winningDigit = winningNumStr.slice(-1);
+        return bidPanna === winningPanna && bidDigit === winningDigit;
+      }
+
       // Full format match
       return winningNumStr === bidNumStr;
     }
@@ -469,20 +541,47 @@ resultSchema.methods.checkBidWin = function (bidNumber, bidGameType) {
     // ====================================================
     // FULL SANGAM - Exact match
     // ====================================================
-    case "full-sangam":
+    case "full-sangam": {
+      // Remove non-digits from bid
+      const bidDigits = bidNumStr.replace(/[^0-9]/g, '');
+      if (!bidDigits) return false;
+
+      // If bid is 6 digits, format as panna-panna
+      if (bidDigits.length === 6) {
+        const firstPanna = bidDigits.substring(0, 3);
+        const secondPanna = bidDigits.substring(3, 6);
+        const formattedBid = `${firstPanna}-${secondPanna}`;
+        return winningNumStr === formattedBid;
+      }
+
       return winningNumStr === bidNumStr;
+    }
 
     // ====================================================
-    // LAST DIGIT - Last 1 digit
+    // LAST DIGIT - Last digit
     // ====================================================
-    case "last-digit":
-      return winningNumStr.slice(-1) === bidNumStr.slice(-1);
+    case "last-digit": {
+      // Remove non-digits from bid
+      const bidDigits = bidNumStr.replace(/[^0-9]/g, '');
+      if (!bidDigits) return false;
+
+      const bidLastDigit = bidDigits.slice(-1);
+      const winningLastDigit = winningNumStr.slice(-1);
+      return bidLastDigit === winningLastDigit;
+    }
 
     // ====================================================
-    // FIRST DIGIT - First 1 digit
+    // FIRST DIGIT - First digit
     // ====================================================
-    case "first-digit":
-      return winningNumStr.charAt(0) === bidNumStr.charAt(0);
+    case "first-digit": {
+      // Remove non-digits from bid
+      const bidDigits = bidNumStr.replace(/[^0-9]/g, '');
+      if (!bidDigits) return false;
+
+      const bidFirstDigit = bidDigits.charAt(0);
+      const winningFirstDigit = winningNumStr.charAt(0);
+      return bidFirstDigit === winningFirstDigit;
+    }
 
     default:
       return false;

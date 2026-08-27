@@ -213,8 +213,8 @@ const Withdrawal = () => {
       errors.amount = `Minimum withdrawal amount is ${settings?.currencySymbol}${settings?.minWithdrawal}`;
     } else if (parseFloat(formData.amount) > settings?.maxWithdrawal) {
       errors.amount = `Maximum withdrawal amount is ${settings?.currencySymbol}${settings?.maxWithdrawal}`;
-    } else if (parseFloat(formData.amount) > user?.balance.local) {
-      errors.amount = `Insufficient balance. Available: ${settings?.currencySymbol}${user?.balance.local}`;
+    } else if (parseFloat(formData.amount) > user?.balance) {
+      errors.amount = `Insufficient balance. Available: ${settings?.currencySymbol}${user?.balance}`;
     }
 
     if (!formData.paymentMethod) {
@@ -440,7 +440,7 @@ const Withdrawal = () => {
                     Available Balance
                   </p>
                   <p className="text-xl sm:text-2xl font-bold text-transparent bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text">
-                    {formatCurrency(user?.balance.local || 0)}
+                    {formatCurrency(user?.balance || 0)}
                   </p>
                 </div>
               </div>

@@ -246,8 +246,8 @@ const AllWithdrawal = () => {
       errors.amount = `Minimum withdrawal amount is ${currencySymbol}${settings?.minWithdrawal}`;
     } else if (parseFloat(formData.amount) > settings?.maxWithdrawal) {
       errors.amount = `Maximum withdrawal amount is ${currencySymbol}${settings?.maxWithdrawal}`;
-    } else if (parseFloat(formData.amount) > user?.balance.local) {
-      errors.amount = `Insufficient balance. Available: ${formatCurrency(user?.balance.local)}`;
+    } else if (parseFloat(formData.amount) > user?.balance) {
+      errors.amount = `Insufficient balance. Available: ${formatCurrency(user?.balance)}`;
     }
     
     if (!formData.paymentMethod) {
@@ -439,7 +439,7 @@ const AllWithdrawal = () => {
               <div>
                 <p className="text-xs text-gray-500">Available Balance</p>
                 <p className="text-lg font-bold text-yellow-600">
-                  {formatCurrency(user?.balance.local || 0)}
+                  {formatCurrency(user?.balance || 0)}
                 </p>
               </div>
             </div>

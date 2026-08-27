@@ -204,7 +204,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
         >
           <p className="text-sm opacity-90">Available Balance</p>
           <h2 className="text-4xl font-bold mt-2">
-            {formatCurrency(user?.balance.local || 0)}
+            {formatCurrency(user?.balance || 0)}
           </h2>
         </div>
       </div>
@@ -322,7 +322,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] p
           >
             <p className="text-sm">Available Balance</p>
             <h2 className="text-3xl font-bold mt-1">
-              {formatCurrency(user?.balance.local || 0)}
+              {formatCurrency(user?.balance || 0)}
             </h2>
           </div>
         </div>

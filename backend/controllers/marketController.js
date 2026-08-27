@@ -8,6 +8,7 @@ const uploadToImgBB = require("../utils/uploadToImgBB");
 const getGameTypesByDigitType = (digitType) => {
   if (digitType === "2-digit") {
     return [
+      "single",
       "jodi",
       "last-digit",
       "first-digit",
@@ -16,6 +17,10 @@ const getGameTypesByDigitType = (digitType) => {
 
   if (digitType === "3-digit") {
     return [
+      "single",
+      "single-Patti",
+      "double-Patti",
+      "triple-Patti",
       "jodi",
       "panna",
       "half-sangam",
@@ -175,15 +180,15 @@ exports.createMarket = async (req, res) => {
 
       minBid:
         minBid !== undefined &&
-        minBid !== null &&
-        minBid !== ""
+          minBid !== null &&
+          minBid !== ""
           ? Number(minBid)
           : 10,
 
       maxBid:
         maxBid !== undefined &&
-        maxBid !== null &&
-        maxBid !== ""
+          maxBid !== null &&
+          maxBid !== ""
           ? Number(maxBid)
           : 10000,
 
@@ -280,7 +285,7 @@ exports.updateMarket = async (req, res) => {
 
     const finalDigitType =
       updateData.digitType !== undefined &&
-      updateData.digitType !== ""
+        updateData.digitType !== ""
         ? updateData.digitType
         : existingMarket.digitType;
 
@@ -366,7 +371,7 @@ exports.updateMarket = async (req, res) => {
 
     if (
       updateData.minBid !==
-        undefined &&
+      undefined &&
       updateData.minBid !== ""
     ) {
       updateData.minBid =
@@ -375,7 +380,7 @@ exports.updateMarket = async (req, res) => {
 
     if (
       updateData.maxBid !==
-        undefined &&
+      undefined &&
       updateData.maxBid !== ""
     ) {
       updateData.maxBid =
@@ -429,9 +434,9 @@ exports.updateMarket = async (req, res) => {
 
     if (
       updateData.image !==
-        undefined &&
+      undefined &&
       typeof updateData.image !==
-        "string"
+      "string"
     ) {
       delete updateData.image;
     }
@@ -537,7 +542,7 @@ exports.getAllMarkets = async (
         })
         .skip(
           (currentPage - 1) *
-            currentLimit
+          currentLimit
         )
         .limit(currentLimit);
 
@@ -667,11 +672,10 @@ exports.toggleMarketStatus =
       return res.status(200).json({
         success: true,
 
-        message: `Market ${
-          isActive
+        message: `Market ${isActive
             ? "activated"
             : "deactivated"
-        } successfully`,
+          } successfully`,
 
         data: market,
       });

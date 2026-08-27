@@ -76,20 +76,27 @@ const getCurrencySymbol = (
 // GAME TYPE LABEL
 // ============================================================
 
+const normalizeGameType = (gameType) =>
+  String(gameType || "")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-");
+
 const getGameTypeLabel = (
   gameType
 ) => {
+  gameType = normalizeGameType(gameType);
   const labels = {
+    single: "Single",
     jodi: "Jodi",
+    "single-patti": "Single Patti",
+    "double-patti": "Double Patti",
+    "triple-patti": "Triple Patti",
     panna: "Panna",
-    "half-sangam":
-      "Half Sangam",
-    "full-sangam":
-      "Full Sangam",
-    "last-digit":
-      "Last Digit",
-    "first-digit":
-      "First Digit",
+    "half-sangam": "Half Sangam",
+    "full-sangam": "Full Sangam",
+    "last-digit": "Last Digit",
+    "first-digit": "First Digit",
   };
 
   return (
@@ -136,12 +143,17 @@ const getWinningNumbers = (
   ) {
     return Object.entries(
       winningNumber
-    ).filter(
-      ([, value]) =>
-        value !== null &&
-        value !== undefined &&
-        String(value).trim() !== ""
-    );
+    )
+      .filter(
+        ([, value]) =>
+          value !== null &&
+          value !== undefined &&
+          String(value).trim() !== ""
+      )
+      .map(([gameType, value]) => [
+        normalizeGameType(gameType),
+        value,
+      ]);
   }
 
   // ----------------------------------------------------------
