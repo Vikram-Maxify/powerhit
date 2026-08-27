@@ -102,12 +102,6 @@ const PlaceBid = () => {
   const { gameType: autoGameType, digitType: autoDigitType } =
     location.state || {};
 
-  const normalizeGameType = (gameType) =>
-    String(gameType || "")
-      .trim()
-      .toLowerCase()
-      .replace(/_/g, "-");
-
   // Market controls available games
   const marketDigitType =
     currentMarket?.digitType ||
@@ -117,22 +111,17 @@ const PlaceBid = () => {
 
   const allowedGameTypesByDigitType = useMemo(() => {
     if (marketDigitType === "2-digit") {
-      return [
-        "single",
-        "jodi",
-        "last-digit",
-        "first-digit",
-      ];
+      return ["single", "jodi", "last-digit", "first-digit"];
     }
 
     if (marketDigitType === "3-digit") {
       return [
         "single",
-        "single-patti",
-        "double-patti",
-        "triple-patti",
-        "panna",
+        "single-Patti",
+        "double-Patti",
+        "triple-Patti",
         "jodi",
+        "panna",
         "half-sangam",
         "full-sangam",
         "last-digit",
@@ -144,7 +133,7 @@ const PlaceBid = () => {
   }, [marketDigitType]);
 
   const isGameTypeAllowed = (gameType) =>
-    allowedGameTypesByDigitType.includes(normalizeGameType(gameType));
+    allowedGameTypesByDigitType.includes(gameType);
 
   const currencySymbol = getCurrencySymbol(user?.country);
 
@@ -247,14 +236,10 @@ const PlaceBid = () => {
     }
 
     const counts = {
-      single: 1,
       jodi: 2,
-      "single-patti": 3,
-      "double-patti": 3,
-      "triple-patti": 3,
       panna: 3,
-      "last-digit": 1,
-      "first-digit": 1,
+      "last-digit": 2,
+      "first-digit": 2,
     };
 
     return counts[gameType] || 1;
@@ -272,14 +257,10 @@ const PlaceBid = () => {
     }
 
     const labels = {
-      single: ["Digit"],
       jodi: ["1st", "2nd"],
-      "single-patti": ["H", "T", "U"],
-      "double-patti": ["H", "T", "U"],
-      "triple-patti": ["H", "T", "U"],
       panna: ["H", "T", "U"],
-      "last-digit": ["Digit"],
-      "first-digit": ["Digit"],
+      "last-digit": ["T", "U"],
+      "first-digit": ["T", "U"],
     };
 
     return labels[gameType] || ["Digit"];
@@ -307,16 +288,12 @@ const PlaceBid = () => {
 
   const getNumberHint = (gameType) => {
     const hints = {
-      single: "0-9",
       jodi: "00-99",
-      "single-patti": "000-999",
-      "double-patti": "000-999",
-      "triple-patti": "000-999",
       panna: "000-999",
       "half-sangam": "123-5 or 5-123",
       "full-sangam": "123-456",
-      "last-digit": "0-9",
-      "first-digit": "0-9",
+      "last-digit": "00-99",
+      "first-digit": "00-99",
     };
 
     return hints[gameType] || "";
@@ -348,10 +325,7 @@ const PlaceBid = () => {
       return;
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      gameType: normalizeGameType(autoGameType),
-    }));
+    setFormData((prev) => ({ ...prev, gameType: autoGameType }));
     setSelectedDigits([]);
     setCurrentDigitIndex(0);
     if (autoGameType === "half-sangam") {
@@ -484,19 +458,13 @@ const PlaceBid = () => {
       return setLocalError(`Min: ${currencySymbol}${currentMarket?.minBid}`);
     if (bidAmount > currentMarket?.maxBid)
       return setLocalError(`Max: ${currencySymbol}${currentMarket?.maxBid}`);
-    const userBalance = Number(
-      user?.balance ??
-      user?.balance ??
-      0
-    );
-
-    if (bidAmount > userBalance)
+    if (bidAmount > user?.balance.local)
       return setLocalError(`Insufficient balance`);
 
     const result = await dispatch(
       placeBid({
         marketId,
-        gameType: normalizeGameType(formData.gameType),
+        gameType: formData.gameType,
         number: formData.number,
         bidAmount,
       }),
@@ -516,11 +484,7 @@ const PlaceBid = () => {
 
   const getGameTypeDisplay = (type) => {
     const display = {
-      single: "Single",
       jodi: "Jodi",
-      "single-patti": "Single Patti",
-      "double-patti": "Double Patti",
-      "triple-patti": "Triple Patti",
       panna: "Panna",
       "half-sangam": "Half-Sangam",
       "full-sangam": "Full-Sangam",
@@ -532,11 +496,7 @@ const PlaceBid = () => {
 
   const getGameTypeIcon = (type) => {
     const icons = {
-      single: "🔢",
       jodi: "🔢",
-      "single-patti": "🎲",
-      "double-patti": "🎲",
-      "triple-patti": "🎲",
       panna: "🎲",
       "half-sangam": "🌓",
       "full-sangam": "🌕",
@@ -549,11 +509,7 @@ const PlaceBid = () => {
   const calculateWinAmount = () => {
     if (!formData.bidAmount || !formData.gameType) return 0;
     const multipliers = {
-      single: 9,
       jodi: 90,
-      "single-patti": 90,
-      "double-patti": 90,
-      "triple-patti": 90,
       panna: 90,
       "half-sangam": 450,
       "full-sangam": 900,
@@ -567,11 +523,7 @@ const PlaceBid = () => {
 
   const getMultiplierDisplay = (gameType) => {
     const multipliers = {
-      single: "9x",
       jodi: "90x",
-      "single-patti": "90x",
-      "double-patti": "90x",
-      "triple-patti": "90x",
       panna: "90x",
       "half-sangam": "450x",
       "full-sangam": "900x",
@@ -583,11 +535,7 @@ const PlaceBid = () => {
 
   const getWinDescription = (gameType) => {
     const descriptions = {
-      single: "Match the selected single digit",
       jodi: "Match the exact two-digit number",
-      "single-patti": "Match the selected three-digit Single Patti",
-      "double-patti": "Match the selected three-digit Double Patti",
-      "triple-patti": "Match the selected three-digit Triple Patti",
       panna: "Match the exact three-digit number",
       "half-sangam": "Match 1-digit or 3-digit combination",
       "full-sangam": "Match the exact two-digit number",
@@ -661,11 +609,10 @@ const PlaceBid = () => {
                 setCurrentDigitIndex(0);
                 setFormData((prev) => ({ ...prev, number: "" }));
               }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
-                isHalfSangamMode === "triple"
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${isHalfSangamMode === "triple"
                   ? "bg-amber-50 border-amber-400 text-amber-700"
                   : "bg-white border-gray-200 text-gray-500"
-              }`}
+                }`}
             >
               Panna + Digit
               <span className="block text-[10px] font-normal mt-0.5">
@@ -710,13 +657,12 @@ const PlaceBid = () => {
           {Array.from({ length: count }, (_, i) => (
             <div key={i} className="text-center">
               <div
-                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center text-2xl font-bold transition-all ${
-                  selectedDigits[i] !== null && selectedDigits[i] !== undefined
+                className={`w-14 h-14 rounded-full border-2 flex items-center justify-center text-2xl font-bold transition-all ${selectedDigits[i] !== null && selectedDigits[i] !== undefined
                     ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-white"
                     : i === currentDigitIndex
                       ? "border-amber-400 bg-amber-50 text-gray-400"
                       : "border-gray-200 bg-gray-50 text-gray-300"
-                }`}
+                  }`}
               >
                 {selectedDigits[i] !== null && selectedDigits[i] !== undefined
                   ? selectedDigits[i]
@@ -736,12 +682,9 @@ const PlaceBid = () => {
           {digits.map((digit) => {
             const preventDuplicate = ![
               "panna",
-              "single-patti",
-              "double-patti",
-              "triple-patti",
               "half-sangam",
               "full-sangam",
-            ].includes(normalizeGameType(formData.gameType));
+            ].includes(formData.gameType);
 
             const isSelected =
               preventDuplicate && selectedDigits.some((d) => d === digit);
@@ -754,12 +697,11 @@ const PlaceBid = () => {
                 disabled={isSelected || isComplete}
                 className={`
                   w-11 h-11 rounded-full font-mono font-bold text-lg transition-all duration-200
-                  ${
-                    isSelected
-                      ? "bg-amber-500 text-white shadow-lg shadow-amber-200 scale-95"
-                      : isComplete
-                        ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                        : "bg-white border-2 border-gray-200 text-gray-700 hover:border-amber-400 hover:bg-amber-50 hover:scale-110 active:scale-95"
+                  ${isSelected
+                    ? "bg-amber-500 text-white shadow-lg shadow-amber-200 scale-95"
+                    : isComplete
+                      ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                      : "bg-white border-2 border-gray-200 text-gray-700 hover:border-amber-400 hover:bg-amber-50 hover:scale-110 active:scale-95"
                   }
                 `}
               >
@@ -895,8 +837,49 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
 
                 {/* RIGHT - All Info (Two Rows) */}
                 <div className="flex-1 flex flex-col">
-                  {
-                  {/* Row: Today's Result / Last Result / Last Updated */}}
+                  {/* Row 1: Open / Close / Result */}
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+                    <div className="flex-1 flex flex-col items-center gap-0.5">
+                      <p className="text-[8px] font-bold text-gray-400 uppercase">
+                        Open Time
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Clock size={11} className="text-green-500" />
+                        <span className="text-[11px] font-bold text-gray-700">
+                          {currentMarket.openTime}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="w-px h-7 bg-gray-100 flex-shrink-0"></div>
+
+                    <div className="flex-1 flex flex-col items-center gap-0.5">
+                      <p className="text-[8px] font-bold text-gray-400 uppercase">
+                        Close Time
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Clock size={11} className="text-red-400" />
+                        <span className="text-[11px] font-bold text-gray-700">
+                          {currentMarket.closeTime}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="w-px h-7 bg-gray-100 flex-shrink-0"></div>
+
+                    <div className="flex-1 flex flex-col items-center gap-0.5">
+                      <p className="text-[8px] font-bold text-gray-400 uppercase">
+                        Result Time
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Clock size={11} className="text-amber-500" />
+                        <span className="text-[11px] font-bold text-gray-700">
+                          {currentMarket.resultTime}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Row 2: Today's Result / Last Result / Last Updated */}
                   <div className="flex items-center justify-between px-2 py-3 gap-2">
                     <div className="flex-1 flex flex-col items-center gap-1.5">
                       <p className="text-[9px] font-bold text-gray-400 uppercase">
@@ -1027,10 +1010,9 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                         onClick={() => handleBidAmountClick(amount)}
                         className={`
                           py-2.5 rounded-xl text-sm font-bold transition-all border-2
-                          ${
-                            formData.bidAmount === amount.toString()
-                              ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
-                              : "bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-300 hover:bg-amber-50"
+                          ${formData.bidAmount === amount.toString()
+                            ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
+                            : "bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-300 hover:bg-amber-50"
                           }
                         `}
                       >
@@ -1068,11 +1050,10 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                               value={formData.bidAmount}
                               onChange={handleCustomAmountChange}
                               placeholder={`${currentMarket.minBid} - ${currentMarket.maxBid}`}
-                              className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${
-                                customAmountError
+                              className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${customAmountError
                                   ? "border-red-300 focus:border-red-400 text-red-600"
                                   : "border-amber-300 focus:border-amber-500 text-gray-700"
-                              }`}
+                                }`}
                             />
                           </div>
                           <button

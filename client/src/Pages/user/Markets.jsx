@@ -343,17 +343,12 @@ const MatkaMarkets = () => {
   const walletBalance = user?.balance;
 
   const [activeTab, setActiveTab] = useState("live");
-
   const [selectedMarketId, setSelectedMarketId] = useState(null);
-
   const [justOpened, setJustOpened] = useState(false);
-
   const [showAllGameTypes, setShowAllGameTypes] = useState(false);
-
   const [selectedGameType, setSelectedGameType] = useState(null);
 
   const detailRef = useRef(null);
-
   const openedTimeoutRef = useRef(null);
 
   /* ============================================================
@@ -412,7 +407,7 @@ const MatkaMarkets = () => {
   }, [marketsWithStatus, activeTab]);
 
   /* ============================================================
-     SELECTED MARKET
+     SELECTED MARKET - THIS WAS MISSING!
      ============================================================ */
 
   const selectedMarket = marketsWithStatus.find(
@@ -598,7 +593,7 @@ const MatkaMarkets = () => {
                         : "border-gray-100"
                     }`}
                   >
-                    {/* STATUS BADGE - top right, ab card ke corner pe, image ke upar nhi */}
+                    {/* STATUS BADGE */}
                     <span
                       className={`absolute right-3 top-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${style.bg} ${style.text}`}
                     >
@@ -608,7 +603,7 @@ const MatkaMarkets = () => {
                       {style.label}
                     </span>
 
-                    {/* CIRCULAR AVATAR - ab rounded-full, image ki tarah */}
+                    {/* CIRCULAR AVATAR */}
                     <div className="mx-auto mt-2 h-16 w-16 overflow-hidden rounded-full ring-2 ring-amber-100">
                       <SafeImage
                         src={marketImage}
@@ -1005,7 +1000,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
           </div>
 
           <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-2">
-            {marketsWithStatus.map((market) => (
+            {filteredMarkets.map((market) => (
               <div
                 key={market._id}
                 className="w-36 flex-shrink-0 overflow-hidden rounded-xl border border-amber-100 bg-white text-center shadow-sm"
