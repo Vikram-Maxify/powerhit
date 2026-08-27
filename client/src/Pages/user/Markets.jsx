@@ -4,7 +4,6 @@ import {
   ArrowRightFromLine,
   BarChart3,
   Calendar,
-  Check,
   ChevronRight,
   Clock,
   Crown,
@@ -39,10 +38,9 @@ const GAME_TYPE_IMAGES = {
   single:
     "https://images.unsplash.com/photo-1518544801976-3e159e50e5bb?auto=format&fit=crop&w=500&q=80",
 
-  jodi: "https://images.unsplash.com/photo-1518893883800-45cd0954574b?auto=format&fit=crop&w=500&q=80",
+  jodi: "https://i.ibb.co/5X47nGm7/Chat-GPT-Image-Aug-26-2026-04-52-31-PM.png",
 
-  panna:
-    "https://images.unsplash.com/photo-1605870445919-838d190e8e1b?auto=format&fit=crop&w=500&q=80",
+  panna: "https://i.ibb.co/dwZ2Zy6v/Chat-GPT-Image-Aug-26-2026-04-54-23-PM.png",
 
   spot: "https://images.unsplash.com/photo-1518544889287-6d7a6d3f0f4a?auto=format&fit=crop&w=500&q=80",
 
@@ -881,24 +879,12 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                         fallbackIcon={Icon}
                         className="h-full w-full object-cover"
                       />
-
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <p className="flex items-center justify-center gap-1 text-[10px] font-extrabold tracking-wide text-white sm:text-xs">
-                          {gt.label}
-
-                          {isSelected && (
-                            <Check size={12} className="text-amber-300" />
-                          )}
-                        </p>
-                      </div>
                     </div>
 
                     <div className="p-2 sm:p-3">
                       {/* DIGIT BADGE */}
 
-                      <div className="mx-auto mb-2 flex min-h-[36px] items-center justify-center">
+                      {/* <div className="mx-auto mb-2 flex min-h-[36px] items-center justify-center">
                         {gt.mode === "digits" ? (
                           <div className="flex items-center justify-center gap-1">
                             {gt.digits.map((d, i) => (
@@ -915,7 +901,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                             <Icon size={18} />
                           </span>
                         )}
-                      </div>
+                      </div> */}
 
                       <p className="mb-2 min-h-[16px] text-[8px] text-gray-400 sm:text-[10px]">
                         {gt.sub}
