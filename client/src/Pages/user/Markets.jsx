@@ -234,7 +234,7 @@ const GAME_TYPES = [
   {
     key: "half-sangam",
     label: "HALF-SANGAM",
-    sub: "Open + Close Combo",
+    sub: "HALF-SANGAM",
     mode: "icon",
     image: GAME_TYPE_IMAGES["half-sangam"],
     icon: Moon,
@@ -243,7 +243,7 @@ const GAME_TYPES = [
   {
     key: "full-sangam",
     label: "FULL-SANGAM",
-    sub: "Full Combo",
+    sub: "Full SANGAM",
     mode: "icon",
     image: GAME_TYPE_IMAGES["full-sangam"],
     icon: Sun,
