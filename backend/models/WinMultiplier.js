@@ -25,6 +25,7 @@ const winMultiplierSchema = new mongoose.Schema(
       type: Map,
       of: multiplierItemSchema,
       default: {
+        // 2-Digit Games
         single: {
           name: "Single",
           value: 9,
@@ -33,8 +34,30 @@ const winMultiplierSchema = new mongoose.Schema(
           name: "Jodi",
           value: 90,
         },
+        "last-digit": {
+          name: "Last Digit",
+          value: 9,
+        },
+        "first-digit": {
+          name: "First Digit",
+          value: 9,
+        },
+
+        // 3-Digit Games
         panna: {
           name: "Panna",
+          value: 90,
+        },
+        "single-Patti": {
+          name: "Single Patti",
+          value: 90,
+        },
+        "double-Patti": {
+          name: "Double Patti",
+          value: 90,
+        },
+        "triple-Patti": {
+          name: "Triple Patti",
           value: 90,
         },
         "half-sangam": {
@@ -44,14 +67,6 @@ const winMultiplierSchema = new mongoose.Schema(
         "full-sangam": {
           name: "Full Sangam",
           value: 900,
-        },
-        "last-digit": {
-          name: "Last Digit",
-          value: 9,
-        },
-        "first-digit": {
-          name: "First Digit",
-          value: 9,
         },
       },
     },

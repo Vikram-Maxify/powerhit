@@ -68,6 +68,7 @@ import {
 } from "./redux/slices/authSlice.js";
 import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
 import MineGames from "./Pages/MineGames.jsx";
+import MinesGame from "./pages/MinesGame.jsx";
 
 // ========================================
 // Scroll To Top
@@ -693,7 +694,7 @@ function App() {
 
             <Route
               path="/mine-games"
-              element={<MineGames />}
+              element={<MinesGame />}
             />
 
             {/* ========================================

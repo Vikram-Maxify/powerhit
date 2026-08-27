@@ -1,10 +1,10 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import { api } from "../api";
 
 // ======================================================
 // BASE URL
 // ======================================================
-const BASE_URL = "/api/uae/powerball/divisions";
+const BASE_URL = "/uae/powerball/divisions";
 
 // ======================================================
 // GET ALL DIVISIONS
@@ -13,7 +13,7 @@ export const getAllDivisions = createAsyncThunk(
   "UaePowerballDivision/getAll",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(BASE_URL, {
+      const response = await api.get(BASE_URL, {
         withCredentials: true,
       });
 
@@ -34,7 +34,7 @@ export const getActiveDivisions = createAsyncThunk(
   "UaePowerballDivision/getActive",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${BASE_URL}/active`, {
+      const response = await api.get(`${BASE_URL}/active`, {
         withCredentials: true,
       });
 
@@ -55,7 +55,7 @@ export const getDivisionById = createAsyncThunk(
   "UaePowerballDivision/getById",
   async (id, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${BASE_URL}/${id}`, {
+      const response = await api.get(`${BASE_URL}/${id}`, {
         withCredentials: true,
       });
 
@@ -76,7 +76,7 @@ export const createDivision = createAsyncThunk(
   "UaePowerballDivision/create",
   async (data, { rejectWithValue }) => {
     try {
-      const response = await axios.post(BASE_URL, data, {
+      const response = await api.post(BASE_URL, data, {
         withCredentials: true,
       });
 
@@ -97,7 +97,7 @@ export const updateDivision = createAsyncThunk(
   "UaePowerballDivision/update",
   async ({ id, data }, { rejectWithValue }) => {
     try {
-      const response = await axios.put(`${BASE_URL}/${id}`, data, {
+      const response = await api.put(`${BASE_URL}/${id}`, data, {
         withCredentials: true,
       });
 
@@ -118,7 +118,7 @@ export const deleteDivision = createAsyncThunk(
   "UaePowerballDivision/delete",
   async (id, { rejectWithValue }) => {
     try {
-      const response = await axios.delete(`${BASE_URL}/${id}`, {
+      const response = await api.delete(`${BASE_URL}/${id}`, {
         withCredentials: true,
       });
 
@@ -142,7 +142,7 @@ export const toggleDivisionStatus = createAsyncThunk(
   "UaePowerballDivision/toggle",
   async (id, { rejectWithValue }) => {
     try {
-      const response = await axios.patch(
+      const response = await api.patch(
         `${BASE_URL}/${id}/toggle`,
         {},
         {

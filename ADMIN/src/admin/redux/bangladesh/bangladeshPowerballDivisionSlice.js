@@ -1,10 +1,11 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import { api } from "../api";
+
 
 // ======================================================
 // BASE URL
 // ======================================================
-const BASE_URL = "/api/bangladesh/powerball/divisions";
+const BASE_URL = "/bangladesh/powerball/divisions";
 
 // ======================================================
 // HELPER
@@ -25,7 +26,7 @@ export const getAllDivisions = createAsyncThunk(
   "bangladeshPowerballDivision/getAll",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(BASE_URL, {
+      const response = await api.get(BASE_URL, {
         withCredentials: true,
       });
 
@@ -48,7 +49,7 @@ export const getActiveDivisions = createAsyncThunk(
   "bangladeshPowerballDivision/getActive",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${BASE_URL}/active`, {
+      const response = await api.get(`${BASE_URL}/active`, {
         withCredentials: true,
       });
 
@@ -75,7 +76,7 @@ export const getDivisionById = createAsyncThunk(
         return rejectWithValue("Division ID is required.");
       }
 
-      const response = await axios.get(`${BASE_URL}/${id}`, {
+      const response = await api.get(`${BASE_URL}/${id}`, {
         withCredentials: true,
       });
 
@@ -98,7 +99,7 @@ export const createDivision = createAsyncThunk(
   "bangladeshPowerballDivision/create",
   async (data, { rejectWithValue }) => {
     try {
-      const response = await axios.post(BASE_URL, data, {
+      const response = await api.post(BASE_URL, data, {
         withCredentials: true,
       });
 
@@ -125,7 +126,7 @@ export const updateDivision = createAsyncThunk(
         return rejectWithValue("Division ID is required.");
       }
 
-      const response = await axios.put(
+      const response = await api.put(
         `${BASE_URL}/${id}`,
         data,
         {
@@ -156,7 +157,7 @@ export const deleteDivision = createAsyncThunk(
         return rejectWithValue("Division ID is required.");
       }
 
-      const response = await axios.delete(
+      const response = await api.delete(
         `${BASE_URL}/${id}`,
         {
           withCredentials: true,
@@ -189,7 +190,7 @@ export const toggleDivisionStatus = createAsyncThunk(
         return rejectWithValue("Division ID is required.");
       }
 
-      const response = await axios.patch(
+      const response = await api.patch(
         `${BASE_URL}/${id}/toggle`,
         {},
         {

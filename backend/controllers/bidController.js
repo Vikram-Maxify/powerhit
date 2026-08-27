@@ -134,13 +134,21 @@ const formatGameNumber = (
   const value = String(number).trim();
 
   if (
-    [
-      "jodi",
-      "last-digit",
-      "first-digit",
-    ].includes(gameType)
+    ["jodi", "last-digit", "first-digit"].includes(gameType)
   ) {
     return value.padStart(2, "0");
+  }
+
+  // SINGLE = 1 digit
+  if (gameType === "single") {
+    return value.padStart(1, "0");
+  }
+
+  // PATTI = 3 digits
+  if (
+    ["single-Patti", "double-Patti", "triple-Patti"].includes(gameType)
+  ) {
+    return value.padStart(3, "0");
   }
 
   if (gameType === "panna") {
@@ -293,6 +301,25 @@ const validateNumber = (
     String(number).trim();
 
   switch (gameType) {
+    // Single Ank: 0-9
+    case "single":
+      return /^[0-9]$/.test(str);
+
+    // Single Patti: 3 different digits, e.g. 123
+    case "single-Patti":
+      return /^[0-9]{3}$/.test(str) &&
+        new Set(str.split("")).size === 3;
+
+    // Double Patti: exactly two digits same, e.g. 112, 121, 211
+    case "double-Patti":
+      return /^[0-9]{3}$/.test(str) &&
+        new Set(str.split("")).size === 2;
+
+    // Triple Patti: all three digits same, e.g. 111
+    case "triple-Patti":
+      return /^[0-9]{3}$/.test(str) &&
+        new Set(str.split("")).size === 1;
+
     case "jodi":
       return /^[0-9]{2}$/.test(str);
 
@@ -337,6 +364,29 @@ const checkBidWin = (
     String(bid.number).trim();
 
   switch (bid.gameType) {
+    // Single Ank: exact 1-digit result
+    case "single":
+      return /^[0-9]$/.test(winningNumStr) &&
+        winningNumStr === bidNumStr;
+
+    // Single Patti: exact 3-digit all-different result
+    case "single-Patti":
+      return /^[0-9]{3}$/.test(winningNumStr) &&
+        new Set(winningNumStr.split("")).size === 3 &&
+        winningNumStr === bidNumStr;
+
+    // Double Patti: exact 3-digit result with one repeated digit
+    case "double-Patti":
+      return /^[0-9]{3}$/.test(winningNumStr) &&
+        new Set(winningNumStr.split("")).size === 2 &&
+        winningNumStr === bidNumStr;
+
+    // Triple Patti: exact 3-digit result with all digits same
+    case "triple-Patti":
+      return /^[0-9]{3}$/.test(winningNumStr) &&
+        new Set(winningNumStr.split("")).size === 1 &&
+        winningNumStr === bidNumStr;
+
     case "jodi":
       return (
         winningNumStr === bidNumStr
@@ -483,7 +533,7 @@ exports.placeBid = async (
       return res.status(400).json({
         success: false,
         message:
-          "Invalid game type. Allowed: jodi, panna, half-sangam, full-sangam, last-digit, first-digit",
+          "Invalid game type. Allowed: single, single-Patti, double-Patti, triple-Patti, jodi, panna, half-sangam, full-sangam, last-digit, first-digit",
       });
     }
 
@@ -3640,6 +3690,25 @@ const validateWinningNumber = (
     String(number).trim();
 
   switch (gameType) {
+    // Single Ank: 0-9
+    case "single":
+      return /^[0-9]$/.test(str);
+
+    // Single Patti: 3 different digits
+    case "single-Patti":
+      return /^[0-9]{3}$/.test(str) &&
+        new Set(str.split("")).size === 3;
+
+    // Double Patti: exactly one repeated digit
+    case "double-Patti":
+      return /^[0-9]{3}$/.test(str) &&
+        new Set(str.split("")).size === 2;
+
+    // Triple Patti: all three digits same
+    case "triple-Patti":
+      return /^[0-9]{3}$/.test(str) &&
+        new Set(str.split("")).size === 1;
+
     case "jodi":
       return /^[0-9]{2}$/.test(str);
 
@@ -3810,6 +3879,18 @@ exports.declareResult =
       ) {
         const formatHints =
         {
+          single:
+            "1-digit number (0-9)",
+
+          "single-Patti":
+            "3-digit Patti with all different digits (123)",
+
+          "double-Patti":
+            "3-digit Patti with one repeated digit (112)",
+
+          "triple-Patti":
+            "3-digit Patti with all same digits (111)",
+
           jodi:
             "2-digit number (00-99)",
 
