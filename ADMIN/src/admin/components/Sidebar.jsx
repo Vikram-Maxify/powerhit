@@ -60,6 +60,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       "/admin/ticketsetiings",
       "/admin/referral-levels",
       "/admin/betting-bonus",
+      "/admin/currency-rates",
     ];
     if (settingsPaths.includes(location.pathname)) {
       setExpandedMenus(prev => ({ ...prev, settings: true }));
@@ -460,6 +461,11 @@ const Sidebar = ({ isOpen, onClose }) => {
           name: "Betting Bonus",
           path: "/admin/betting-bonus",
           icon: <Gift size={16} />,
+        },
+        {
+          name: "Currency Rates",
+          path: "/admin/currency-rates",
+          icon: <Globe size={16} />,
         },
         // ❌ Win Multipliers removed from here
       ],
