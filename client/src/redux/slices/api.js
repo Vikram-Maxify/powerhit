@@ -105,6 +105,6 @@ api.interceptors.response.use(
 // HOST
 // =====================================================
 
-const host = "https://demo22.etsblokchain.live/";
+const host = "http://localhost:5007/";
 
 export { api, host };

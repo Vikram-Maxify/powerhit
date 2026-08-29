@@ -69,6 +69,7 @@ import {
 import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
 import MineGames from "./Pages/MineGames.jsx";
 import MinesGame from "./pages/MinesGame.jsx";
+import Wingo from "./Pages/wingo/Wingo.jsx";
 
 // ========================================
 // Scroll To Top
@@ -696,6 +697,10 @@ function App() {
               path="/mine-games"
               element={<MinesGame />}
             />
+
+            <Route
+            path="/wingo"
+            element={<Wingo/>}/>
 
             {/* ========================================
                 404 / MAINTENANCE
