@@ -512,18 +512,6 @@ const MatkaMarkets = () => {
           >
             <ArrowLeft size={18} />
           </button>
-
-          <div className="flex-1 text-center">
-            <h1 className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-tight text-amber-700 sm:text-2xl">
-              <Crown size={20} className="text-amber-400" />
-              MATKA PLAY
-              <Crown size={20} className="text-amber-400" />
-            </h1>
-
-            <p className="text-[10px] font-semibold tracking-[0.25em] text-amber-400">
-              PLAY • WIN • REPEAT
-            </p>
-          </div>
         </div>
         {/* ======================================================
            CHOOSE MARKET

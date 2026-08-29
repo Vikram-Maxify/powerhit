@@ -19,7 +19,7 @@ const HERO_IMAGE = "https://i.ibb.co/DffFKgD0/imagepng1.png";
 // Country data with flags (using emoji flags)
 const countries = [
   { code: "IN", name: "India", flag: "🇮🇳", dialCode: "+91" },
-  { code: "UAE", name: "UAE", flag: "🇦🇪", dialCode: "+971" },
+  { code: "AE", name: "Dubai", flag: "🇦🇪", dialCode: "+971" },
   { code: "CA", name: "Canada", flag: "🇨🇦", dialCode: "+1" },
   { code: "PK", name: "Pakistan", flag: "🇵🇰", dialCode: "+92" },
   { code: "NP", name: "Nepal", flag: "🇳🇵", dialCode: "+977" },
@@ -128,7 +128,7 @@ const Register = () => {
       ) {
         errors.mobile = "Please enter a valid mobile number";
       } else if (
-        formData.country === "UAE" &&
+        formData.country === "AE" &&
         !/^[0-9]{9}$/.test(mobileDigits)
       ) {
         errors.mobile = "Please enter a valid 9-digit mobile number";

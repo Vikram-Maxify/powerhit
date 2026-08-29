@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { clearBidError, placeBid } from "../../redux/slices/bidSlice";
+import { getCurrencyRates } from "../../redux/slices/currencyRateSlice";
 import {
   clearCurrentMarket,
   getMarketById,
@@ -23,9 +24,49 @@ import {
   selectPublicBidResults,
 } from "../../redux/slices/publicBidSlice";
 
+// =========================================================
+// COUNTRY NORMALIZATION
+// user.country can come in different shapes from the backend
+// ("uae", "UAE", "ae", "AE", "United Arab Emirates", etc.)
+// while the currencyRate collection always stores a clean
+// 2-letter countryCode ("AE", "IN", "AU", "PK", "BD", "NP").
+// This maps any of those variants to the canonical code.
+// =========================================================
+const COUNTRY_ALIASES = {
+  in: "IN",
+  india: "IN",
+  au: "AU",
+  australia: "AU",
+  pk: "PK",
+  pakistan: "PK",
+  bd: "BD",
+  bangladesh: "BD",
+  np: "NP",
+  nepal: "NP",
+  ae: "AE",
+  uae: "AE",
+  dubai: "AE",
+  "united arab emirates": "AE",
+};
+
+const normalizeCountryCode = (country) => {
+  if (!country) return "";
+  const key = String(country).trim().toLowerCase();
+  return COUNTRY_ALIASES[key] || key.toUpperCase();
+};
+
 const getCurrencySymbol = (country) => {
-  const symbols = { IN: "₹", US: "$", GB: "£", EU: "€", default: "₹" };
-  return symbols[country] || symbols.default;
+  const symbols = {
+    IN: "₹", // India - Indian Rupee
+    AU: "$", // Australia - Australian Dollar
+    PK: "₨", // Pakistan - Pakistani Rupee
+    BD: "৳", // Bangladesh - Bangladeshi Taka
+    NP: "रू", // Nepal - Nepalese Rupee
+    AE: "د.إ", // Dubai/UAE - UAE Dirham
+    default: "₹",
+  };
+
+  return symbols[normalizeCountryCode(country)] || symbols.default;
 };
 
 // =========================================================
@@ -267,6 +308,9 @@ const PlaceBid = () => {
     selectPublicBidResults,
   );
 
+  // Currency rates (used to display amounts in the user's own currency)
+  const currencies = useSelector((state) => state.currencyRate?.currencies);
+
   const { gameType: autoGameType, digitType: autoDigitType } =
     location.state || {};
 
@@ -305,8 +349,47 @@ const PlaceBid = () => {
 
   const currencySymbol = getCurrencySymbol(user?.country);
 
+  // =========================================================
+  // CURRENCY CONVERSION
+  // rate = "1 unit of that currency = X INR" (INR/IN has rate 1)
+  // So: convertedAmount = amountInINR / rate
+  // All amounts entered/validated/sent to backend stay in INR.
+  // Only the DISPLAY is converted to the user's local currency.
+  //
+  // user.country can arrive as "uae", "UAE", "ae", etc. while the
+  // currencyRate collection stores a clean 2-letter countryCode
+  // ("AE"). We normalize both sides before comparing.
+  // =========================================================
+  const userCountryCode = useMemo(
+    () => normalizeCountryCode(user?.country),
+    [user?.country],
+  );
+
+  const userCurrencyRate = useMemo(() => {
+    if (!currencies || currencies.length === 0 || !userCountryCode) return null;
+    return (
+      currencies.find(
+        (c) =>
+          String(c.countryCode).trim().toUpperCase() === userCountryCode &&
+          c.status,
+      ) || null
+    );
+  }, [currencies, userCountryCode]);
+
   const formatCurrency = (amount) => {
-    return `${currencySymbol}${Number(amount).toLocaleString("en-IN")}`;
+    const amt = Number(amount) || 0;
+
+    // If we know the user's currency and it isn't INR, show converted value
+    if (userCurrencyRate && userCurrencyRate.countryCode !== "IN") {
+      const converted = amt / userCurrencyRate.rate;
+      return `${converted.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} ${userCurrencyRate.currencyCode}`;
+    }
+
+    // Fallback: INR (default/original behavior)
+    return `${currencySymbol}${amt.toLocaleString("en-IN")}`;
   };
 
   const [selectedDigits, setSelectedDigits] = useState([]);
@@ -337,6 +420,11 @@ const PlaceBid = () => {
         status: "all",
       }),
     );
+  }, [dispatch]);
+
+  // Fetch currency rates once on mount
+  useEffect(() => {
+    dispatch(getCurrencyRates());
   }, [dispatch]);
 
   const { todayResult, lastResult, lastResultDateKey } = useMemo(() => {
@@ -650,9 +738,9 @@ const PlaceBid = () => {
 
     const bidAmount = parseFloat(formData.bidAmount);
     if (bidAmount < currentMarket?.minBid)
-      return setLocalError(`Min: ${currencySymbol}${currentMarket?.minBid}`);
+      return setLocalError(`Min: ${formatCurrency(currentMarket?.minBid)}`);
     if (bidAmount > currentMarket?.maxBid)
-      return setLocalError(`Max: ${currencySymbol}${currentMarket?.maxBid}`);
+      return setLocalError(`Max: ${formatCurrency(currentMarket?.maxBid)}`);
     if (bidAmount > user?.balance.local)
       return setLocalError(`Insufficient balance`);
 

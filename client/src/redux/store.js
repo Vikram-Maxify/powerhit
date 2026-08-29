@@ -2,11 +2,12 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import authReducer from "./slices/authSlice";
-import dailyClaimReducer from "./slices/dailyClaimSlice";
-import withdrawalReducer from "./slices/withdrawalSlice";
-import depositReducer from "./slices/depositSlice";
 import bannerReducer from "./slices/bannerSlice";
+import currencyRateReducer from "./slices/currencyRateSlice";
+import dailyClaimReducer from "./slices/dailyClaimSlice";
+import depositReducer from "./slices/depositSlice";
 import ticketTypeReducer from "./slices/ticketTypeSlice";
+import withdrawalReducer from "./slices/withdrawalSlice";
 
 // ========================================
 // AUSTRALIA
@@ -47,13 +48,12 @@ import uaeGameEntryReducer from "./slices/uae/gameEntrySlice";
 // ========================================
 // MATKA SLICES
 // ========================================
-import marketReducer from "./slices/marketSlice";
 import bidReducer from "./slices/bidSlice";
-import resultReducer from "./slices/resultSlice";
-import publicBidReducer from "./slices/publicBidSlice";
+import marketReducer from "./slices/marketSlice";
+import mineGameReducer from "./slices/mineGameSlice";
 import powerballResultReducer from "./slices/powerballResultSlice";
-import mineGameReducer from './slices/mineGameSlice'
-
+import publicBidReducer from "./slices/publicBidSlice";
+import resultReducer from "./slices/resultSlice";
 
 export const store = configureStore({
   reducer: {
@@ -66,8 +66,8 @@ export const store = configureStore({
     deposit: depositReducer,
     banner: bannerReducer,
     ticketType: ticketTypeReducer,
-        mineGame: mineGameReducer,
-
+    mineGame: mineGameReducer,
+    currencyRate: currencyRateReducer,
 
     // ========================================
     // AUSTRALIA
@@ -113,7 +113,6 @@ export const store = configureStore({
     result: resultReducer,
     publicBid: publicBidReducer,
     powerballResult: powerballResultReducer,
-
   },
 });
 

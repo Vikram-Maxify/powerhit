@@ -1,10 +1,4 @@
-import {
-  Eye,
-  EyeOff,
-  Lock,
-  Phone,
-  ShieldCheck,
-} from "lucide-react";
+import { Eye, EyeOff, Lock, Phone, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
@@ -16,13 +10,9 @@ const Login = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const {
-    loading,
-    error,
-    success,
-    message,
-    isAuthenticated,
-  } = useSelector((state) => state.auth);
+  const { loading, error, success, message, isAuthenticated } = useSelector(
+    (state) => state.auth,
+  );
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -94,7 +84,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    // if (!validateForm()) return;
 
     const userData = {
       mobile: formData.mobile.trim(),
@@ -148,9 +138,7 @@ const Login = () => {
                 Login to your account
               </h3>
 
-              <p className="text-gray-400 text-xs">
-                Enter your details below
-              </p>
+              <p className="text-gray-400 text-xs">Enter your details below</p>
             </div>
           </div>
 
@@ -185,15 +173,10 @@ const Login = () => {
 
               <div
                 className={`flex items-center border ${
-                  formErrors.mobile
-                    ? "border-red-400"
-                    : "border-gray-200"
+                  formErrors.mobile ? "border-red-400" : "border-gray-200"
                 } rounded-full px-4 h-12 bg-white`}
               >
-                <Phone
-                  size={16}
-                  className="text-gray-400 flex-shrink-0"
-                />
+                <Phone size={16} className="text-gray-400 flex-shrink-0" />
 
                 <input
                   type="tel"
@@ -224,15 +207,10 @@ const Login = () => {
 
               <div
                 className={`flex items-center border ${
-                  formErrors.password
-                    ? "border-red-400"
-                    : "border-gray-200"
+                  formErrors.password ? "border-red-400" : "border-gray-200"
                 } rounded-full px-4 h-12 bg-white`}
               >
-                <Lock
-                  size={16}
-                  className="text-gray-400 flex-shrink-0"
-                />
+                <Lock size={16} className="text-gray-400 flex-shrink-0" />
 
                 <input
                   type={showPassword ? "text" : "password"}
@@ -245,16 +223,10 @@ const Login = () => {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowPassword(!showPassword)
-                  }
+                  onClick={() => setShowPassword(!showPassword)}
                   className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
                 >
-                  {showPassword ? (
-                    <EyeOff size={16} />
-                  ) : (
-                    <Eye size={16} />
-                  )}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
 
@@ -294,10 +266,7 @@ const Login = () => {
             {/* Secure Login */}
             <div className="rounded-2xl border border-gray-100 p-4 flex gap-3 items-center">
               <div className="w-11 h-11 rounded-full border border-amber-200 flex items-center justify-center flex-shrink-0">
-                <ShieldCheck
-                  size={20}
-                  className="text-amber-500"
-                />
+                <ShieldCheck size={20} className="text-amber-500" />
               </div>
 
               <div>
