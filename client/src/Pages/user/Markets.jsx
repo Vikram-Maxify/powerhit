@@ -5,7 +5,6 @@ import {
   BarChart3,
   Calendar,
   ChevronRight,
-  Clock,
   Crown,
   Dice5,
   Gem,
@@ -15,7 +14,6 @@ import {
   Moon,
   Sparkles,
   Sun,
-  Timer,
   Trophy,
   User,
 } from "lucide-react";
@@ -507,7 +505,6 @@ const MatkaMarkets = () => {
         {/* ======================================================
            HEADER
         ====================================================== */}
-
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
@@ -528,11 +525,9 @@ const MatkaMarkets = () => {
             </p>
           </div>
         </div>
-
         {/* ======================================================
            CHOOSE MARKET
         ====================================================== */}
-
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -666,7 +661,6 @@ const MatkaMarkets = () => {
             </div>
           )}
         </div>
-
         {/* ======================================================
           SELECTED MARKET DETAIL
         ====================================================== */}
@@ -674,186 +668,100 @@ const MatkaMarkets = () => {
         {selectedMarket && (
           <div
             ref={detailRef}
-            className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br from-amber-50 via-white to-white p-3 shadow-lg scroll-mt-4 transition-all duration-300 sm:rounded-3xl sm:p-5 ${
-              justOpened
-                ? "border-amber-400 ring-4 ring-amber-300"
-                : "border-amber-200"
+            className={`relative overflow-hidden rounded-2xl scroll-mt-4 transition-all duration-300 sm:rounded-3xl ${
+              justOpened ? "ring-4 ring-amber-300" : ""
             }`}
           >
-            {/* MARKET DETAIL IMAGE */}
-
-            <div className="relative mb-4 h-40 overflow-hidden rounded-2xl sm:h-56">
-              <SafeImage
-                src={
-                  selectedMarket.image ||
-                  selectedMarket.imageUrl ||
-                  selectedMarket.logo ||
-                  DEFAULT_MARKET_IMAGE
-                }
-                alt={selectedMarket.name || "Market"}
-                fallbackIcon={Crown}
-                className="h-full w-full object-cover"
+            <div className="relative w-full aspect-[16/9]">
+              <img
+                src="https://i.ibb.co/Y7sP4Bvk/Chat-GPT-Image-Aug-29-2026-11-42-31-AM.png"
+                alt="Matka"
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              {/* Market Opened toast - unchanged */}
+              <div
+                className={`pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-bold text-white shadow transition-opacity duration-500 ${
+                  justOpened ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {selectedMarket.name} opened
+              </div>
 
-              <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
-                <div>
-                  <h3 className="text-xl font-extrabold text-white sm:text-3xl">
-                    {selectedMarket.name}
-                  </h3>
+              {/* Market Name — top-right ribbon box */}
+              <div className="absolute left-[42%] top-[21%] flex h-[16%] w-[54%] items-center justify-center px-2">
+                <h3 className="truncate text-center text-sm font-extrabold text-amber-900 sm:text-2xl">
+                  {selectedMarket.name}
+                </h3>
+              </div>
 
-                  <span
-                    className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${
-                      selectedMarket.status === "live"
-                        ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
-                        : "border-amber-100 bg-amber-50 text-amber-500"
-                    }`}
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        selectedMarket.status === "live"
-                          ? "bg-amber-500"
-                          : "bg-amber-300"
-                      }`}
-                    />
-                    {selectedMarket.status.toUpperCase()}
+              {/* Wallet Balance box */}
+              <div className="absolute left-[70%] top-[51%] flex h-[10%] w-[30%] items-center justify-center px-1">
+                <span className="text-[10px] font-bold text-gray-800 sm:text-base">
+                  ₹
+                  {walletBalance?.toLocaleString("en-IN", {
+                    maximumFractionDigits: 2,
+                  }) || "0.00"}
+                </span>
+              </div>
+
+              {/* Bottom row: 4 boxes */}
+              <div className="absolute bottom-[12%] left-[12px] flex w-full justify-between px-[2%]">
+                {/* Box 1: Status */}
+                <div className="flex w-[23%] items-center justify-center">
+                  <span className="truncate text-[13px] font-bold text-amber-900 sm:text-xs">
+                    {selectedMarket.status === "live" ? "OPEN" : "CLOSED"}
                   </span>
                 </div>
 
-                <div className="rounded-full border border-amber-200 bg-white/90 px-3 py-1 backdrop-blur">
+                {/* Box 2: Timing (open=green dot, close=red dot) */}
+                <div className="flex w-[23%] flex-col items-center justify-center gap-0.5 ml-2">
                   <div className="flex items-center gap-1">
-                    <span size={13} className="text-amber-500">
-                      {" "}
-                      ₹{" "}
+                    <span className="text-[7px] font-bold text-gray-700 sm:text-[10px]">
+                      {formatTime12(selectedMarket.openTime)}
                     </span>
-                    <span className="text-xs font-bold text-gray-800">
-                      {walletBalance?.toLocaleString("en-IN", {
-                        maximumFractionDigits: 2,
-                      }) || "0.00"}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[7px] font-bold text-gray-700 sm:text-[10px]">
+                      {formatTime12(selectedMarket.closeTime)}
                     </span>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Market Opened */}
-
-            <div
-              className={`pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-bold text-white shadow transition-opacity duration-500 ${
-                justOpened ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              {selectedMarket.name} opened
-            </div>
-
-            <Sparkles className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 text-amber-200/30 sm:h-32 sm:w-32" />
-
-            {/* TIMING + RESULT */}
-
-            <div className="grid grid-cols-2 gap-2 sm:gap-4">
-              {/* Today's Result */}
-
-              <div className="rounded-xl border border-amber-100 bg-white p-2 sm:rounded-2xl sm:p-4">
-                <div className="mb-1.5 flex items-center justify-center sm:mb-3">
-                  <span className="rounded-full bg-gradient-to-r from-amber-300 to-yellow-400 px-2 py-0.5 text-[8px] font-extrabold text-amber-900 sm:px-3 sm:py-1 sm:text-[11px]">
-                    TODAY'S RESULT
-                  </span>
-                </div>
-
-                <div className="flex justify-center gap-1.5 sm:gap-3">
+                {/* Box 3: Today's Result balls */}
+                <div className="flex w-[23%] items-center justify-center gap-1">
                   {mockTriplet(
                     selectedMarket.marketId || selectedMarket._id,
                     "today",
                   ).map((d, i) => (
-                    <div
+                    <span
                       key={i}
-                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
-border border-[#FFD75A]
-shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-lg font-extrabold text-amber-800 sm:h-14 sm:w-14 sm:rounded-xl sm:text-2xl"
+                      className="text-sm font-extrabold text-red-700 sm:text-base"
                     >
                       {d}
-                    </div>
+                    </span>
                   ))}
                 </div>
 
-                <p className="mt-1.5 flex items-center justify-center gap-1 text-[8px] text-gray-400 sm:mt-3 sm:text-[11px]">
-                  <span className="h-1 w-1 animate-pulse rounded-full bg-amber-400" />
-                  Updated now
-                </p>
-              </div>
-
-              {/* Timing */}
-
-              <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-2 sm:rounded-2xl sm:p-4">
-                <p className="mb-1 flex items-center gap-1 text-[9px] font-bold text-amber-700 sm:mb-2 sm:text-xs">
-                  <Clock size={10} className="sm:h-[13px] sm:w-[13px]" />
-                  TIMING
-                </p>
-
-                <div className="flex justify-between text-center">
-                  <div>
-                    <p className="text-[7px] text-amber-500 sm:text-[10px]">
-                      Open
-                    </p>
-
-                    <p className="text-[10px] font-extrabold text-gray-800 sm:text-sm">
-                      {formatTime12(selectedMarket.openTime)}
-                    </p>
-                  </div>
-
-                  <div className="w-px bg-amber-200" />
-
-                  <div>
-                    <p className="text-[7px] text-amber-500 sm:text-[10px]">
-                      Close
-                    </p>
-
-                    <p className="text-[10px] font-extrabold text-gray-800 sm:text-sm">
-                      {formatTime12(selectedMarket.closeTime)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="my-1.5 h-px bg-amber-200 sm:my-3" />
-
-                <p className="mb-1 flex items-center gap-1 text-[9px] font-bold text-amber-700 sm:mb-2 sm:text-xs">
-                  <Timer size={10} className="sm:h-[13px] sm:w-[13px]" />
-                  LAST
-                  <span className="text-[7px] font-normal text-amber-400 sm:text-[10px]">
-                    (
+                {/* Box 4: Last result date */}
+                <div className="flex w-[23%] items-center justify-center">
+                  <span className="text-[12px] font-bold text-amber-900 sm:text-[10px]">
                     {new Date(Date.now() - 86400000)
                       .toLocaleDateString("en-GB", {
                         day: "2-digit",
                         month: "short",
                       })
                       .toUpperCase()}
-                    )
                   </span>
-                </p>
-
-                <div className="flex justify-center gap-1.5 sm:gap-2.5">
-                  {mockTriplet(
-                    selectedMarket.marketId || selectedMarket._id,
-                    "last",
-                  ).map((d, i) => (
-                    <div
-                      key={i}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-white text-sm font-extrabold text-amber-800 sm:h-10 sm:w-10 sm:rounded-xl sm:text-lg"
-                    >
-                      {d}
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
           </div>
         )}
-
         {/* ======================================================
            GAME TYPES
         ====================================================== */}
-
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -935,11 +843,9 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
               })}
           </div>
         </div>
-
         {/* ======================================================
            QUICK ACCESS
         ====================================================== */}
-
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-amber-500" />
@@ -979,11 +885,9 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
             ))}
           </div>
         </div>
-
         {/* ======================================================
            RECENT RESULTS
         ====================================================== */}
-
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
