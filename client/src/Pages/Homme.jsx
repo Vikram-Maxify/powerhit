@@ -5,6 +5,7 @@ import PopularGames from "../components/PopularGames";
 import StatsSection2 from "../components/StatsSection2";
 import TopWinners from "../components/TopWinners";
 import Footer from "../Pages/Footer";
+import PopularGamesCards from "./PopularGamesCards";
 import PowerballPublicResult from "./PowerballPublicResult";
 import PublicBidResults from "./PublicBidResults";
 
@@ -13,6 +14,7 @@ const Homme = () => {
     <main className="pb-11 md:pb-0">
       <Herosection />
       {/* <StatsSection /> */}
+      <PopularGamesCards />
       <PublicBidResults />
       <PopularGames />
       <PowerballPublicResult />

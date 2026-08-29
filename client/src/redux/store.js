@@ -51,6 +51,7 @@ import uaeGameEntryReducer from "./slices/uae/gameEntrySlice";
 import bidReducer from "./slices/bidSlice";
 import marketReducer from "./slices/marketSlice";
 import mineGameReducer from "./slices/mineGameSlice";
+import minesReducer from "./slices/minesSlice";
 import powerballResultReducer from "./slices/powerballResultSlice";
 import publicBidReducer from "./slices/publicBidSlice";
 import resultReducer from "./slices/resultSlice";
@@ -68,6 +69,7 @@ export const store = configureStore({
     ticketType: ticketTypeReducer,
     mineGame: mineGameReducer,
     currencyRate: currencyRateReducer,
+    mines: minesReducer,
 
     // ========================================
     // AUSTRALIA

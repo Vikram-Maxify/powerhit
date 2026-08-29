@@ -6,28 +6,8 @@ const GRID_SIZE = 6;
 const TOTAL_CELLS = 36;
 
 const MULTIPLIERS = [
-  1.1,
-  1.25,
-  1.45,
-  1.7,
-  2.0,
-  2.4,
-  2.9,
-  3.5,
-  4.2,
-  5.0,
-  6.0,
-  7.5,
-  9.0,
-  11.0,
-  14.0,
-  18.0,
-  23.0,
-  30.0,
-  40.0,
-  55.0,
-  75.0,
-  100.0,
+  1.1, 1.25, 1.45, 1.7, 2.0, 2.4, 2.9, 3.5, 4.2, 5.0, 6.0, 7.5, 9.0, 11.0, 14.0,
+  18.0, 23.0, 30.0, 40.0, 55.0, 75.0, 100.0,
 ];
 
 function generateMines(count) {
@@ -45,10 +25,7 @@ function getMultiplier(safeCells) {
     return 1;
   }
 
-  return (
-    MULTIPLIERS[safeCells - 1] ||
-    MULTIPLIERS[MULTIPLIERS.length - 1]
-  );
+  return MULTIPLIERS[safeCells - 1] || MULTIPLIERS[MULTIPLIERS.length - 1];
 }
 
 /* =========================================================
@@ -62,17 +39,16 @@ exports.startGame = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // CHANGE: Default mines count 10 se 15 kiya
     const minesCount = Math.min(
-      Math.max(Number(req.body.minesCount) || 5, 1),
-      35
+      Math.max(Number(req.body.minesCount) || 15, 1),
+      35,
     );
+    console.log(req.body.minesCount, "ye dekh mine count ye rha");
 
     const virtualStake = Number(req.body.virtualStake);
 
-    if (
-      !Number.isFinite(virtualStake) ||
-      virtualStake <= 0
-    ) {
+    if (!Number.isFinite(virtualStake) || virtualStake <= 0) {
       return res.status(400).json({
         success: false,
         message: "Invalid game entry amount",
@@ -94,7 +70,7 @@ exports.startGame = async (req, res) => {
 
     if (existing) {
       const user = await User.findById(userId).select(
-        "balance name email mobile"
+        "balance name email mobile",
       );
 
       return res.json({
@@ -133,9 +109,7 @@ exports.startGame = async (req, res) => {
      * -------------------------------------------------------
      */
 
-    const user = await User.findById(userId).select(
-      "balance status"
-    );
+    const user = await User.findById(userId).select("balance status");
 
     if (!user) {
       return res.status(404).json({
@@ -177,7 +151,7 @@ exports.startGame = async (req, res) => {
       },
       {
         new: true,
-      }
+      },
     ).select("balance");
 
     if (!updatedUser) {
@@ -321,10 +295,7 @@ exports.startGame = async (req, res) => {
           },
         });
       } catch (refundError) {
-        console.error(
-          "Mines balance refund error:",
-          refundError
-        );
+        console.error("Mines balance refund error:", refundError);
       }
     }
 
@@ -346,11 +317,7 @@ exports.revealCell = async (req, res) => {
 
     const cell = Number(req.body.cell);
 
-    if (
-      !Number.isInteger(cell) ||
-      cell < 0 ||
-      cell >= TOTAL_CELLS
-    ) {
+    if (!Number.isInteger(cell) || cell < 0 || cell >= TOTAL_CELLS) {
       return res.status(400).json({
         success: false,
         message: "Invalid cell",
@@ -432,30 +399,22 @@ exports.revealCell = async (req, res) => {
       };
 
       if (io) {
-        io.to(`user-${userId}`).emit(
-          "mines-update",
-          payload
-        );
+        io.to(`user-${userId}`).emit("mines-update", payload);
 
-        io.to("admin").emit(
-          "mines-game-finished",
-          {
-            gameId,
-            userId,
+        io.to("admin").emit("mines-game-finished", {
+          gameId,
+          userId,
 
-            status: "lost",
+          status: "lost",
 
-            virtualStake: Number(
-              game.virtualStake || 0
-            ),
+          virtualStake: Number(game.virtualStake || 0),
 
-            virtualWin: 0,
+          virtualWin: 0,
 
-            cell,
+          cell,
 
-            finishedAt: game.finishedAt,
-          }
-        );
+          finishedAt: game.finishedAt,
+        });
       }
 
       return res.json({
@@ -474,12 +433,9 @@ exports.revealCell = async (req, res) => {
 
     game.safeCells = game.openedCells.length;
 
-    game.multiplier = getMultiplier(
-      game.safeCells
-    );
+    game.multiplier = getMultiplier(game.safeCells);
 
-    const safeTotal =
-      TOTAL_CELLS - game.minesCount;
+    const safeTotal = TOTAL_CELLS - game.minesCount;
 
     /*
      * -------------------------------------------------------
@@ -491,8 +447,7 @@ exports.revealCell = async (req, res) => {
       game.status = "won";
 
       game.virtualWin =
-        Number(game.virtualStake || 0) *
-        Number(game.multiplier || 1);
+        Number(game.virtualStake || 0) * Number(game.multiplier || 1);
 
       game.finishedAt = new Date();
 
@@ -505,18 +460,17 @@ exports.revealCell = async (req, res) => {
        * Entry was already deducted when game started.
        */
 
-      const updatedUser =
-        await User.findByIdAndUpdate(
-          userId,
-          {
-            $inc: {
-              balance: Number(game.virtualWin || 0),
-            },
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $inc: {
+            balance: Number(game.virtualWin || 0),
           },
-          {
-            new: true,
-          }
-        ).select("balance");
+        },
+        {
+          new: true,
+        },
+      ).select("balance");
 
       const payload = {
         gameId,
@@ -530,25 +484,15 @@ exports.revealCell = async (req, res) => {
 
         safeCells: game.safeCells,
 
-        multiplier: Number(
-          game.multiplier || 1
-        ),
+        multiplier: Number(game.multiplier || 1),
 
-        virtualStake: Number(
-          game.virtualStake || 0
-        ),
+        virtualStake: Number(game.virtualStake || 0),
 
-        entryAmount: Number(
-          game.virtualStake || 0
-        ),
+        entryAmount: Number(game.virtualStake || 0),
 
-        virtualWin: Number(
-          game.virtualWin || 0
-        ),
+        virtualWin: Number(game.virtualWin || 0),
 
-        balance: Number(
-          updatedUser?.balance || 0
-        ),
+        balance: Number(updatedUser?.balance || 0),
 
         minePositions: game.minePositions,
       };
@@ -556,34 +500,22 @@ exports.revealCell = async (req, res) => {
       const io = req.app.get("io");
 
       if (io) {
-        io.to(`user-${userId}`).emit(
-          "mines-update",
-          payload
-        );
+        io.to(`user-${userId}`).emit("mines-update", payload);
 
-        io.to("admin").emit(
-          "mines-game-finished",
-          {
-            gameId,
-            userId,
+        io.to("admin").emit("mines-game-finished", {
+          gameId,
+          userId,
 
-            status: "won",
+          status: "won",
 
-            virtualStake: Number(
-              game.virtualStake || 0
-            ),
+          virtualStake: Number(game.virtualStake || 0),
 
-            virtualWin: Number(
-              game.virtualWin || 0
-            ),
+          virtualWin: Number(game.virtualWin || 0),
 
-            balanceAfter: Number(
-              updatedUser?.balance || 0
-            ),
+          balanceAfter: Number(updatedUser?.balance || 0),
 
-            finishedAt: game.finishedAt,
-          }
-        );
+          finishedAt: game.finishedAt,
+        });
       }
 
       return res.json({
@@ -613,30 +545,19 @@ exports.revealCell = async (req, res) => {
 
       safeCells: game.safeCells,
 
-      multiplier: Number(
-        game.multiplier || 1
-      ),
+      multiplier: Number(game.multiplier || 1),
 
-      virtualStake: Number(
-        game.virtualStake || 0
-      ),
+      virtualStake: Number(game.virtualStake || 0),
 
-      entryAmount: Number(
-        game.virtualStake || 0
-      ),
+      entryAmount: Number(game.virtualStake || 0),
 
-      virtualWin: Number(
-        game.virtualWin || 0
-      ),
+      virtualWin: Number(game.virtualWin || 0),
     };
 
     const io = req.app.get("io");
 
     if (io) {
-      io.to(`user-${userId}`).emit(
-        "mines-update",
-        payload
-      );
+      io.to(`user-${userId}`).emit("mines-update", payload);
     }
 
     return res.json({
@@ -644,10 +565,7 @@ exports.revealCell = async (req, res) => {
       result: payload,
     });
   } catch (error) {
-    console.error(
-      "Mines revealCell error:",
-      error
-    );
+    console.error("Mines revealCell error:", error);
 
     return res.status(500).json({
       success: false,
@@ -686,9 +604,7 @@ exports.cashout = async (req, res) => {
      * Must open at least one safe cell
      */
 
-    if (
-      Number(game.safeCells || 0) <= 0
-    ) {
+    if (Number(game.safeCells || 0) <= 0) {
       return res.status(400).json({
         success: false,
         message: "Open at least one safe cell",
@@ -700,8 +616,7 @@ exports.cashout = async (req, res) => {
      */
 
     const virtualWin =
-      Number(game.virtualStake || 0) *
-      Number(game.multiplier || 1);
+      Number(game.virtualStake || 0) * Number(game.multiplier || 1);
 
     /*
      * -------------------------------------------------------
@@ -712,35 +627,33 @@ exports.cashout = async (req, res) => {
      * cashed out twice by concurrent requests.
      */
 
-    const updatedGame =
-      await MinesGame.findOneAndUpdate(
-        {
-          _id: gameId,
-          user: userId,
-          status: "playing",
-          safeCells: {
-            $gt: 0,
-          },
+    const updatedGame = await MinesGame.findOneAndUpdate(
+      {
+        _id: gameId,
+        user: userId,
+        status: "playing",
+        safeCells: {
+          $gt: 0,
         },
-        {
-          $set: {
-            status: "cashout",
+      },
+      {
+        $set: {
+          status: "cashout",
 
-            virtualWin,
+          virtualWin,
 
-            finishedAt: new Date(),
-          },
+          finishedAt: new Date(),
         },
-        {
-          new: true,
-        }
-      );
+      },
+      {
+        new: true,
+      },
+    );
 
     if (!updatedGame) {
       return res.status(400).json({
         success: false,
-        message:
-          "Game has already been completed",
+        message: "Game has already been completed",
       });
     }
 
@@ -750,18 +663,17 @@ exports.cashout = async (req, res) => {
      * -------------------------------------------------------
      */
 
-    const updatedUser =
-      await User.findByIdAndUpdate(
-        userId,
-        {
-          $inc: {
-            balance: virtualWin,
-          },
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $inc: {
+          balance: virtualWin,
         },
-        {
-          new: true,
-        }
-      ).select("balance");
+      },
+      {
+        new: true,
+      },
+    ).select("balance");
 
     if (!updatedUser) {
       /*
@@ -769,19 +681,15 @@ exports.cashout = async (req, res) => {
        *
        * Game already marked cashout, so log it loudly.
        */
-      console.error(
-        "CRITICAL: User not found while crediting Mines cashout",
-        {
-          userId,
-          gameId,
-          virtualWin,
-        }
-      );
+      console.error("CRITICAL: User not found while crediting Mines cashout", {
+        userId,
+        gameId,
+        virtualWin,
+      });
 
       return res.status(500).json({
         success: false,
-        message:
-          "Cashout recorded but balance update failed. Contact admin.",
+        message: "Cashout recorded but balance update failed. Contact admin.",
       });
     }
 
@@ -790,29 +698,21 @@ exports.cashout = async (req, res) => {
 
       status: "cashout",
 
-      openedCells:
-        updatedGame.openedCells || [],
+      openedCells: updatedGame.openedCells || [],
 
-      safeCells:
-        updatedGame.safeCells || 0,
+      safeCells: updatedGame.safeCells || 0,
 
-      multiplier:
-        Number(updatedGame.multiplier || 1),
+      multiplier: Number(updatedGame.multiplier || 1),
 
-      virtualStake:
-        Number(updatedGame.virtualStake || 0),
+      virtualStake: Number(updatedGame.virtualStake || 0),
 
-      entryAmount:
-        Number(updatedGame.virtualStake || 0),
+      entryAmount: Number(updatedGame.virtualStake || 0),
 
-      virtualWin:
-        Number(virtualWin),
+      virtualWin: Number(virtualWin),
 
-      balance:
-        Number(updatedUser.balance || 0),
+      balance: Number(updatedUser.balance || 0),
 
-      finishedAt:
-        updatedGame.finishedAt,
+      finishedAt: updatedGame.finishedAt,
     };
 
     /*
@@ -824,36 +724,22 @@ exports.cashout = async (req, res) => {
     const io = req.app.get("io");
 
     if (io) {
-      io.to(`user-${userId}`).emit(
-        "mines-cashout",
-        result
-      );
+      io.to(`user-${userId}`).emit("mines-cashout", result);
 
-      io.to("admin").emit(
-        "mines-game-finished",
-        {
-          gameId,
-          userId,
+      io.to("admin").emit("mines-game-finished", {
+        gameId,
+        userId,
 
-          status: "cashout",
+        status: "cashout",
 
-          virtualStake:
-            Number(
-              updatedGame.virtualStake || 0
-            ),
+        virtualStake: Number(updatedGame.virtualStake || 0),
 
-          virtualWin:
-            Number(virtualWin),
+        virtualWin: Number(virtualWin),
 
-          balanceAfter:
-            Number(
-              updatedUser.balance || 0
-            ),
+        balanceAfter: Number(updatedUser.balance || 0),
 
-          finishedAt:
-            updatedGame.finishedAt,
-        }
-      );
+        finishedAt: updatedGame.finishedAt,
+      });
     }
 
     return res.json({
@@ -861,31 +747,18 @@ exports.cashout = async (req, res) => {
 
       message: "Cashout successful",
 
-      virtualWin:
-        Number(virtualWin),
+      virtualWin: Number(virtualWin),
 
-      multiplier:
-        Number(
-          updatedGame.multiplier || 1
-        ),
+      multiplier: Number(updatedGame.multiplier || 1),
 
-      balance:
-        Number(
-          updatedUser.balance || 0
-        ),
+      balance: Number(updatedUser.balance || 0),
 
-      entryAmount:
-        Number(
-          updatedGame.virtualStake || 0
-        ),
+      entryAmount: Number(updatedGame.virtualStake || 0),
 
       status: "cashout",
     });
   } catch (error) {
-    console.error(
-      "Mines cashout error:",
-      error
-    );
+    console.error("Mines cashout error:", error);
 
     return res.status(500).json({
       success: false,
@@ -901,10 +774,7 @@ exports.cashout = async (req, res) => {
 exports.getHistory = async (req, res) => {
   try {
     const games = await MinesGame.find()
-      .populate(
-        "user",
-        "username name email mobile"
-      )
+      .populate("user", "username name email mobile")
       .sort({
         createdAt: -1,
       })
@@ -916,10 +786,7 @@ exports.getHistory = async (req, res) => {
       games,
     });
   } catch (error) {
-    console.error(
-      "Mines getHistory error:",
-      error
-    );
+    console.error("Mines getHistory error:", error);
 
     return res.status(500).json({
       success: false,
