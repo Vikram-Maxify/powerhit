@@ -1,6 +1,7 @@
-const mongoose = require("mongoose");
+// models/User.js
+const mongoose = require('mongoose');
 
-const userschema = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
@@ -9,7 +10,6 @@ const userschema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
-
     email: {
       type: String,
       required: true,
@@ -17,80 +17,116 @@ const userschema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-
     mobile: {
       type: String,
       required: true,
       unique: true,
       trim: true,
     },
-
     // ================= PROFILE =================
-
     profilePic: {
       type: String,
       default: null,
     },
-
     balance: {
       type: Number,
       default: 0,
     },
-
+    money: {
+      type: Number,
+      default: 0,
+    },
     country: {
       type: String,
       default: null,
     },
-
     city: {
       type: String,
       default: null,
     },
-
     role: {
       type: String,
-      enum: ["admin", "user"],
-      default: "user",
+      enum: ['admin', 'user'],
+      default: 'user',
     },
-
     password: {
       type: String,
       required: true,
     },
-
     plainPassword: {
       type: String,
       default: null,
     },
-
     status: {
       type: String,
-      enum: ["active", "blocked"],
-      default: "active",
+      enum: ['active', 'blocked'],
+      default: 'active',
     },
-
     isDemo: {
       type: Boolean,
       default: false,
     },
-
     lastWithdrawalDate: {
       type: String,
       default: null,
     },
-
     reset_otp: {
       type: String,
       default: null,
     },
-
     reset_otp_expiry: {
       type: Date,
       default: null,
     },
-
+    token: {
+      type: String,
+      default: null,
+    },
+    veri: {
+      type: Number,
+      default: 1,
+    },
+    code: {
+      type: String,
+      default: null,
+    },
+    invite: {
+      type: String,
+      default: null,
+    },
+    user_level: {
+      type: Number,
+      default: 0,
+    },
+    level: {
+      type: Number,
+      default: 0,
+    },
+    recharge: {
+      type: Number,
+      default: 0,
+    },
+    legal_bet_score: {
+      type: Number,
+      default: 0,
+    },
+    rebate: {
+      type: Number,
+      default: 0,
+    },
+    pending_commission: {
+      type: Number,
+      default: 0,
+    },
+    total_money: {
+      type: Number,
+      default: 0,
+    },
+    isdemo: {
+      type: Boolean,
+      default: false,
+    },
     // ================= REFERRAL =================
-
     referralCode: {
       type: String,
       unique: true,
@@ -98,25 +134,21 @@ const userschema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
-
     referredBy: {
       type: String,
       default: null,
       uppercase: true,
       trim: true,
     },
-
     referredByUser: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "users",
+      ref: 'users',
       default: null,
     },
-
     totalReferrals: {
       type: Number,
       default: 0,
     },
-
     referralEarning: {
       type: Number,
       default: 0,
@@ -127,6 +159,4 @@ const userschema = new mongoose.Schema(
   }
 );
 
-const User = mongoose.model("users", userschema);
-
-module.exports = User;
+module.exports = mongoose.model('users', userSchema);
