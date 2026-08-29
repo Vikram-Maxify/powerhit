@@ -274,14 +274,6 @@ const calculateWinAmount = async (
 
     // ----------------------------------------------------------
     // GET USER COUNTRY
-    //
-    // Supports country values like:
-    // IN / India
-    // NP / Nepal
-    // BD / Bangladesh
-    // PK / Pakistan
-    // AU / Australia
-    // AE / UAE
     // ----------------------------------------------------------
 
     const rawCountry = String(user.country || "IN")
@@ -315,9 +307,6 @@ const calculateWinAmount = async (
 
     // ----------------------------------------------------------
     // FIND ACTIVE CURRENCY
-    // First: countryCode
-    // Second: mapped currencyCode
-    // Third: INR fallback
     // ----------------------------------------------------------
 
     let currencyQuery = CurrencyRate.findOne({
@@ -380,16 +369,23 @@ const calculateWinAmount = async (
     // ----------------------------------------------------------
     // RATE
     //
-    // CurrencyRate.rate must represent:
-    // 1 INR = X user's currency
+    // IMPORTANT:
+    // CurrencyRate.rate means:
     //
-    // Example:
+    // 1 USER CURRENCY = X INR
+    //
+    // Examples:
     // INR = 1
     // NPR = 1.60
     // BDT = 1.30
     // PKR = 3.40
-    // AUD = 0.018
-    // AED = 0.044
+    // AUD = 55
+    // AED = 26
+    //
+    // Example:
+    // 10 AED × 26 = ₹260
+    // ₹260 × multiplier 2 = ₹520
+    // ₹520 ÷ 26 = 20 AED
     // ----------------------------------------------------------
 
     const rate = currency ? Number(currency.rate) : 1;
@@ -399,16 +395,25 @@ const calculateWinAmount = async (
     }
 
     // ----------------------------------------------------------
-    // CALCULATE BASE WIN
+    // STEP 1:
+    // CONVERT USER CURRENCY -> INR
     // ----------------------------------------------------------
 
-    const baseWinAmount = amount * multiplier;
+    const bidAmountInINR = amount * rate;
 
     // ----------------------------------------------------------
-    // CONVERT WIN TO USER'S COUNTRY CURRENCY
+    // STEP 2:
+    // APPLY WIN MULTIPLIER ON ACTUAL INR AMOUNT
     // ----------------------------------------------------------
 
-    const finalWinAmount = baseWinAmount * rate;
+    const winAmountInINR = bidAmountInINR * multiplier;
+
+    // ----------------------------------------------------------
+    // STEP 3:
+    // CONVERT INR -> USER CURRENCY
+    // ----------------------------------------------------------
+
+    const finalWinAmount = winAmountInINR / rate;
 
     return Number(finalWinAmount.toFixed(2));
   } catch (error) {
