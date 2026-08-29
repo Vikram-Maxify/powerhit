@@ -12,10 +12,60 @@ import {
   Trophy,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { clearBidError, getBiddingHistory } from "../../redux/slices/bidSlice";
+import { getCurrencyRates } from "../../redux/slices/currencyRateSlice";
+
+// =========================================================
+// COUNTRY NORMALIZATION - Same as PlaceBid
+// user.country can come in different shapes from the backend
+// ("uae", "UAE", "ae", "AE", "United Arab Emirates", etc.)
+// while the currencyRate collection always stores a clean
+// 2-letter countryCode ("AE", "IN", "AU", "PK", "BD", "NP").
+// This maps any of those variants to the canonical code.
+// =========================================================
+const COUNTRY_ALIASES = {
+  in: "IN",
+  india: "IN",
+  au: "AU",
+  australia: "AU",
+  pk: "PK",
+  pakistan: "PK",
+  bd: "BD",
+  bangladesh: "BD",
+  np: "NP",
+  nepal: "NP",
+  ae: "AE",
+  uae: "AE",
+  dubai: "AE",
+  "united arab emirates": "AE",
+};
+
+const normalizeCountryCode = (country) => {
+  if (!country) return "";
+  const key = String(country).trim().toLowerCase();
+  return COUNTRY_ALIASES[key] || key.toUpperCase();
+};
+
+const getCurrencySymbol = (country) => {
+  const symbols = {
+    IN: "₹",
+    AU: "$",
+    PK: "₨",
+    BD: "৳",
+    NP: "रू",
+    AE: "د.إ",
+    default: "₹",
+  };
+
+  return symbols[normalizeCountryCode(country)] || symbols.default;
+};
+
+// =========================================================
+// END OF COUNTRY NORMALIZATION
+// =========================================================
 
 const BidsHistory = () => {
   const dispatch = useDispatch();
@@ -29,6 +79,11 @@ const BidsHistory = () => {
     message = null,
   } = bidState;
 
+  const { user } = useSelector((state) => state.auth);
+
+  // Currency rates (used to display amounts in the user's own currency)
+  const currencies = useSelector((state) => state.currencyRate?.currencies);
+
   const [filter, setFilter] = useState({
     status: "",
     page: 1,
@@ -39,6 +94,11 @@ const BidsHistory = () => {
   useEffect(() => {
     dispatch(getBiddingHistory(filter));
   }, [dispatch, filter]);
+
+  // Fetch currency rates once on mount
+  useEffect(() => {
+    dispatch(getCurrencyRates());
+  }, [dispatch]);
 
   useEffect(() => {
     if (error) {
@@ -134,11 +194,7 @@ const BidsHistory = () => {
     }
 
     // Fallback based on game type.
-    if (
-      ["panna", "half-sangam"].includes(
-        bid?.gameType
-      )
-    ) {
+    if (["panna", "half-sangam"].includes(bid?.gameType)) {
       return "3-digit";
     }
 
@@ -163,12 +219,49 @@ const BidsHistory = () => {
     return display[type] || type || "Game";
   };
 
+  // =========================================================
+  // CURRENCY CONVERSION - Improved to match PlaceBid
+  // rate = "1 unit of that currency = X INR" (INR/IN has rate 1)
+  // So: convertedAmount = amountInINR / rate
+  // Bid amounts are stored/compared in INR on the backend.
+  // Only the DISPLAY is converted to the user's local currency.
+  //
+  // user.country can arrive as "uae", "UAE", "ae", etc. while the
+  // currencyRate collection stores a clean 2-letter countryCode
+  // ("AE"). We normalize both sides before comparing.
+  // =========================================================
+  const userCountryCode = useMemo(
+    () => normalizeCountryCode(user?.country),
+    [user?.country],
+  );
+
+  const currencySymbol = getCurrencySymbol(user?.country);
+
+  const userCurrencyRate = useMemo(() => {
+    if (!currencies || currencies.length === 0 || !userCountryCode) return null;
+    return (
+      currencies.find(
+        (c) =>
+          String(c.countryCode).trim().toUpperCase() === userCountryCode &&
+          c.status,
+      ) || null
+    );
+  }, [currencies, userCountryCode]);
+
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-    }).format(amount || 0);
+    const amt = Number(amount) || 0;
+
+    // If we know the user's currency and it isn't INR, show converted value
+    if (userCurrencyRate && userCurrencyRate.countryCode !== "IN") {
+      const converted = amt / userCurrencyRate.rate;
+      return `${converted.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} ${userCurrencyRate.currencyCode}`;
+    }
+
+    // Fallback: INR (default/original behavior)
+    return `${currencySymbol}${amt.toLocaleString("en-IN")}`;
   };
 
   // ============================================================
@@ -231,10 +324,7 @@ const BidsHistory = () => {
       };
     }
 
-    if (
-      isHalfSangam(gameType) ||
-      isFullSangam(gameType)
-    ) {
+    if (isHalfSangam(gameType) || isFullSangam(gameType)) {
       const parts = str.split("-");
 
       if (parts.length === 2) {
@@ -258,12 +348,8 @@ const BidsHistory = () => {
     if (!str) return [];
 
     // Sangam must remain as two separate groups.
-    if (
-      isHalfSangam(gameType) ||
-      isFullSangam(gameType)
-    ) {
-      const { first, second } =
-        getSangamParts(str, gameType);
+    if (isHalfSangam(gameType) || isFullSangam(gameType)) {
+      const { first, second } = getSangamParts(str, gameType);
 
       return {
         sangam: true,
@@ -290,18 +376,10 @@ const BidsHistory = () => {
   // RENDER NUMBER
   // ============================================================
 
-  const renderNumberBalls = (
-    number,
-    status,
-    gameType,
-    size = "md"
-  ) => {
+  const renderNumberBalls = (number, status, gameType, size = "md") => {
     if (!number) return null;
 
-    const parsed = getResultDigits(
-      number,
-      gameType
-    );
+    const parsed = getResultDigits(number, gameType);
 
     const isWin = status === "won";
     const isLost = status === "lost";
@@ -336,25 +414,17 @@ const BidsHistory = () => {
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1">
             {parsed.first.map((digit, index) => (
-              <div
-                key={`first-${index}`}
-                className={ballClass}
-              >
+              <div key={`first-${index}`} className={ballClass}>
                 {digit}
               </div>
             ))}
           </div>
 
-          <span className="font-extrabold text-gray-400 text-xs">
-            -
-          </span>
+          <span className="font-extrabold text-gray-400 text-xs">-</span>
 
           <div className="flex items-center gap-1">
             {parsed.second.map((digit, index) => (
-              <div
-                key={`second-${index}`}
-                className={ballClass}
-              >
+              <div key={`second-${index}`} className={ballClass}>
                 {digit}
               </div>
             ))}
@@ -370,10 +440,7 @@ const BidsHistory = () => {
     return (
       <div className="flex items-center gap-1">
         {parsed.first.map((digit, index) => (
-          <div
-            key={index}
-            className={ballClass}
-          >
+          <div key={index} className={ballClass}>
             {digit}
           </div>
         ))}
@@ -385,26 +452,12 @@ const BidsHistory = () => {
   // RENDER RESULT
   // ============================================================
 
-  const renderResultNumber = (
-    number,
-    gameType
-  ) => {
-    if (
-      number === undefined ||
-      number === null ||
-      number === ""
-    ) {
-      return (
-        <span className="text-[10px] text-gray-400">
-          Pending
-        </span>
-      );
+  const renderResultNumber = (number, gameType) => {
+    if (number === undefined || number === null || number === "") {
+      return <span className="text-[10px] text-gray-400">Pending</span>;
     }
 
-    const parsed = getResultDigits(
-      number,
-      gameType
-    );
+    const parsed = getResultDigits(number, gameType);
 
     if (parsed.sangam) {
       return (
@@ -420,9 +473,7 @@ const BidsHistory = () => {
             ))}
           </div>
 
-          <span className="font-extrabold text-gray-400 text-[10px]">
-            -
-          </span>
+          <span className="font-extrabold text-gray-400 text-[10px]">-</span>
 
           <div className="flex items-center gap-1">
             {parsed.second.map((digit, index) => (
