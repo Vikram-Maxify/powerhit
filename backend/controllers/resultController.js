@@ -17,9 +17,9 @@ const TWO_DIGIT_GAME_TYPES = Object.freeze([
 
 const THREE_DIGIT_GAME_TYPES = Object.freeze([
   "single",
-  "single-Patti",
-  "double-Patti",
-  "triple-Patti",
+  "single-patti",
+  "double-patti",
+  "triple-patti",
   "jodi",
   "panna",
   "half-sangam",
@@ -305,6 +305,44 @@ exports.declareResult = async (req, res) => {
   };
 
   // ============================================================
+  // GAME TYPE NORMALIZER
+  // ============================================================
+  // Accepts: single-patti, single_patti, Single Patti,
+  // SINGLE-PATTI, etc. and always returns one canonical value.
+  const normalizeGameType = (value) => {
+    const raw = str(value).toLowerCase().trim();
+    if (!raw) return "";
+
+    const compact = raw.replace(/[^a-z0-9]/g, "");
+
+    const aliases = {
+      single: "single",
+      jodi: "jodi",
+      open: "open",
+      close: "close",
+      lastdigit: "last-digit",
+      firstdigit: "first-digit",
+      singlepatti: "single-patti",
+      doublepatti: "double-patti",
+      triplepatti: "triple-patti",
+      panna: "panna",
+      halfsangam: "half-sangam",
+      fullsangam: "full-sangam",
+    };
+
+    return aliases[compact] || raw.replace(/_/g, "-");
+  };
+
+  const normalizeWinningNumbers = (numbers) => {
+    const normalized = {};
+    for (const [key, value] of Object.entries(numbers || {})) {
+      const type = normalizeGameType(key);
+      if (type) normalized[type] = value;
+    }
+    return normalized;
+  };
+
+  // ============================================================
   // CHECK BID WIN
   // ============================================================
 
@@ -314,9 +352,7 @@ exports.declareResult = async (req, res) => {
   ) => {
     if (!bid) return false;
 
-    const gameType = str(bid.gameType)
-      .toLowerCase()
-      .replace(/_/g, "-");
+    const gameType = normalizeGameType(bid.gameType);
 
     const bidNumber = str(bid.number);
 
@@ -512,6 +548,11 @@ exports.declareResult = async (req, res) => {
       digitType: requestedDigitType,
     } = req.body;
 
+    // Normalize all result keys once so result input such as
+    // { "Single Patti": "318" } also works correctly.
+    const normalizedWinningNumbers =
+      normalizeWinningNumbers(winningNumbers);
+
     // ============================================================
     // VALIDATION
     // ============================================================
@@ -702,9 +743,9 @@ exports.declareResult = async (req, res) => {
     // ============================================================
 
     const invalidGameTypes =
-      Object.keys(winningNumbers).filter(
+      Object.keys(normalizedWinningNumbers).filter(
         (gameType) => {
-          const value = winningNumbers[gameType];
+          const value = normalizedWinningNumbers[gameType];
 
           if (
             value === undefined ||
@@ -715,9 +756,7 @@ exports.declareResult = async (req, res) => {
           }
 
           return !allowedGameTypes.includes(
-            str(gameType)
-              .toLowerCase()
-              .replace(/_/g, "-")
+            normalizeGameType(gameType)
           );
         }
       );
@@ -744,7 +783,7 @@ exports.declareResult = async (req, res) => {
     const errors = [];
 
     for (const gameType of allowedGameTypes) {
-      const number = winningNumbers[gameType];
+      const number = normalizedWinningNumbers[gameType];
 
       if (
         number === undefined ||
@@ -854,9 +893,7 @@ exports.declareResult = async (req, res) => {
       // ----------------------------------------------------------
 
       const normalizedBidGameType =
-        str(bid.gameType)
-          .toLowerCase()
-          .replace(/_/g, "-");
+        normalizeGameType(bid.gameType);
 
       if (
         !allowedGameTypes.includes(
@@ -914,7 +951,7 @@ exports.declareResult = async (req, res) => {
 
         bid.resultNumber =
           formattedWinningNumbers[
-          bid.gameType
+          normalizedBidGameType
           ] || null;
 
         // --------------------------------------------------------
@@ -963,7 +1000,7 @@ exports.declareResult = async (req, res) => {
 
         bid.resultNumber =
           formattedWinningNumbers[
-          bid.gameType
+          normalizedBidGameType
           ] || null;
 
         totalLost++;
