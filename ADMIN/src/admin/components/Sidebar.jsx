@@ -60,6 +60,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       "/admin/ticketsetiings",
       "/admin/referral-levels",
       "/admin/betting-bonus",
+      "/admin/currency-rates",
     ];
     if (settingsPaths.includes(location.pathname)) {
       setExpandedMenus(prev => ({ ...prev, settings: true }));
@@ -75,6 +76,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     if (matkaPaths.includes(location.pathname)) {
       setExpandedMenus(prev => ({ ...prev, matka: true }));
     }
+
 
     // Auto-expand Powerhit menu if any country page is active
     const powerhitPaths = [
@@ -237,6 +239,14 @@ const Sidebar = ({ isOpen, onClose }) => {
           icon: <Calculator size={16} />,
         },
       ],
+    },
+
+    // ============ MINES MENU ============
+    {
+      name: "Mines",
+      path: "/admin/mines",
+      icon: <Gamepad2 size={20} />,
+      color: "red",
     },
 
     // ✅ ============ POWERHIT MENU ============
@@ -451,6 +461,11 @@ const Sidebar = ({ isOpen, onClose }) => {
           name: "Betting Bonus",
           path: "/admin/betting-bonus",
           icon: <Gift size={16} />,
+        },
+        {
+          name: "Currency Rates",
+          path: "/admin/currency-rates",
+          icon: <Globe size={16} />,
         },
         // ❌ Win Multipliers removed from here
       ],

@@ -69,6 +69,8 @@ import bettingBonusReducer from "../admin/redux/bettingBonusSlice";
 import winMultiplierReducer from "../admin/redux/winMultiplierSlice";
 import powerballDivisionReducer from "../admin/redux/powerballDivisionSlice";
 import powerballResultReducer from "../admin/redux/powerballResultSlice";
+import minesAdminReducer from "../admin/redux/minesAdminSlice";
+
 
 // ========================================
 // STORE
@@ -155,5 +157,7 @@ export const store = configureStore({
     winMultiplier: winMultiplierReducer,
     powerballDivision: powerballDivisionReducer,
     powerballResult: powerballResultReducer,
+    minesAdmin: minesAdminReducer,
+
   },
 });

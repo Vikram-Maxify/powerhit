@@ -3,6 +3,7 @@ const Market = require("../models/Market");
 const User = require("../models/authmodel");
 const mongoose = require("mongoose");
 const WinMultiplier = require("../models/WinMultiplier");
+const CurrencyRate = require("../models/CurrencyRate");
 
 // ============================================================
 // MARKET DIGIT TYPE / GAME TYPE CONFIG
@@ -230,61 +231,188 @@ const generateTransactionId = () => {
 const calculateWinAmount = async (
   gameType,
   bidAmount,
+  user,
   session = null
 ) => {
   try {
-    const query =
-      WinMultiplier.findOne();
-
-    if (session) {
-      query.session(session);
-    }
-
-    const settings = await query;
-
-    if (
-      !settings ||
-      !settings.multipliers
-    ) {
+    if (!user) {
       return 0;
     }
 
-    const multiplierData =
-      settings.multipliers.get(
-        gameType
-      );
+    // ----------------------------------------------------------
+    // GET WIN MULTIPLIER
+    // ----------------------------------------------------------
+
+    const multiplierQuery = WinMultiplier.findOne();
+
+    if (session) {
+      multiplierQuery.session(session);
+    }
+
+    const settings = await multiplierQuery;
+
+    if (!settings || !settings.multipliers) {
+      return 0;
+    }
+
+    const multiplierData = settings.multipliers.get(gameType);
 
     if (!multiplierData) {
       return 0;
     }
 
-    const multiplier =
-      Number(multiplierData.value);
+    const multiplier = Number(multiplierData.value);
+    const amount = Number(bidAmount);
 
-    const amount =
-      Number(bidAmount);
-
-    if (
-      !Number.isFinite(multiplier) ||
-      multiplier < 0
-    ) {
+    if (!Number.isFinite(multiplier) || multiplier < 0) {
       return 0;
     }
 
-    if (
-      !Number.isFinite(amount) ||
-      amount <= 0
-    ) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       return 0;
     }
 
-    return amount * multiplier;
+    // ----------------------------------------------------------
+    // GET USER COUNTRY
+    //
+    // Supports country values like:
+    // IN / India
+    // NP / Nepal
+    // BD / Bangladesh
+    // PK / Pakistan
+    // AU / Australia
+    // AE / UAE
+    // ----------------------------------------------------------
+
+    const rawCountry = String(user.country || "IN")
+      .trim()
+      .toUpperCase();
+
+    // ----------------------------------------------------------
+    // COUNTRY -> CURRENCY FALLBACK
+    // ----------------------------------------------------------
+
+    const countryCurrencyMap = {
+      IN: "INR",
+      INDIA: "INR",
+
+      NP: "NPR",
+      NEPAL: "NPR",
+
+      BD: "BDT",
+      BANGLADESH: "BDT",
+
+      PK: "PKR",
+      PAKISTAN: "PKR",
+
+      AU: "AUD",
+      AUSTRALIA: "AUD",
+
+      AE: "AED",
+      UAE: "AED",
+      "UNITED ARAB EMIRATES": "AED",
+    };
+
+    // ----------------------------------------------------------
+    // FIND ACTIVE CURRENCY
+    // First: countryCode
+    // Second: mapped currencyCode
+    // Third: INR fallback
+    // ----------------------------------------------------------
+
+    let currencyQuery = CurrencyRate.findOne({
+      countryCode: rawCountry,
+      status: true,
+    });
+
+    if (session) {
+      currencyQuery.session(session);
+    }
+
+    let currency = await currencyQuery;
+
+    if (!currency) {
+      const currencyCode = countryCurrencyMap[rawCountry];
+
+      if (currencyCode) {
+        const fallbackQuery = CurrencyRate.findOne({
+          currencyCode,
+          status: true,
+        });
+
+        if (session) {
+          fallbackQuery.session(session);
+        }
+
+        currency = await fallbackQuery;
+      }
+    }
+
+    // ----------------------------------------------------------
+    // INDIA / INR DEFAULT
+    // ----------------------------------------------------------
+
+    if (!currency) {
+      const defaultQuery = CurrencyRate.findOne({
+        $or: [
+          {
+            countryCode: "IN",
+            currencyCode: "INR",
+          },
+          {
+            countryCode: "INDIA",
+            currencyCode: "INR",
+          },
+          {
+            currencyCode: "INR",
+          },
+        ],
+        status: true,
+      });
+
+      if (session) {
+        defaultQuery.session(session);
+      }
+
+      currency = await defaultQuery;
+    }
+
+    // ----------------------------------------------------------
+    // RATE
+    //
+    // CurrencyRate.rate must represent:
+    // 1 INR = X user's currency
+    //
+    // Example:
+    // INR = 1
+    // NPR = 1.60
+    // BDT = 1.30
+    // PKR = 3.40
+    // AUD = 0.018
+    // AED = 0.044
+    // ----------------------------------------------------------
+
+    const rate = currency ? Number(currency.rate) : 1;
+
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return 0;
+    }
+
+    // ----------------------------------------------------------
+    // CALCULATE BASE WIN
+    // ----------------------------------------------------------
+
+    const baseWinAmount = amount * multiplier;
+
+    // ----------------------------------------------------------
+    // CONVERT WIN TO USER'S COUNTRY CURRENCY
+    // ----------------------------------------------------------
+
+    const finalWinAmount = baseWinAmount * rate;
+
+    return Number(finalWinAmount.toFixed(2));
   } catch (error) {
-    console.error(
-      "Calculate Win Amount Error:",
-      error
-    );
-
+    console.error("Calculate Win Amount Error:", error);
     return 0;
   }
 };
@@ -671,7 +799,8 @@ exports.placeBid = async (
     const possibleWinAmount =
       await calculateWinAmount(
         gameType,
-        amount
+        amount,
+        user
       );
 
     if (
@@ -1029,6 +1158,7 @@ exports.placeMultipleBids = async (
         await calculateWinAmount(
           gameType,
           amount,
+          user,
           session
         );
 
@@ -1445,6 +1575,7 @@ exports.placeBidOnMultipleNumbers =
         await calculateWinAmount(
           gameType,
           amount,
+          user,
           session
         );
 
