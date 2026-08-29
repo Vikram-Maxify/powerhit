@@ -313,6 +313,16 @@ const calculateWinAmount = async (
       "UNITED ARAB EMIRATES": "AED",
     };
 
+    const getCurrencyCode = (country) => {
+      if (!country) return null;
+
+      const normalizedCountry = String(country)
+        .trim()
+        .toUpperCase();
+
+      return countryCurrencyMap[normalizedCountry] || null;
+    };
+
     // ----------------------------------------------------------
     // FIND ACTIVE CURRENCY
     // First: countryCode
