@@ -76,6 +76,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       setExpandedMenus(prev => ({ ...prev, matka: true }));
     }
 
+
     // Auto-expand Powerhit menu if any country page is active
     const powerhitPaths = [
       "/admin/australia/gamecounts",
@@ -237,6 +238,14 @@ const Sidebar = ({ isOpen, onClose }) => {
           icon: <Calculator size={16} />,
         },
       ],
+    },
+
+    // ============ MINES MENU ============
+    {
+      name: "Mines",
+      path: "/admin/mines",
+      icon: <Gamepad2 size={20} />,
+      color: "red",
     },
 
     // ✅ ============ POWERHIT MENU ============
