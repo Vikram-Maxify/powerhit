@@ -36,24 +36,24 @@ const DEFAULT_MARKET_IMAGE =
 // Game type images
 const GAME_TYPE_IMAGES = {
   single:
-    "https://images.unsplash.com/photo-1518544801976-3e159e50e5bb?auto=format&fit=crop&w=500&q=80",
+    "https://i.ibb.co/JwYrJyVn/Chat-GPT-Image-Aug-29-2026-11-07-30-AM.png",
   "single-patti":
-    "https://images.unsplash.com/photo-1518544801976-3e159e50e5bb?auto=format&fit=crop&w=500&q=80",
+    "https://i.ibb.co/wZ9YJRPH/Chat-GPT-Image-Aug-29-2026-10-44-14-AM.png",
   "double-patti":
-    "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=500&q=80",
+    "https://i.ibb.co/qSH5WsR/Chat-GPT-Image-Aug-29-2026-11-01-10-AM.png",
   "triple-patti":
-    "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80",
+    "https://i.ibb.co/fYGbwZdz/Chat-GPT-Image-Aug-29-2026-11-01-13-AM.png",
   jodi: "https://i.ibb.co/5X47nGm7/Chat-GPT-Image-Aug-26-2026-04-52-31-PM.png",
   panna: "https://i.ibb.co/dwZ2Zy6v/Chat-GPT-Image-Aug-26-2026-04-54-23-PM.png",
   spot: "https://images.unsplash.com/photo-1518544889287-6d7a6d3f0f4a?auto=format&fit=crop&w=500&q=80",
   "half-sangam":
-    "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=500&q=80",
+    "https://i.ibb.co/bqtmp8C/Chat-GPT-Image-Aug-29-2026-10-31-53-AM.png",
   "full-sangam":
-    "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=500&q=80",
+    "https://i.ibb.co/6cwhRTJC/Chat-GPT-Image-Aug-29-2026-10-34-25-AM.png",
   "last-digit":
-    "https://images.unsplash.com/photo-1557682250-33bd709cbe85?auto=format&fit=crop&w=500&q=80",
+    "https://i.ibb.co/N2YkKkT9/Chat-GPT-Image-Aug-29-2026-10-40-13-AM.png",
   "first-digit":
-    "https://images.unsplash.com/photo-1557682260-96773eb01377?auto=format&fit=crop&w=500&q=80",
+    "https://i.ibb.co/RTZS9SPp/Chat-GPT-Image-Aug-29-2026-10-40-06-AM.png",
 };
 
 /* ============================================================
@@ -910,6 +910,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                         src={gt.image}
                         alt={gt.label}
                         fallbackIcon={Icon}
+                        loading="lazy"
                         className="h-full w-full object-cover"
                       />
                     </div>
