@@ -55,7 +55,7 @@ const countries = [
   { name: "Pakistan", flag: "https://flagcdn.com/w80/pk.png", code: "PK" },
   { name: "Bangladesh", flag: "https://flagcdn.com/w80/bd.png", code: "BD" },
   { name: "Nepal", flag: "https://flagcdn.com/w80/np.png", code: "NP" },
-  { name: "Dubai", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
+  { name: "ae", flag: "https://flagcdn.com/w80/ae.png", code: "UAE" },
   { name: "United States", flag: "https://flagcdn.com/w80/us.png", code: "US" },
   { name: "United Kingdom", flag: "https://flagcdn.com/w80/gb.png", code: "GB" },
   { name: "Canada", flag: "https://flagcdn.com/w80/ca.png", code: "CA" },
