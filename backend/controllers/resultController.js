@@ -127,10 +127,18 @@ exports.declareResult = async (req, res) => {
       : digits.padStart(3, "0");
   };
 
+  // Helper to get open and close panna
+  const getOpenPanna = (digits) => {
+    return digits.length >= 3 ? digits.substring(0, 3) : digits;
+  };
+
+  const getClosePanna = (digits) => {
+    return digits.length >= 6 ? digits.substring(3, 6) : digits;
+  };
+
   // SINGLE PATTI = all 3 digits different.
   const isSinglePatti = (value) => {
     const digits = getThreeDigit(value);
-
     return (
       digits.length === 3 &&
       new Set(digits.split("")).size === 3
@@ -325,25 +333,18 @@ exports.declareResult = async (req, res) => {
     if (!bid) return false;
 
     const gameType = normalizeGameType(bid.gameType);
-
     const bidNumber = str(bid.number);
-
+    
     if (!gameType || !bidNumber) return false;
 
-    const winningNumber =
-      formattedWinningNumbers[gameType];
-
-    if (
-      winningNumber === undefined ||
-      winningNumber === null ||
-      str(winningNumber) === ""
-    ) {
+    const winningNumber = formattedWinningNumbers[gameType];
+    
+    if (winningNumber === undefined || winningNumber === null || str(winningNumber) === "") {
       return false;
     }
 
     const bidDigits = digitsOnly(bidNumber);
-    const winningDigits =
-      digitsOnly(winningNumber);
+    const winningDigits = digitsOnly(winningNumber);
 
     if (!bidDigits || !winningDigits) {
       return false;
@@ -385,68 +386,82 @@ exports.declareResult = async (req, res) => {
       );
     }
 
-    // SINGLE PATTI
+    // SINGLE PATTI - Check both open and close
     if (gameType === "single-patti") {
-      return (
-        bidDigits.length === 3 &&
-        winningDigits.length >= 3 &&
-        isSinglePatti(bidNumber) &&
-        isSinglePatti(winningNumber) &&
-        getThreeDigit(bidNumber) ===
-          getThreeDigit(winningNumber)
-      );
+      if (bidDigits.length !== 3 || !isSinglePatti(bidNumber)) return false;
+      
+      const bidPanna = getThreeDigit(bidNumber);
+      const openPanna = getOpenPanna(winningDigits);
+      const closePanna = getClosePanna(winningDigits);
+      
+      // Check if bid matches open panna
+      if (isSinglePatti(openPanna) && bidPanna === openPanna) {
+        return true;
+      }
+      
+      // Check if bid matches close panna (for 6-digit results)
+      if (winningDigits.length >= 6 && isSinglePatti(closePanna) && bidPanna === closePanna) {
+        return true;
+      }
+      
+      return false;
     }
 
-    // DOUBLE PATTI
+    // DOUBLE PATTI - Check both open and close
     if (gameType === "double-patti") {
-      return (
-        bidDigits.length === 3 &&
-        winningDigits.length >= 3 &&
-        isDoublePatti(bidNumber) &&
-        isDoublePatti(winningNumber) &&
-        getThreeDigit(bidNumber) ===
-          getThreeDigit(winningNumber)
-      );
+      if (bidDigits.length !== 3 || !isDoublePatti(bidNumber)) return false;
+      
+      const bidPanna = getThreeDigit(bidNumber);
+      const openPanna = getOpenPanna(winningDigits);
+      const closePanna = getClosePanna(winningDigits);
+      
+      if (isDoublePatti(openPanna) && bidPanna === openPanna) return true;
+      if (winningDigits.length >= 6 && isDoublePatti(closePanna) && bidPanna === closePanna) return true;
+      
+      return false;
     }
 
-    // TRIPLE PATTI
+    // TRIPLE PATTI - Check both open and close
     if (gameType === "triple-patti") {
-      return (
-        bidDigits.length === 3 &&
-        winningDigits.length >= 3 &&
-        isTriplePatti(bidNumber) &&
-        isTriplePatti(winningNumber) &&
-        getThreeDigit(bidNumber) ===
-          getThreeDigit(winningNumber)
-      );
+      if (bidDigits.length !== 3 || !isTriplePatti(bidNumber)) return false;
+      
+      const bidPanna = getThreeDigit(bidNumber);
+      const openPanna = getOpenPanna(winningDigits);
+      const closePanna = getClosePanna(winningDigits);
+      
+      if (isTriplePatti(openPanna) && bidPanna === openPanna) return true;
+      if (winningDigits.length >= 6 && isTriplePatti(closePanna) && bidPanna === closePanna) return true;
+      
+      return false;
     }
 
-    // PANNA
+    // PANNA - Check both open and close
     if (gameType === "panna") {
-      return (
-        bidDigits.length === 3 &&
-        winningDigits.length >= 3 &&
-        getThreeDigit(bidNumber) ===
-          getThreeDigit(winningNumber)
-      );
+      if (bidDigits.length !== 3) return false;
+      
+      const bidPanna = getThreeDigit(bidNumber);
+      const openPanna = getOpenPanna(winningDigits);
+      const closePanna = getClosePanna(winningDigits);
+      
+      if (bidPanna === openPanna) return true;
+      if (winningDigits.length >= 6 && bidPanna === closePanna) return true;
+      
+      return false;
     }
 
     // OPEN
-    // 1 digit = open panna ka single digit.
-    // 3 digits = exact open panna.
     if (gameType === "open") {
+      const openPanna = getOpenPanna(winningDigits);
+      
       if (bidDigits.length === 1) {
         return (
-          getSingleDigit(
-            getThreeDigit(winningNumber)
-          ) === bidDigits
+          getSingleDigit(openPanna) === bidDigits
         );
       }
 
       if (bidDigits.length === 3) {
         return (
-          getThreeDigit(bidNumber) ===
-          getThreeDigit(winningNumber)
+          getThreeDigit(bidNumber) === openPanna
         );
       }
 
@@ -454,25 +469,18 @@ exports.declareResult = async (req, res) => {
     }
 
     // CLOSE
-    // 1 digit = close panna ka single digit.
-    // 3 digits = exact close panna.
     if (gameType === "close") {
-      const closePanna =
-        winningDigits.length >= 6
-          ? winningDigits.substring(3, 6)
-          : getThreeDigit(winningNumber);
+      const closePanna = getClosePanna(winningDigits);
 
       if (bidDigits.length === 1) {
         return (
-          getSingleDigit(closePanna) ===
-          bidDigits
+          getSingleDigit(closePanna) === bidDigits
         );
       }
 
       if (bidDigits.length === 3) {
         return (
-          getThreeDigit(bidNumber) ===
-          closePanna
+          getThreeDigit(bidNumber) === closePanna
         );
       }
 
