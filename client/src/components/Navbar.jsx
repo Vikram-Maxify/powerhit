@@ -77,7 +77,7 @@ const Navbar = ({ children }) => {
   // Menu items matching the design
   const menuItems = [
     { icon: HomeIcon, label: "Home", path: "/" },
-    { icon: Dice5, label: "Matka", path: "/matka" },
+    { icon: Dice5, label: "Matka", path: "/matka/markets" },
     { icon: Activity, label: "Activity", path: "/activity" },
     { icon: PowerIcon, label: "Powerhit", path: "/powerhit" },
     { icon: Wallet, label: "Wallet", path: "/wallet" },
