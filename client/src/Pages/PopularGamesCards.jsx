@@ -24,7 +24,7 @@ const PopularGamesCards = () => {
       id: 4,
       name: "Matka",
       img: "https://i.ibb.co/zhN1HmZY/Chat-GPT-Image-Aug-29-2026-05-26-35-PM-4.png",
-      to: "/matka",
+      to: "/matka/markets",
     },
   ];
 
