@@ -1,3 +1,4 @@
+// tradingSocket.js
 const TradingRound = require("../models/TradingRound");
 const { resolveTrades } = require("../controllers/tradingController");
 
@@ -13,26 +14,32 @@ function makeRoundId() {
 }
 
 async function ensureRound() {
-  let round = await TradingRound.findOne({
-    status: "active",
-    endsAt: { $gt: new Date() },
-  }).sort({ createdAt: -1 });
-
-  if (!round) {
-    const now = new Date();
-
-    round = await TradingRound.create({
-      roundId: makeRoundId(),
-      startValue: currentPrice,
-      currentValue: currentPrice,
+  try {
+    let round = await TradingRound.findOne({
       status: "active",
-      startsAt: now,
-      endsAt: new Date(now.getTime() + ROUND_DURATION_MS),
-    });
-  }
+      endsAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
 
-  currentPrice = Number(round.currentValue);
-  return round;
+    if (!round) {
+      const now = new Date();
+
+      round = await TradingRound.create({
+        roundId: makeRoundId(),
+        startValue: currentPrice,
+        currentValue: currentPrice,
+        status: "active",
+        startsAt: now,
+        endsAt: new Date(now.getTime() + ROUND_DURATION_MS),
+      });
+      console.log(`Created new trading round: ${round.roundId}`);
+    }
+
+    currentPrice = Number(round.currentValue);
+    return round;
+  } catch (error) {
+    console.error("Error ensuring round:", error);
+    throw error;
+  }
 }
 
 function randomNextPrice(value) {
@@ -43,7 +50,7 @@ function randomNextPrice(value) {
 
 async function tick() {
   try {
-    // Use global.io instead of parameter
+    // Get io from global
     const io = global.io;
 
     if (!io) {
@@ -53,20 +60,28 @@ async function tick() {
 
     let round = await ensureRound();
 
+    // Check if round is completed or expired
     if (round.status !== "active" || new Date(round.endsAt) <= new Date()) {
+      // Complete current round
       round.finalValue = Number(round.currentValue);
       round.status = "completed";
       await round.save();
 
-      await resolveTrades(round);
+      // Resolve trades
+      try {
+        await resolveTrades(round);
+      } catch (error) {
+        console.error("Error resolving trades:", error);
+      }
 
+      // Emit completion event
       io.emit("trading:completed", {
         roundId: round.roundId,
         finalValue: round.finalValue,
       });
 
+      // Create new round
       const now = new Date();
-
       round = await TradingRound.create({
         roundId: makeRoundId(),
         startValue: Number(round.finalValue),
@@ -78,10 +93,13 @@ async function tick() {
 
       currentPrice = Number(round.currentValue);
 
+      // Emit new round
       io.emit("trading:round", round.toObject());
+      console.log(`New trading round started: ${round.roundId}`);
       return;
     }
 
+    // Update price
     const previousValue = currentPrice;
     currentPrice = randomNextPrice(currentPrice);
 
@@ -89,9 +107,9 @@ async function tick() {
     await round.save();
 
     const delta = currentPrice - previousValue;
-
     const direction = delta > 0 ? "up" : delta < 0 ? "down" : "same";
 
+    // Emit price update
     io.emit("trading:value", {
       roundId: round.roundId,
       value: Number(currentPrice.toFixed(2)),
@@ -107,24 +125,29 @@ async function tick() {
 }
 
 function initTradingSocket() {
-  if (engineStarted) return;
-  engineStarted = true;
+  if (engineStarted) {
+    console.log("Trading engine already started");
+    return;
+  }
 
   const io = global.io;
 
   if (!io) {
     console.error(
-      "Socket.IO not initialized. Trading socket engine cannot start.",
+      "Socket.IO not initialized. Trading socket engine cannot start."
     );
     return;
   }
 
+  // Set up socket handlers
   io.on("connection", async (socket) => {
     try {
       const round = await ensureRound();
 
+      // Send current round data
       socket.emit("trading:round", round.toObject());
 
+      // Send current price data
       socket.emit("trading:value", {
         roundId: round.roundId,
         value: Number(round.currentValue),
@@ -134,18 +157,28 @@ function initTradingSocket() {
         status: round.status,
         timestamp: Date.now(),
       });
+
+      console.log(`Trading data sent to socket: ${socket.id}`);
     } catch (error) {
       console.error("TRADING SOCKET CONNECTION ERROR:", error);
+      socket.emit("trading:error", {
+        message: "Failed to initialize trading data",
+      });
     }
   });
 
+  // Start the tick interval
   timer = setInterval(() => {
     tick();
   }, 1000);
 
-  tick();
+  // Run initial tick
+  setTimeout(() => {
+    tick();
+  }, 100);
 
-  console.log("Trading socket engine started with global.io");
+  engineStarted = true;
+  console.log("Trading socket engine started successfully");
 }
 
 function stopTradingSocket() {
