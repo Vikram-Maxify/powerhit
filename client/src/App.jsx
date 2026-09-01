@@ -664,7 +664,14 @@ function App() {
 
             <Route path="/wingo" element={<Wingo />} />
 
-            <Route path="/trading" element={<TradingPage />} />
+            <Route
+              path="/trading"
+              element={
+                <ProtectedRoute>
+                  <TradingPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ========================================
                 404 / MAINTENANCE
