@@ -430,8 +430,19 @@ exports.declareResult = async (req, res) => {
       return false;
     }
 
+    // NOTE: formattedWinningNumbers stores schema-cased keys
+    // (single-Patti, double-Patti, triple-Patti). Bid gameType is
+    // always lowercase after normalizeGameType(), so we look up
+    // using a lowercase-safe accessor here.
+    const winningNumberLookup = {
+      ...formattedWinningNumbers,
+      "single-patti": formattedWinningNumbers["single-Patti"],
+      "double-patti": formattedWinningNumbers["double-Patti"],
+      "triple-patti": formattedWinningNumbers["triple-Patti"],
+    };
+
     const winningNumber =
-      formattedWinningNumbers[gameType];
+      winningNumberLookup[gameType];
 
     if (
       winningNumber === undefined ||
@@ -873,11 +884,6 @@ exports.declareResult = async (req, res) => {
     // DIGIT TYPE
     // ============================================================
 
-    const VALID_DIGIT_TYPES = [
-      "2-digit",
-      "3-digit",
-    ];
-
     let digitType =
       market.digitType;
 
@@ -918,7 +924,7 @@ exports.declareResult = async (req, res) => {
     // ALLOWED GAME TYPES
     // ============================================================
 
-    const TWO_DIGIT_GAME_TYPES = [
+    const gameTypesTwoDigit = [
       "single",
       "jodi",
       "open",
@@ -927,7 +933,7 @@ exports.declareResult = async (req, res) => {
       "first-digit",
     ];
 
-    const THREE_DIGIT_GAME_TYPES = [
+    const gameTypesThreeDigit = [
       "single",
       "single-patti",
       "double-patti",
@@ -944,8 +950,8 @@ exports.declareResult = async (req, res) => {
 
     const allowedGameTypes =
       digitType === "2-digit"
-        ? TWO_DIGIT_GAME_TYPES
-        : THREE_DIGIT_GAME_TYPES;
+        ? gameTypesTwoDigit
+        : gameTypesThreeDigit;
 
     // ============================================================
     // RESULT ALREADY DECLARED
@@ -1026,6 +1032,16 @@ exports.declareResult = async (req, res) => {
 
     // ============================================================
     // FORMAT WINNING NUMBERS
+    //
+    // IMPORTANT: keys here stay in the *normalized lowercase*
+    // form ("single-patti") while we're working, and only get
+    // converted to the schema's exact casing ("single-Patti")
+    // in the final derivation block below, right before the
+    // Result document is built. This avoids the historical bug
+    // where the lowercase keys were being silently dropped by
+    // Mongoose (schema strict:true only recognizes the capital
+    // "P" spelling), which is why single/single-Patti/
+    // double-Patti/triple-Patti were always saved as null.
     // ============================================================
 
     const formattedWinningNumbers = {};
@@ -1320,85 +1336,87 @@ exports.declareResult = async (req, res) => {
     }
 
     // ============================================================
-    // IMPORTANT SAFETY DERIVATION
+    // FINAL GUARANTEED DERIVATION FROM OPEN PANNA
     //
-    // If panna exists, these values MUST NOT remain null.
+    // THE FIX: this block guarantees single / single-Patti /
+    // double-Patti / triple-Patti are populated whenever an open
+    // panna exists, and writes them using the EXACT schema casing
+    // ("single-Patti", not "single-patti"). Previously these were
+    // computed under the lowercase key produced by
+    // normalizeGameType(), which Mongoose's strict schema quietly
+    // discarded on save — so they always ended up null in the DB
+    // no matter what was computed above.
     // ============================================================
 
-    if (
-      formattedWinningNumbers.panna
-    ) {
-      const pannaDigits =
-        digitsOnly(
-          formattedWinningNumbers.panna
-        );
+    const openPannaSource =
+      formattedWinningNumbers.panna ??
+      normalizedWinningNumbers.panna;
 
-      // SINGLE
-      if (
-        allowedGameTypes.includes(
-          "single"
-        ) &&
-        pannaDigits.length > 0
-      ) {
-        formattedWinningNumbers.single =
-          getSingleDigit(
-            pannaDigits
-          );
-      }
+    const openPannaDigits =
+      digitsOnly(openPannaSource);
 
-      // FIRST DIGIT
+    if (openPannaDigits.length === 3) {
       if (
-        allowedGameTypes.includes(
-          "first-digit"
-        ) &&
-        pannaDigits.length > 0
-      ) {
-        formattedWinningNumbers[
-          "first-digit"
-        ] =
-          pannaDigits.charAt(0);
-      }
-
-      // LAST DIGIT
-      if (
-        allowedGameTypes.includes(
-          "last-digit"
+        allowedGameTypes.includes("single") &&
+        (
+          !formattedWinningNumbers.single ||
+          str(formattedWinningNumbers.single) === ""
         )
       ) {
-        const halfSangam =
-          normalizedWinningNumbers[
-          "half-sangam"
-          ];
+        formattedWinningNumbers.single =
+          getSingleDigit(openPannaDigits);
+      }
 
-        let finalLastDigit = "";
+      if (
+        allowedGameTypes.includes("first-digit") &&
+        (
+          !formattedWinningNumbers["first-digit"] ||
+          str(formattedWinningNumbers["first-digit"]) === ""
+        )
+      ) {
+        formattedWinningNumbers["first-digit"] =
+          openPannaDigits.charAt(0);
+      }
 
-        if (halfSangam) {
-          const half =
-            normalizeHalfSangam(
-              halfSangam
-            );
+      if (
+        allowedGameTypes.includes("last-digit") &&
+        (
+          !formattedWinningNumbers["last-digit"] ||
+          str(formattedWinningNumbers["last-digit"]) === ""
+        )
+      ) {
+        formattedWinningNumbers["last-digit"] =
+          openPannaDigits.charAt(2);
+      }
 
-          if (
-            half &&
-            half.digit
-          ) {
-            finalLastDigit =
-              half.digit;
-          }
-        }
+      if (allowedGameTypes.includes("single-patti")) {
+        formattedWinningNumbers["single-Patti"] =
+          isSinglePatti(openPannaDigits)
+            ? openPannaDigits
+            : null;
+      }
 
-        if (!finalLastDigit) {
-          finalLastDigit =
-            pannaDigits.charAt(
-              pannaDigits.length - 1
-            );
-        }
+      if (allowedGameTypes.includes("double-patti")) {
+        formattedWinningNumbers["double-Patti"] =
+          isDoublePatti(openPannaDigits)
+            ? openPannaDigits
+            : null;
+      }
 
-        formattedWinningNumbers[
-          "last-digit"
-        ] = finalLastDigit;
+      if (allowedGameTypes.includes("triple-patti")) {
+        formattedWinningNumbers["triple-Patti"] =
+          isTriplePatti(openPannaDigits)
+            ? openPannaDigits
+            : null;
       }
     }
+
+    // Drop the stray lowercase keys created by PASS 1 for the
+    // patti fields — the schema-cased keys above are now the
+    // single source of truth for these three fields.
+    delete formattedWinningNumbers["single-patti"];
+    delete formattedWinningNumbers["double-patti"];
+    delete formattedWinningNumbers["triple-patti"];
 
     // ============================================================
     // ENSURE JODI FROM FULL SANGAM
@@ -1606,12 +1624,25 @@ exports.declareResult = async (req, res) => {
 
       // ----------------------------------------------------------
       // ALWAYS STORE DECLARED RESULT
+      //
+      // NOTE: for the patti game types the stored value now needs
+      // to come from the schema-cased key, since
+      // formattedWinningNumbers no longer keeps a lowercase
+      // "single-patti" entry.
       // ----------------------------------------------------------
 
+      const pattiKeyMap = {
+        "single-patti": "single-Patti",
+        "double-patti": "double-Patti",
+        "triple-patti": "triple-Patti",
+      };
+
+      const lookupKey =
+        pattiKeyMap[normalizedBidGameType] ||
+        normalizedBidGameType;
+
       const bidResultNumber =
-        formattedWinningNumbers[
-        normalizedBidGameType
-        ];
+        formattedWinningNumbers[lookupKey];
 
       bid.resultNumber =
         bidResultNumber !== undefined &&
