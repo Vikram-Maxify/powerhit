@@ -522,7 +522,7 @@ exports.declareResult = async (req, res) => {
 
     const {
       marketId,
-      winningNumbers,
+      winningNumber,
       resultDate,
       nextOpenDate,
       digitType: requestedDigitType,
@@ -552,17 +552,25 @@ exports.declareResult = async (req, res) => {
       });
     }
 
-    if (
-      !winningNumbers ||
-      typeof winningNumbers !== "object" ||
-      Array.isArray(winningNumbers)
-    ) {
+    const rawWinningNumber = digitsOnly(winningNumber);
+
+    if (!rawWinningNumber) {
       await session.abortTransaction();
       await session.endSession();
 
       return res.status(400).json({
         success: false,
-        message: "Winning numbers object is required",
+        message: "Winning number is required",
+      });
+    }
+
+    if (rawWinningNumber.length !== 6) {
+      await session.abortTransaction();
+      await session.endSession();
+
+      return res.status(400).json({
+        success: false,
+        message: "Winning number must be exactly 6 digits",
       });
     }
 
@@ -714,119 +722,11 @@ exports.declareResult = async (req, res) => {
     }
 
     // ============================================================
-    // VALIDATE GAME TYPES
+    // GENERATE ALL WINNING NUMBERS FROM ONE RAW NUMBER
     // ============================================================
 
-    const invalidGameTypes =
-      Object.keys(winningNumbers).filter(
-        (gameType) => {
-          const value = winningNumbers[gameType];
-
-          if (
-            value === undefined ||
-            value === null ||
-            str(value) === ""
-          ) {
-            return false;
-          }
-
-          return !allowedGameTypes.includes(
-            normalizeGameType(gameType)
-          );
-        }
-      );
-
-    if (invalidGameTypes.length > 0) {
-      await session.abortTransaction();
-      await session.endSession();
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid game type for this market",
-        invalidGameTypes,
-        allowedGameTypes,
-        digitType,
-      });
-    }
-
-    // ============================================================
-    // FORMAT WINNING NUMBERS
-    // ============================================================
-
-    const formattedWinningNumbers = {};
-    const errors = [];
-
-    // Normalize result keys so single-Patti / single_patti / Single Patti
-    // all resolve to the same canonical game type.
-    const normalizedWinningNumbers = {};
-    for (const [rawGameType, value] of Object.entries(winningNumbers)) {
-      const normalizedType = normalizeGameType(rawGameType);
-      if (normalizedType) {
-        normalizedWinningNumbers[normalizedType] = value;
-      }
-    }
-
-    for (const gameType of allowedGameTypes) {
-      const number = normalizedWinningNumbers[gameType];
-
-      if (
-        number === undefined ||
-        number === null ||
-        str(number) === ""
-      ) {
-        formattedWinningNumbers[gameType] = null;
-        continue;
-      }
-
-      try {
-        formattedWinningNumbers[gameType] =
-          Result.formatWinningNumber(
-            number,
-            gameType
-          );
-      } catch (error) {
-        errors.push(
-          `${gameType}: ${error.message}`
-        );
-      }
-    }
-
-    if (errors.length > 0) {
-      await session.abortTransaction();
-      await session.endSession();
-
-      return res.status(400).json({
-        success: false,
-        message: "Invalid winning numbers",
-        errors,
-      });
-    }
-
-    // ============================================================
-    // AT LEAST ONE RESULT REQUIRED
-    // ============================================================
-
-    const hasWinningNumber =
-      Object.values(
-        formattedWinningNumbers
-      ).some(
-        (value) =>
-          value !== null &&
-          value !== undefined &&
-          str(value) !== ""
-      );
-
-    if (!hasWinningNumber) {
-      await session.abortTransaction();
-      await session.endSession();
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "At least one winning number is required",
-      });
-    }
+    const formattedWinningNumbers =
+      generateWinningNumbers(rawWinningNumber);
 
     // ============================================================
     // FIND ALL PENDING BIDS
