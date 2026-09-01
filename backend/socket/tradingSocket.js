@@ -1,7 +1,5 @@
 const TradingRound = require("../models/TradingRound");
-const {
-  resolveTrades,
-} = require("../controllers/tradingController");
+const { resolveTrades } = require("../controllers/tradingController");
 
 const DEFAULT_PRICE = 107960;
 const ROUND_DURATION_MS = 60 * 1000;
@@ -39,20 +37,23 @@ async function ensureRound() {
 
 function randomNextPrice(value) {
   const maxMove = value * 0.0012;
-  const movement =
-    (Math.random() * 2 - 1) * maxMove;
-
+  const movement = (Math.random() * 2 - 1) * maxMove;
   return Math.max(1, value + movement);
 }
 
-async function tick(io) {
+async function tick() {
   try {
+    // Use global.io instead of parameter
+    const io = global.io;
+
+    if (!io) {
+      console.error("Socket.IO not initialized globally");
+      return;
+    }
+
     let round = await ensureRound();
 
-    if (
-      round.status !== "active" ||
-      new Date(round.endsAt) <= new Date()
-    ) {
+    if (round.status !== "active" || new Date(round.endsAt) <= new Date()) {
       round.finalValue = Number(round.currentValue);
       round.status = "completed";
       await round.save();
@@ -72,9 +73,7 @@ async function tick(io) {
         currentValue: Number(round.finalValue),
         status: "active",
         startsAt: now,
-        endsAt: new Date(
-          now.getTime() + ROUND_DURATION_MS
-        ),
+        endsAt: new Date(now.getTime() + ROUND_DURATION_MS),
       });
 
       currentPrice = Number(round.currentValue);
@@ -91,12 +90,7 @@ async function tick(io) {
 
     const delta = currentPrice - previousValue;
 
-    const direction =
-      delta > 0
-        ? "up"
-        : delta < 0
-        ? "down"
-        : "same";
+    const direction = delta > 0 ? "up" : delta < 0 ? "down" : "same";
 
     io.emit("trading:value", {
       roundId: round.roundId,
@@ -112,9 +106,18 @@ async function tick(io) {
   }
 }
 
-function initTradingSocket(io) {
+function initTradingSocket() {
   if (engineStarted) return;
   engineStarted = true;
+
+  const io = global.io;
+
+  if (!io) {
+    console.error(
+      "Socket.IO not initialized. Trading socket engine cannot start.",
+    );
+    return;
+  }
 
   io.on("connection", async (socket) => {
     try {
@@ -132,20 +135,17 @@ function initTradingSocket(io) {
         timestamp: Date.now(),
       });
     } catch (error) {
-      console.error(
-        "TRADING SOCKET CONNECTION ERROR:",
-        error
-      );
+      console.error("TRADING SOCKET CONNECTION ERROR:", error);
     }
   });
 
   timer = setInterval(() => {
-    tick(io);
+    tick();
   }, 1000);
 
-  tick(io);
+  tick();
 
-  console.log("Trading socket engine started");
+  console.log("Trading socket engine started with global.io");
 }
 
 function stopTradingSocket() {
@@ -155,6 +155,7 @@ function stopTradingSocket() {
   }
 
   engineStarted = false;
+  console.log("Trading socket engine stopped");
 }
 
 module.exports = {

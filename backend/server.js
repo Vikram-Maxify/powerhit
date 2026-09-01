@@ -107,7 +107,7 @@ const app = express();
 const server = http.createServer(app);
 
 // =====================================================
-// SOCKET.IO
+// SOCKET.IO - GLOBAL SETUP
 // =====================================================
 
 const allowedOrigins = [
@@ -130,7 +130,9 @@ const io = new Server(server, {
         return callback(null, true);
       }
 
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(
+        origin,
+      );
 
       if (allowedOrigins.includes(origin) || isLocalhost) {
         return callback(null, true);
@@ -143,7 +145,8 @@ const io = new Server(server, {
   },
 });
 
-// Make Socket.IO available in controllers
+// Make Socket.IO available globally
+global.io = io;
 app.set("io", io);
 
 // =====================================================
@@ -200,7 +203,9 @@ app.use(
         return callback(null, true);
       }
 
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(
+        origin,
+      );
 
       if (allowedOrigins.includes(origin) || isLocalhost) {
         return callback(null, true);
@@ -210,9 +215,15 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Cache-Control",
+      "Pragma",
+      "Expires",
+    ],
     optionsSuccessStatus: 204,
-  })
+  }),
 );
 
 // PREFLIGHT
@@ -225,14 +236,14 @@ app.options("*path", cors());
 app.use(
   express.json({
     limit: "10mb",
-  })
+  }),
 );
 
 app.use(
   express.urlencoded({
     extended: true,
     limit: "10mb",
-  })
+  }),
 );
 
 // =====================================================
@@ -361,13 +372,19 @@ app.use("/api/admin/:country/game-entries", adminGameEntryRoutes);
 app.use("/api/admin/:country/powerball-results", adminPowerballResultRoutes);
 
 // Powerball Divisions
-app.use("/api/admin/:country/powerball/divisions", adminPowerballDivisionRoutes);
+app.use(
+  "/api/admin/:country/powerball/divisions",
+  adminPowerballDivisionRoutes,
+);
 
 // =====================================================
 // PUBLIC POWERBALL RESULTS
 // =====================================================
 
-app.use("/api/public/:country/powerball-results", require("./routes/user/powerballpublicresult"));
+app.use(
+  "/api/public/:country/powerball-results",
+  require("./routes/user/powerballpublicresult"),
+);
 
 // =====================================================
 // REFERRAL LEVELS
@@ -388,8 +405,8 @@ app.get("/api/health", (req, res) => {
     games: {
       "30s": "wingo10",
       "1m": "wingo",
-      "trx": "trx"
-    }
+      trx: "trx",
+    },
   });
 });
 
@@ -519,7 +536,7 @@ const startServer = async () => {
       console.log(`API:   http://localhost:${PORT}/api`);
       console.log(`Mines: http://localhost:${PORT}/api/mine-games`);
       console.log(`Bet:   http://localhost:${PORT}/bet`);
-      console.log("Socket.IO: enabled");
+      console.log("Socket.IO: enabled (Global access available)");
       console.log("Games: 30s (wingo10), 1m (wingo), TRX (trx)");
       console.log("Database: MongoDB");
       console.log("======================================");
@@ -606,7 +623,6 @@ const startServer = async () => {
         console.error("Initial commission error:", error);
       }
     }, 10000);
-
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);

@@ -1,12 +1,7 @@
 // src/App.jsx
 
 import { useDispatch, useSelector } from "react-redux";
-import {
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { useEffect, useLayoutEffect } from "react";
 
@@ -62,15 +57,11 @@ import MatkaMarkets from "./Pages/user/Markets.jsx";
 import PlaceBid from "./Pages/user/PlaceBid.jsx";
 import MatkaResults from "./Pages/user/Results.jsx";
 
-import {
-  getProfile,
-  logout,
-} from "./redux/slices/authSlice.js";
-import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
-import MineGames from "./Pages/MineGames.jsx";
 import MinesGame from "./pages/MinesGame.jsx";
+import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
+import TradingPage from "./Pages/TradingPage.jsx";
 import Wingo from "./Pages/wingo/Wingo.jsx";
-import Trading from "./Pages/Trading.jsx";
+import { getProfile, logout } from "./redux/slices/authSlice.js";
 
 // ========================================
 // Scroll To Top
@@ -169,30 +160,17 @@ function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const {
-    isAuthenticated,
-    profileLoaded,
-    isProfileLoading,
-    user,
-  } = useSelector((state) => state.auth);
+  const { isAuthenticated, profileLoaded, isProfileLoading, user } =
+    useSelector((state) => state.auth);
 
   // ========================================
   // GET USER PROFILE
   // ========================================
   useEffect(() => {
-    if (
-      isAuthenticated &&
-      !profileLoaded &&
-      !isProfileLoading
-    ) {
+    if (isAuthenticated && !profileLoaded && !isProfileLoading) {
       dispatch(getProfile());
     }
-  }, [
-    isAuthenticated,
-    profileLoaded,
-    isProfileLoading,
-    dispatch,
-  ]);
+  }, [isAuthenticated, profileLoaded, isProfileLoading, dispatch]);
 
   // ========================================
   // ADMIN PROTECTION
@@ -205,9 +183,7 @@ function App() {
   // 5. login page par redirect
   // ========================================
   useEffect(() => {
-    const role = user?.role
-      ? String(user.role).trim().toLowerCase()
-      : "";
+    const role = user?.role ? String(user.role).trim().toLowerCase() : "";
 
     if (role !== "admin") {
       return;
@@ -251,25 +227,15 @@ function App() {
       <AppInitializer>
         <Navbar>
           <Routes>
-
             {/* ========================================
                 PUBLIC ROUTES
             ======================================== */}
 
-            <Route
-              path="/"
-              element={<Homme />}
-            />
+            <Route path="/" element={<Homme />} />
 
-            <Route
-              path="/login"
-              element={<Login />}
-            />
+            <Route path="/login" element={<Login />} />
 
-            <Route
-              path="/register"
-              element={<Register />}
-            />
+            <Route path="/register" element={<Register />} />
 
             <Route
               path="/powerball-results"
@@ -694,31 +660,17 @@ function App() {
               }
             />
 
-            <Route
-              path="/mine-games"
-              element={<MinesGame />}
-            />
+            <Route path="/mine-games" element={<MinesGame />} />
 
-            <Route
-              path="/wingo"
-              element={<Wingo />} />
+            <Route path="/wingo" element={<Wingo />} />
 
-            <Route
-              path="/trading"
-              element={<Trading />}
-            />
-
-
+            <Route path="/trading" element={<TradingPage />} />
 
             {/* ========================================
                 404 / MAINTENANCE
             ======================================== */}
 
-            <Route
-              path="*"
-              element={<Maintenance />}
-            />
-
+            <Route path="*" element={<Maintenance />} />
           </Routes>
         </Navbar>
       </AppInitializer>
