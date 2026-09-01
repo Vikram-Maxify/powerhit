@@ -2,12 +2,19 @@ import debounce from "lodash/debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FaCircle, FaMinus, FaPlus } from "react-icons/fa";
 import { IoIosArrowBack, IoIosArrowForward } from "react-icons/io";
+import { useDispatch } from "react-redux";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import io from "socket.io-client";
 
 import CopyCopmponent from "../../components/CopyCopmponent.jsx";
 import EmptyData from "../../components/EmptyData.jsx";
-import { host } from "../../redux/Slices/api.js";
+import { host } from "../../redux/slices/api.js";
+import { getProfile } from "../../redux/Slices/authSlice.js"; // ⚠️ path/name apne actual profile-refresh thunk ke hisaab se check kar lena
+import {
+  getMyBets,
+  getOrderList,
+  placeBet,
+} from "../../redux/slices/betSlice.js";
 import "./wingo.css";
 
 // Assets
@@ -58,6 +65,8 @@ const socket = io(host);
 // MAIN COMPONENT
 // ============================================================
 const Wingo = () => {
+  const dispatch = useDispatch();
+
   // ---- State ----
   const [userInfo, setUserInfo] = useState(null);
   const [wingoPeriodListData, setWingoPeriodListData] = useState(null);
@@ -110,63 +119,6 @@ const Wingo = () => {
 
   // ---- Derived ----
   const totalAmount = balance * multiplier;
-
-  // ---- Mock APIs (replace with real calls) ----
-  const mockUserDetail = async () => ({
-    status: true,
-    data: { money_user: 1000 },
-  });
-  const mockWingoPeriodList = async (params) => ({
-    status: true,
-    data: {
-      gameslist: [
-        { period: "2026-01-01", amount: 5 },
-        { period: "2026-01-02", amount: 3 },
-        { period: "2026-01-03", amount: 7 },
-        { period: "2026-01-04", amount: 1 },
-        { period: "2026-01-05", amount: 9 },
-      ],
-      page: 5,
-    },
-    period: "2026-01-01",
-  });
-  const mockWingoHistory = async (params) => ({
-    status: true,
-    data: {
-      gameslist: [
-        {
-          bet: "x",
-          stage: "2026-01-01",
-          today: "2026-01-01",
-          status: 1,
-          get: 200,
-          money: 100,
-          fee: 2,
-          amount: 5,
-          id_product: "12345",
-          result: 5,
-        },
-        {
-          bet: "d",
-          stage: "2026-01-02",
-          today: "2026-01-02",
-          status: 2,
-          get: 0,
-          money: 100,
-          fee: 2,
-          amount: 5,
-          id_product: "12346",
-          result: 2,
-        },
-      ],
-      page: 5,
-    },
-    page: 5,
-  });
-  const mockWingoBet = async (params) => ({
-    status: true,
-    message: "Bet placed successfully",
-  });
 
   // ============================================================
   // HELPERS
@@ -317,17 +269,30 @@ const Wingo = () => {
     trendList.appendChild(svg);
   };
 
+  // ---- Real API calls (via Redux thunks) ----
   const fetchHistory = async () => {
-    const res = await mockWingoHistory({ typeid1, pageno, pageto });
-    setWingoHistoryData(res);
-    setHistoryPage(res?.page);
+    try {
+      const res = await dispatch(
+        getMyBets({ typeid: typeid1, pageno, pageto }),
+      ).unwrap();
+      setWingoHistoryData(res);
+      setHistoryPage(res?.page);
+    } catch (err) {
+      console.error("fetchHistory failed:", err);
+    }
   };
 
   const fetchNewData = async (pageno, pageto) => {
-    const res = await mockWingoPeriodList({ typeid1, pageno, pageto });
-    if (res.status) {
-      setWingoPeriodListData(res);
-      setTimeout(chartFunction, 100);
+    try {
+      const res = await dispatch(
+        getOrderList({ typeid: typeid1, pageno, pageto }),
+      ).unwrap();
+      if (res.status) {
+        setWingoPeriodListData(res);
+        setTimeout(chartFunction, 100);
+      }
+    } catch (err) {
+      console.error("fetchNewData failed:", err);
     }
     await fetchHistory();
   };
@@ -335,33 +300,58 @@ const Wingo = () => {
   // ---- Debounced Functions (defined before useEffect that uses them) ----
   const debouncedFetch = useCallback(
     debounce(async (typeid1, pageno, pageto) => {
-      const res = await mockWingoPeriodList({ typeid1, pageno, pageto });
-      if (res.status) {
-        setWingoPeriodListData(res);
-        setTimeout(chartFunction, 100);
+      try {
+        const res = await dispatch(
+          getOrderList({ typeid: typeid1, pageno, pageto }),
+        ).unwrap();
+        if (res.status) {
+          setWingoPeriodListData(res);
+          setTimeout(chartFunction, 100);
+        }
+      } catch (err) {
+        console.error("debouncedFetch (period list) failed:", err);
       }
-      const historyRes = await mockWingoHistory({ typeid1, pageno, pageto });
-      setWingoHistoryData(historyRes);
-      setHistoryPage(historyRes?.page);
+
+      try {
+        const historyRes = await dispatch(
+          getMyBets({ typeid: typeid1, pageno, pageto }),
+        ).unwrap();
+        setWingoHistoryData(historyRes);
+        setHistoryPage(historyRes?.page);
+      } catch (err) {
+        console.error("debouncedFetch (history) failed:", err);
+      }
+
       updateNumbers();
     }, 500),
-    [],
+    [dispatch],
   );
 
   const debouncedFetchResult = useCallback(
     debounce(async (typeid1, pageno, pageto) => {
-      const res = await mockWingoHistory({ typeid1, pageno, pageto });
-      setWingoHistoryData(res);
-      setHistoryPage(res?.page);
-      if (res?.data?.gameslist?.[0]?.status === 1) {
-        const userRes = await mockUserDetail();
-        setUserInfo(userRes.data);
-        setWinResult(true);
-      } else if (res?.data?.gameslist?.[0]?.status === 2) {
-        setWinResult(false);
+      try {
+        const res = await dispatch(
+          getMyBets({ typeid: typeid1, pageno, pageto }),
+        ).unwrap();
+        setWingoHistoryData(res);
+        setHistoryPage(res?.page);
+
+        if (res?.data?.gameslist?.[0]?.status === 1) {
+          try {
+            const profile = await dispatch(getProfile()).unwrap();
+            setUserInfo(profile);
+          } catch (err) {
+            console.error("Profile refresh failed:", err);
+          }
+          setWinResult(true);
+        } else if (res?.data?.gameslist?.[0]?.status === 2) {
+          setWinResult(false);
+        }
+      } catch (err) {
+        console.error("debouncedFetchResult failed:", err);
       }
     }, 500),
-    [],
+    [dispatch],
   );
 
   // ---- Socket Listeners ----
@@ -426,11 +416,13 @@ const Wingo = () => {
   const handleDetail = (i) => setDetails(details === i ? null : i);
 
   const handleRefersh = async () => {
-    const res = await mockUserDetail();
-    if (res.status) {
+    try {
+      const profile = await dispatch(getProfile()).unwrap();
       setRefeshPopup(true);
-      setUserInfo(res.data);
+      setUserInfo(profile);
       setTimeout(() => setRefeshPopup(false), 2000);
+    } catch (err) {
+      console.error("Refresh failed:", err);
     }
   };
 
@@ -453,18 +445,48 @@ const Wingo = () => {
   };
 
   const handleBet = async () => {
+    if (!selectBet && selectBet !== 0) {
+      setMessage("Please select a bet first");
+      setBetAlert(true);
+      setTimeout(() => setMessage(""), 3000);
+      return;
+    }
+
     setLoader(true);
-    const res = await mockWingoBet({ typeid1, selectBet, balance, multiplier });
-    setBetAlert(true);
-    setOpenPopup(false);
-    setMessage(res.message);
-    setBalance(1);
-    setMultiplier(1);
-    setActiveX(0);
-    localStorage.setItem("bet", true);
-    setTimeout(() => setMessage(""), 3000);
-    if (res.status) await fetchHistory();
-    setLoader(false);
+    try {
+      const res = await dispatch(
+        placeBet({
+          typeid: typeid1,
+          join: selectBet,
+          x: multiplier,
+          money: balance,
+        }),
+      ).unwrap();
+
+      setBetAlert(true);
+      setOpenPopup(false);
+      setMessage(res.message || "Bet placed successfully");
+      setBalance(1);
+      setMultiplier(1);
+      setActiveX(0);
+      localStorage.setItem("bet", true);
+      setTimeout(() => setMessage(""), 3000);
+
+      await fetchHistory();
+
+      try {
+        const profile = await dispatch(getProfile()).unwrap();
+        setUserInfo(profile);
+      } catch (err) {
+        console.error("Profile refresh after bet failed:", err);
+      }
+    } catch (err) {
+      setBetAlert(true);
+      setMessage(typeof err === "string" ? err : "Bet failed");
+      setTimeout(() => setMessage(""), 3000);
+    } finally {
+      setLoader(false);
+    }
   };
 
   const selectBetHandle = (data) => {

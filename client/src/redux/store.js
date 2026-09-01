@@ -3,6 +3,7 @@ import { configureStore } from "@reduxjs/toolkit";
 
 import authReducer from "./slices/authSlice";
 import bannerReducer from "./slices/bannerSlice";
+import betReducer from "./slices/betSlice";
 import currencyRateReducer from "./slices/currencyRateSlice";
 import dailyClaimReducer from "./slices/dailyClaimSlice";
 import depositReducer from "./slices/depositSlice";
@@ -70,6 +71,7 @@ export const store = configureStore({
     mineGame: mineGameReducer,
     currencyRate: currencyRateReducer,
     mines: minesReducer,
+    bet: betReducer,
 
     // ========================================
     // AUSTRALIA

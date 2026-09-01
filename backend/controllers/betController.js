@@ -1,17 +1,18 @@
 // controllers/betController.js
-const User = require('../models/authmodel');
-const Wingo = require('../models/Wingo');
-const Bet = require('../models/Bet');
-const Transaction = require('../models/Transaction');
-const Commission = require('../models/Commission');
-const Subordinate = require('../models/Subordinate');
-const Level = require('../models/Level');
-const Admin = require('../models/Admin');
-const axios = require('axios');
-const crypto = require('crypto');
-const path = require('path');
-const fs = require('fs');
-require('dotenv').config();
+const User = require("../models/authmodel");
+const Wingo = require("../models/Wingo");
+const Bet = require("../models/Bet");
+const Transaction = require("../models/Transaction");
+const Commission = require("../models/Commission");
+const Subordinate = require("../models/Subordinate");
+const Level = require("../models/Level");
+const Admin = require("../models/Admin");
+const axios = require("axios");
+const crypto = require("crypto");
+const path = require("path");
+const fs = require("fs");
+const Recharge = require("../models/Recharge");
+require("dotenv").config();
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -164,7 +165,7 @@ const commissions = async (auth, money) => {
           // Update pending commission
           await User.updateOne(
             { phone: upline.phone },
-            { $inc: { pending_commission: rosesFs } }
+            { $inc: { pending_commission: rosesFs } },
           );
 
           uplines = [upline];
@@ -176,7 +177,7 @@ const commissions = async (auth, money) => {
       }
     }
   } catch (error) {
-    console.error('Commission error:', error);
+    console.error("Commission error:", error);
   }
 };
 
@@ -189,12 +190,20 @@ const betWinGo = async (req, res) => {
 
     const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100];
     if (!validTypeIds.includes(typeid)) {
-      return res.status(400).json({ message: "Invalid type id", status: false });
+      return res
+        .status(400)
+        .json({ message: "Invalid type id", status: false });
     }
 
     const gameMap = {
-      1: "wingo", 3: "wingo3", 5: "wingo5", 10: "wingo10",
-      11: "trx", 33: "trx3", 55: "trx5", 100: "trx10"
+      1: "wingo",
+      3: "wingo3",
+      5: "wingo5",
+      10: "wingo10",
+      11: "trx",
+      33: "trx3",
+      55: "trx5",
+      100: "trx10",
     };
     const gameJoin = gameMap[typeid];
 
@@ -211,10 +220,12 @@ const betWinGo = async (req, res) => {
     let period = winGoNow.period;
     let fee = x * money * 0.02;
     let total = x * money - fee;
-    let check = user.money - total;
+    let check = user.balance - total;
 
     if (check < 0) {
-      return res.status(400).json({ message: "The amount is not enough", status: false });
+      return res
+        .status(400)
+        .json({ message: "The amount is not enough", status: false });
     }
 
     // Check legal bet score
@@ -246,13 +257,14 @@ const betWinGo = async (req, res) => {
     const recharge = await Recharge.findOne({ phone: user.phone, status: 1 });
     if (!recharge) {
       return res.status(200).json({
-        message: 'Need to first recharge',
+        message: "Need to first recharge",
         status: false,
       });
     }
 
     const date = new Date();
-    const id_product = formatDateOnly(date.getTime()) +
+    const id_product =
+      formatDateOnly(date.getTime()) +
       Math.floor(Math.random() * 1000000000000000);
     const checkTime = formatDate(Date.now());
 
@@ -286,35 +298,43 @@ const betWinGo = async (req, res) => {
         $match: {
           phone: user.phone,
           $expr: {
-            $eq: [{ $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, formattedToday]
-          }
-        }
+            $eq: [
+              { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+              formattedToday,
+            ],
+          },
+        },
       },
-      { $group: { _id: null, total: { $sum: '$money' } } }
+      { $group: { _id: null, total: { $sum: "$money" } } },
     ]);
     const totalMoney = totalMoneyResult[0]?.total || 0;
 
     // Check big and small scores
-    const bigScore = await Bet.findOne({ phone: user.phone, stage: period, bet: "l" });
-    const smallScore = await Bet.findOne({ phone: user.phone, stage: period, bet: "n" });
+    const bigScore = await Bet.findOne({
+      phone: user.phone,
+      stage: period,
+      bet: "l",
+    });
+    const smallScore = await Bet.findOne({
+      phone: user.phone,
+      stage: period,
+      bet: "n",
+    });
 
     if (bigScore && smallScore) {
       // Update legal bet score
-      await User.updateOne(
-        { token: auth },
-        { $inc: { legal_bet_score: 1 } }
-      );
+      await User.updateOne({ token: auth }, { $inc: { legal_bet_score: 1 } });
     }
 
     // Update user balance
     await User.updateOne(
       { token: auth },
-      { 
-        $inc: { 
+      {
+        $inc: {
           money: -(money * x),
-          rebate: money * x
-        }
-      }
+          rebate: money * x,
+        },
+      },
     );
 
     const updatedUser = await User.findOne({ token: auth, veri: 1 });
@@ -322,10 +342,7 @@ const betWinGo = async (req, res) => {
     // Update recharge
     let total_money = money * x;
     let total_recharge = Math.max(user.recharge - total_money, 0);
-    await User.updateOne(
-      { phone: user.phone },
-      { recharge: total_recharge }
-    );
+    await User.updateOne({ phone: user.phone }, { recharge: total_recharge });
 
     // Create transaction
     await Transaction.create({
@@ -344,7 +361,6 @@ const betWinGo = async (req, res) => {
       change: updatedUser.level,
       money: updatedUser.money,
     });
-
   } catch (error) {
     console.error("Error in betWinGo:", error.message);
     res.status(500).json({ message: "Internal server error", status: false });
@@ -359,7 +375,9 @@ const listOrderOld = async (req, res) => {
 
     const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100];
     if (!validTypeIds.includes(typeid)) {
-      return res.status(200).json({ message: "Invalid type id", status: false });
+      return res
+        .status(200)
+        .json({ message: "Invalid type id", status: false });
     }
 
     if (pageno < 1 || pageto < 1) {
@@ -374,12 +392,20 @@ const listOrderOld = async (req, res) => {
     let auth = req.cookies.auth;
     const user = await User.findOne({ token: auth, veri: 1 });
     if (!user) {
-      return res.status(200).json({ message: "Error! user is missing.", status: false });
+      return res
+        .status(200)
+        .json({ message: "Error! user is missing.", status: false });
     }
 
     const gameMap = {
-      1: "wingo", 3: "wingo3", 5: "wingo5", 10: "wingo10",
-      11: "trx", 33: "trx3", 55: "trx5", 100: "trx10"
+      1: "wingo",
+      3: "wingo3",
+      5: "wingo5",
+      10: "wingo10",
+      11: "trx",
+      33: "trx3",
+      55: "trx5",
+      100: "trx10",
     };
     const game = gameMap[typeid];
 
@@ -423,7 +449,6 @@ const listOrderOld = async (req, res) => {
       time: period.time,
       status: true,
     });
-
   } catch (error) {
     console.error("Error in listOrderOld:", error.message);
     res.status(500).json({ message: "Internal server error", status: false });
@@ -438,7 +463,9 @@ const GetMyEmerdList = async (req, res) => {
 
     const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100, 15];
     if (!validTypeIds.includes(typeid)) {
-      return res.status(200).json({ message: "Invalid type id", status: false });
+      return res
+        .status(200)
+        .json({ message: "Invalid type id", status: false });
     }
 
     if (pageno < 0 || pageto < 0) {
@@ -462,8 +489,14 @@ const GetMyEmerdList = async (req, res) => {
     }
 
     const gameMap = {
-      1: "wingo", 3: "wingo3", 5: "wingo5", 10: "wingo10",
-      11: "trx", 33: "trx3", 55: "trx5", 100: "trx10"
+      1: "wingo",
+      3: "wingo3",
+      5: "wingo5",
+      10: "wingo10",
+      11: "trx",
+      33: "trx3",
+      55: "trx5",
+      100: "trx10",
     };
 
     if (typeid === 15) {
@@ -512,7 +545,6 @@ const GetMyEmerdList = async (req, res) => {
       page: page,
       status: true,
     });
-
   } catch (error) {
     console.error("Error in GetMyEmerdList:", error.message);
     res.status(500).json({ message: "Internal server error", status: false });
@@ -524,8 +556,14 @@ const GetMyEmerdList = async (req, res) => {
 const handlingWinGo1P = async (typeid) => {
   try {
     const gameMap = {
-      1: "wingo", 3: "wingo3", 5: "wingo5", 10: "wingo10",
-      "11": "trx", "33": "trx3", "55": "trx5", "100": "trx10"
+      1: "wingo",
+      3: "wingo3",
+      5: "wingo5",
+      10: "wingo10",
+      11: "trx",
+      33: "trx3",
+      55: "trx5",
+      100: "trx10",
     };
     const game = gameMap[typeid];
 
@@ -540,13 +578,10 @@ const handlingWinGo1P = async (typeid) => {
 
     // Update bet results based on win/lose
     const updateQuery = {
-      $set: { result: result }
+      $set: { result: result },
     };
 
-    await Bet.updateMany(
-      { status: 0, game },
-      { $set: { result: result } }
-    );
+    await Bet.updateMany({ status: 0, game }, { $set: { result: result } });
 
     // Determine winners based on bet type
     const betTypeMap = {
@@ -569,7 +604,7 @@ const handlingWinGo1P = async (typeid) => {
     const losingBets = await Bet.find({
       status: 0,
       game,
-      bet: { $nin: betInfo.bet }
+      bet: { $nin: betInfo.bet },
     });
 
     for (const bet of losingBets) {
@@ -578,15 +613,9 @@ const handlingWinGo1P = async (typeid) => {
 
     // Handle small/large
     if (result < 5) {
-      await Bet.updateMany(
-        { status: 0, game, bet: "l" },
-        { status: 2 }
-      );
+      await Bet.updateMany({ status: 0, game, bet: "l" }, { status: 2 });
     } else {
-      await Bet.updateMany(
-        { status: 0, game, bet: "n" },
-        { status: 2 }
-      );
+      await Bet.updateMany({ status: 0, game, bet: "n" }, { status: 2 });
     }
 
     // Get winning bets
@@ -637,7 +666,7 @@ const handlingWinGo1P = async (typeid) => {
 
         await Bet.updateOne(
           { _id: bet._id },
-          { $set: { get: nhan_duoc, status: 1 } }
+          { $set: { get: nhan_duoc, status: 1 } },
         );
 
         await Transaction.create({
@@ -647,22 +676,15 @@ const handlingWinGo1P = async (typeid) => {
           time: checkTime2,
         });
 
-        await User.updateOne(
-          { phone: phone },
-          { $inc: { money: nhan_duoc } }
-        );
+        await User.updateOne({ phone: phone }, { $inc: { money: nhan_duoc } });
       } else {
-        await Bet.updateOne(
-          { _id: bet._id },
-          { status: 2 }
-        );
+        await Bet.updateOne({ _id: bet._id }, { status: 2 });
       }
     };
 
     for (const bet of winningBets) {
       await processBet(bet);
     }
-
   } catch (error) {
     console.error("Error in handlingWinGo1P:", error.message);
   }
@@ -686,8 +708,8 @@ const tradeCommission = async () => {
         { phone: user.phone },
         {
           $inc: { money: user.pending_commission },
-          $set: { pending_commission: 0 }
-        }
+          $set: { pending_commission: 0 },
+        },
       );
 
       await Transaction.create({
@@ -720,8 +742,8 @@ const tradeCommissionadmin = async (req, res) => {
         { phone: user.phone },
         {
           $inc: { money: user.pending_commission },
-          $set: { pending_commission: 0 }
-        }
+          $set: { pending_commission: 0 },
+        },
       );
 
       await Transaction.create({
@@ -780,7 +802,10 @@ const fetchApiData_bdgwin_10 = async () => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), apiTimeout);
       const startTime = Date.now();
-      const response = await axios.get(apiUrl, { headers, timeout: apiTimeout });
+      const response = await axios.get(apiUrl, {
+        headers,
+        timeout: apiTimeout,
+      });
       const endTime = Date.now();
 
       clearTimeout(timeout);
@@ -807,18 +832,18 @@ const fetchApiData_bdgwin_10 = async () => {
 const defineresult = async (game) => {
   try {
     const gameMappings = {
-      1: { join: 'wingo', updatenum: 1 },
-      3: { join: 'wingo3', updatenum: 2 },
-      5: { join: 'wingo5', updatenum: 3 },
-      10: { join: 'wingo10', updatenum: 4 },
-      11: { join: 'trx', updatenum: 3 },
-      33: { join: 'trx3', updatenum: 4 },
-      55: { join: 'trx5', updatenum: 5 },
-      100: { join: 'trx10', updatenum: 6 }
+      1: { join: "wingo", updatenum: 1 },
+      3: { join: "wingo3", updatenum: 2 },
+      5: { join: "wingo5", updatenum: 3 },
+      10: { join: "wingo10", updatenum: 4 },
+      11: { join: "trx", updatenum: 3 },
+      33: { join: "trx3", updatenum: 4 },
+      55: { join: "trx5", updatenum: 5 },
+      100: { join: "trx10", updatenum: 6 },
     };
 
     const { join, updatenum } = gameMappings[game] || {};
-    if (!join) throw new Error('Invalid game type provided');
+    if (!join) throw new Error("Invalid game type provided");
 
     const winGoNow = await Wingo.findOne({ status: 0, game: join })
       .sort({ _id: -1 })
@@ -831,48 +856,52 @@ const defineresult = async (game) => {
     const period = winGoNow.period;
 
     const betColumns = [
-      { name: 'red_small', bets: ['0', '2', '4', 'd', 'n'] },
-      { name: 'red_big', bets: ['6', '8', 'd', 'l'] },
-      { name: 'green_big', bets: ['5', '7', '9', 'x', 'l'] },
-      { name: 'green_small', bets: ['1', '3', 'x', 'n'] },
-      { name: 'violet_small', bets: ['0', 't', 'n'] },
-      { name: 'violet_big', bets: ['5', 't', 'l'] }
+      { name: "red_small", bets: ["0", "2", "4", "d", "n"] },
+      { name: "red_big", bets: ["6", "8", "d", "l"] },
+      { name: "green_big", bets: ["5", "7", "9", "x", "l"] },
+      { name: "green_small", bets: ["1", "3", "x", "n"] },
+      { name: "violet_small", bets: ["0", "t", "n"] },
+      { name: "violet_big", bets: ["5", "t", "l"] },
     ];
 
     shuffleArrayInPlace(betColumns);
 
-    const categories = await Promise.all(betColumns.map(async (column) => {
-      const result = await Bet.aggregate([
-        {
-          $match: {
-            game: join,
-            status: 0,
-            isdemo: false,
-            bet: { $in: column.bets }
-          }
-        },
-        { $group: { _id: null, total_money: { $sum: '$money' } } }
-      ]);
+    const categories = await Promise.all(
+      betColumns.map(async (column) => {
+        const result = await Bet.aggregate([
+          {
+            $match: {
+              game: join,
+              status: 0,
+              isdemo: false,
+              bet: { $in: column.bets },
+            },
+          },
+          { $group: { _id: null, total_money: { $sum: "$money" } } },
+        ]);
 
-      return {
-        name: column.name,
-        total_money: parseInt(result[0]?.total_money) || 0
-      };
-    }));
+        return {
+          name: column.name,
+          total_money: parseInt(result[0]?.total_money) || 0,
+        };
+      }),
+    );
 
     shuffleArrayInPlace(categories);
 
     const smallestCategory = categories.reduce((smallest, category) =>
-      (!smallest || category.total_money < smallest.total_money) ? category : smallest
+      !smallest || category.total_money < smallest.total_money
+        ? category
+        : smallest,
     );
 
-    const [color, size] = smallestCategory.name.split('_');
-    const availableBets = betColumns.find(col => col.name === `${color}_${size}`)?.bets || [];
-    const validBets = availableBets.filter(bet => !isNaN(parseInt(bet, 10)));
+    const [color, size] = smallestCategory.name.split("_");
+    const availableBets =
+      betColumns.find((col) => col.name === `${color}_${size}`)?.bets || [];
+    const validBets = availableBets.filter((bet) => !isNaN(parseInt(bet, 10)));
 
     const randomIndex = Math.floor(Math.random() * validBets.length);
     return parseInt(validBets[randomIndex], 10);
-
   } catch (error) {
     console.error("Error in defineresult:", error);
     return Math.floor(Math.random() * 10);
@@ -881,7 +910,7 @@ const defineresult = async (game) => {
 
 // ==================== ADD WINGO 30 SECOND ====================
 
-const logFilePath = path.join(__dirname, 'wingo30.log');
+const logFilePath = path.join(__dirname, "wingo30.log");
 let lastCallTime30 = 0;
 const lockDuration30 = 3000;
 
@@ -930,7 +959,7 @@ const addWinGo_30 = async (period_id) => {
     if (nextResult === "-1") {
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount: resultAmount, status: 1 } }
+        { $set: { amount: resultAmount, status: 1 } },
       );
       newArr = "-1";
     } else {
@@ -938,14 +967,14 @@ const addWinGo_30 = async (period_id) => {
       newArr = arr.length === 1 ? "-1" : arr.slice(1).join("|");
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount: Number(arr[0]), status: 1 } }
+        { $set: { amount: Number(arr[0]), status: 1 } },
       );
     }
 
     // Update previous periods
     await Wingo.updateMany(
       { period: { $ne: newPeriod }, game: join },
-      { $set: { status: 1 } }
+      { $set: { status: 1 } },
     );
 
     // Insert new period
@@ -961,7 +990,6 @@ const addWinGo_30 = async (period_id) => {
 
     // Update admin settings
     await Admin.updateOne({}, { $set: { wingo10: newArr } });
-
   } catch (error) {
     console.error("Error in addWinGo_30:", error);
   }
@@ -979,14 +1007,14 @@ const fetchNewPeriod_30 = async (currentPeriod) => {
         return {
           newPeriod: (BigInt(currentPeriod) + BigInt(1)).toString(),
           resultAmount: apiData.number,
-          attempts: attempt
+          attempts: attempt,
         };
       }
     } catch (error) {
       console.error(`Attempt ${attempt} error:`, error.message);
     }
 
-    await new Promise(resolve => setTimeout(resolve, retryInterval));
+    await new Promise((resolve) => setTimeout(resolve, retryInterval));
   }
 
   return null;
@@ -1033,7 +1061,7 @@ const addWinGo_1 = async (period_id) => {
     if (nextResult === "-1") {
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount: resultAmount, status: 1 } }
+        { $set: { amount: resultAmount, status: 1 } },
       );
       newArr = "-1";
     } else {
@@ -1041,13 +1069,13 @@ const addWinGo_1 = async (period_id) => {
       newArr = arr.length === 1 ? "-1" : arr.slice(1).join("|");
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount: Number(arr[0]), status: 1 } }
+        { $set: { amount: Number(arr[0]), status: 1 } },
       );
     }
 
     await Wingo.updateMany(
       { period: { $ne: newPeriod }, game: join },
-      { $set: { status: 1 } }
+      { $set: { status: 1 } },
     );
 
     await Wingo.create({
@@ -1061,7 +1089,6 @@ const addWinGo_1 = async (period_id) => {
     });
 
     await Admin.updateOne({}, { $set: { wingo: newArr } });
-
   } catch (error) {
     console.error("Error in addWinGo_1:", error);
   }
@@ -1080,7 +1107,10 @@ const fetchApiData_bdgwin_1 = async () => {
   while (attempts < maxApiRetries) {
     try {
       const startTime = Date.now();
-      const response = await axios.get(apiUrl, { headers, timeout: apiTimeout });
+      const response = await axios.get(apiUrl, {
+        headers,
+        timeout: apiTimeout,
+      });
       const endTime = Date.now();
 
       if (endTime - startTime > apiTimeout) {
@@ -1112,14 +1142,14 @@ const fetchNewPeriod_1 = async (currentPeriod) => {
         return {
           newPeriod: (BigInt(currentPeriod) + BigInt(1)).toString(),
           resultAmount: apiData.number,
-          attempts: attempt
+          attempts: attempt,
         };
       }
     } catch (error) {
       console.error(`Attempt ${attempt} error:`, error.message);
     }
 
-    await new Promise(resolve => setTimeout(resolve, retryInterval));
+    await new Promise((resolve) => setTimeout(resolve, retryInterval));
   }
 
   return null;
@@ -1172,7 +1202,7 @@ const addWinGo_3 = async () => {
     if (nextResult === "-1") {
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount, status: 1 } }
+        { $set: { amount, status: 1 } },
       );
       newArr = "-1";
     } else {
@@ -1181,7 +1211,7 @@ const addWinGo_3 = async () => {
       newArr = arr.length > 1 ? arr.slice(1).join("|") : "-1";
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount: Number(result), status: 1 } }
+        { $set: { amount: Number(result), status: 1 } },
       );
     }
 
@@ -1199,7 +1229,6 @@ const addWinGo_3 = async () => {
     });
 
     await Admin.updateOne({}, { $set: { wingo3: newArr } });
-
   } catch (error) {
     console.error("addWinGo_3 error:", error.message);
   }
@@ -1217,7 +1246,10 @@ const fetchLatestWingo3Data = async () => {
   while (attempts < maxApiRetries) {
     try {
       const startTime = Date.now();
-      const response = await axios.get(apiUrl, { headers, timeout: apiTimeout });
+      const response = await axios.get(apiUrl, {
+        headers,
+        timeout: apiTimeout,
+      });
       const endTime = Date.now();
 
       if (endTime - startTime > apiTimeout) {
@@ -1233,7 +1265,8 @@ const fetchLatestWingo3Data = async () => {
     } catch (error) {
       attempts++;
       console.error(`API call failed (Attempt ${attempts}):`, error.message);
-      if (attempts >= maxApiRetries) throw new Error("API failed after maximum retries");
+      if (attempts >= maxApiRetries)
+        throw new Error("API failed after maximum retries");
     }
   }
   return null;
@@ -1286,7 +1319,7 @@ const addWinGo_5 = async () => {
     if (nextResult === "-1") {
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount, status: 1 } }
+        { $set: { amount, status: 1 } },
       );
       newArr = "-1";
     } else {
@@ -1295,7 +1328,7 @@ const addWinGo_5 = async () => {
       newArr = arr.length > 1 ? arr.slice(1).join("|") : "-1";
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount: Number(result), status: 1 } }
+        { $set: { amount: Number(result), status: 1 } },
       );
     }
 
@@ -1313,7 +1346,6 @@ const addWinGo_5 = async () => {
     });
 
     await Admin.updateOne({}, { $set: { wingo5: newArr } });
-
   } catch (error) {
     console.error("addWinGo_5 error:", error.message);
   }
@@ -1331,7 +1363,10 @@ const fetchLatestWingo5Data = async () => {
   while (attempts < maxApiRetries) {
     try {
       const startTime = Date.now();
-      const response = await axios.get(apiUrl, { headers, timeout: apiTimeout });
+      const response = await axios.get(apiUrl, {
+        headers,
+        timeout: apiTimeout,
+      });
       const endTime = Date.now();
 
       if (endTime - startTime > apiTimeout) {
@@ -1347,7 +1382,8 @@ const fetchLatestWingo5Data = async () => {
     } catch (error) {
       attempts++;
       console.error(`API call failed (Attempt ${attempts}):`, error.message);
-      if (attempts >= maxApiRetries) throw new Error("API failed after maximum retries");
+      if (attempts >= maxApiRetries)
+        throw new Error("API failed after maximum retries");
     }
   }
   return null;
@@ -1380,7 +1416,8 @@ const addWinGo_11 = async (periodfromserver) => {
       return;
     }
 
-    let { newPeriod, resultAmount, attempts, hashvalue, blockNumber } = newPeriodData;
+    let { newPeriod, resultAmount, attempts, hashvalue, blockNumber } =
+      newPeriodData;
 
     if (newPeriod && period === newPeriod) {
       newPeriod = (BigInt(newPeriod) + BigInt(1)).toString();
@@ -1400,7 +1437,14 @@ const addWinGo_11 = async (periodfromserver) => {
     if (nextResult === "-1") {
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount: resultAmount, hashvalue, blocs: blockNumber, status: 1 } }
+        {
+          $set: {
+            amount: resultAmount,
+            hashvalue,
+            blocs: blockNumber,
+            status: 1,
+          },
+        },
       );
       newArr = "-1";
     } else {
@@ -1408,13 +1452,20 @@ const addWinGo_11 = async (periodfromserver) => {
       newArr = arr.length === 1 ? "-1" : arr.slice(1).join("|");
       await Wingo.updateOne(
         { period, game: join },
-        { $set: { amount: Number(arr[0]), hashvalue, blocs: blockNumber, status: 1 } }
+        {
+          $set: {
+            amount: Number(arr[0]),
+            hashvalue,
+            blocs: blockNumber,
+            status: 1,
+          },
+        },
       );
     }
 
     await Wingo.updateMany(
       { period: { $ne: newPeriod }, game: join },
-      { $set: { status: 1 } }
+      { $set: { status: 1 } },
     );
 
     await Wingo.create({
@@ -1428,17 +1479,18 @@ const addWinGo_11 = async (periodfromserver) => {
     });
 
     await Admin.updateOne({}, { $set: { trx: newArr } });
-
   } catch (error) {
     console.error("Error in addWinGo_11:", error);
   }
 };
 
 const fetchApiData_11 = async () => {
-  const apiUrl = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts=" + Date.now();
+  const apiUrl =
+    "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts=" +
+    Date.now();
 
   const headers = {
-    "accept": "application/json, text/plain, */*",
+    accept: "application/json, text/plain, */*",
   };
 
   let attempts = 0;
@@ -1449,7 +1501,10 @@ const fetchApiData_11 = async () => {
       const timeout = setTimeout(() => controller.abort(), apiTimeout);
 
       const startTime = Date.now();
-      const response = await axios.get(apiUrl, { headers, timeout: apiTimeout });
+      const response = await axios.get(apiUrl, {
+        headers,
+        timeout: apiTimeout,
+      });
       const endTime = Date.now();
 
       clearTimeout(timeout);
@@ -1506,7 +1561,7 @@ const fetchNewPeriod_11 = async (currentPeriod, game) => {
     resultAmount: apiData.number,
     hashvalue: formattedBlockID,
     blockNumber: apiData.blockNumber,
-    attempts
+    attempts,
   };
 };
 
@@ -1528,9 +1583,9 @@ module.exports = {
   tradeCommission,
   tradeCommissionadmin,
   tradeCommissionGet,
-  addWinGo_30,  // 30 seconds version
-  addWinGo_1,   // 1 minute version (kept for compatibility)
+  addWinGo_30, // 30 seconds version
+  addWinGo_1, // 1 minute version (kept for compatibility)
   addWinGo_3,
   addWinGo_5,
-  addWinGo_11
+  addWinGo_11,
 };
