@@ -11,7 +11,6 @@ const axios = require("axios");
 const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs");
-const Recharge = require("../models/Recharge");
 require("dotenv").config();
 
 // ==================== HELPER FUNCTIONS ====================
@@ -185,14 +184,17 @@ const commissions = async (auth, money) => {
 
 const betWinGo = async (req, res) => {
   try {
-    let { typeid, join, x, money } = req.body;
-    let auth = req.cookies.auth;
+    const { typeid, join, x, money } = req.body;
+    const auth = req.cookies.auth;
 
     const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100];
-    if (!validTypeIds.includes(typeid)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid type id", status: false });
+    const numericTypeId = Number(typeid);
+
+    if (!validTypeIds.includes(numericTypeId)) {
+      return res.status(400).json({
+        message: "Invalid type id",
+        status: false,
+      });
     }
 
     const gameMap = {
@@ -205,60 +207,79 @@ const betWinGo = async (req, res) => {
       55: "trx5",
       100: "trx10",
     };
-    const gameJoin = gameMap[typeid];
 
-    // Get current period
-    const winGoNow = await Wingo.findOne({ status: 0, game: gameJoin })
+    const gameJoin = gameMap[numericTypeId];
+
+    const winGoNow = await Wingo.findOne({
+      status: 0,
+      game: gameJoin,
+    })
       .sort({ _id: -1 })
       .limit(1);
 
-    const user = await User.findOne({ token: auth, veri: 1 });
-    if (!winGoNow || !user || !isNumber(x) || !isNumber(money)) {
-      return res.status(400).json({ message: "Invalid data", status: false });
-    }
+    const user = await User.findOne({
+      token: auth,
+      veri: 1,
+    });
 
-    let period = winGoNow.period;
-    let fee = x * money * 0.02;
-    let total = x * money - fee;
-    let check = user.balance - total;
-
-    if (check < 0) {
-      return res
-        .status(400)
-        .json({ message: "The amount is not enough", status: false });
-    }
-
-    // Check legal bet score
-    if (user.legal_bet_score >= 3) {
-      await User.updateOne({ phone: user.phone }, { status: 2 });
-      const updatedUser = await User.findOne({ phone: user.phone });
-      return res.status(403).json({
-        message: "Your account is locked",
-        status: true,
-        change: updatedUser?.level || null,
-        money: updatedUser?.money || 0,
+    if (!winGoNow || !user) {
+      return res.status(400).json({
+        message: "Invalid data",
+        status: false,
       });
     }
 
-    // Check recharge
-    // const rechargeTotal = await Recharge.aggregate([
-    //   { $match: { phone: user.phone, status: 1 } },
-    //   { $group: { _id: null, total: { $sum: '$money' } } }
-    // ]);
-    // const rechargeAmount = rechargeTotal[0]?.total || 0;
+    const betCount = Number(x);
+    const betAmount = Number(money);
 
-    // if (rechargeAmount < money) {
-    //   return res.status(200).json({
-    //     message: 'Need to first recharge',
-    //     status: false,
-    //   });
-    // }
-
-    const recharge = await Recharge.findOne({ phone: user.phone, status: 1 });
-    if (!recharge) {
-      return res.status(200).json({
-        message: "Need to first recharge",
+    if (
+      !Number.isFinite(betCount) ||
+      !Number.isFinite(betAmount) ||
+      betCount <= 0 ||
+      betAmount <= 0
+    ) {
+      return res.status(400).json({
+        message: "Invalid amount",
         status: false,
+      });
+    }
+
+    const totalBetAmount = betCount * betAmount;
+    const fee = totalBetAmount * 0.02;
+    const total = totalBetAmount - fee;
+    const period = winGoNow.period;
+
+    if (!Number.isFinite(totalBetAmount) || totalBetAmount <= 0) {
+      return res.status(400).json({
+        message: "Invalid total bet amount",
+        status: false,
+      });
+    }
+
+    if (Number(user.balance || 0) < totalBetAmount) {
+      return res.status(400).json({
+        message: "The amount is not enough",
+        status: false,
+        balance: Number(user.balance || 0),
+      });
+    }
+
+    if (Number(user.legal_bet_score || 0) >= 3) {
+      await User.updateOne(
+        { phone: user.phone },
+        { $set: { status: 2 } }
+      );
+
+      const lockedUser = await User.findOne({
+        phone: user.phone,
+      });
+
+      return res.status(403).json({
+        message: "Your account is locked",
+        status: true,
+        change: lockedUser?.level || null,
+        money: Number(lockedUser?.balance || 0),
+        balance: Number(lockedUser?.balance || 0),
       });
     }
 
@@ -268,53 +289,72 @@ const betWinGo = async (req, res) => {
       Math.floor(Math.random() * 1000000000000000);
     const checkTime = formatDate(Date.now());
 
-    // Create bet record
-    await Bet.create({
-      id_product,
-      phone: user.phone,
-      code: user.code,
-      invite: user.invite,
-      stage: period,
-      level: user.level,
-      money: total,
-      amount: x,
-      fee: fee,
-      get: 0,
-      game: gameJoin,
-      bet: join,
-      status: 0,
-      today: checkTime,
-      isdemo: user.isdemo || false,
-    });
-
-    const formattedToday = new Date().toISOString().split("T")[0];
-
-    // Get admin settings
-    const admin = await Admin.findOne();
-
-    // Calculate total money
-    const totalMoneyResult = await Bet.aggregate([
+    /*
+     * IMPORTANT:
+     * Deduct directly from balance using an atomic query.
+     * This prevents two simultaneous bets from spending
+     * the same balance.
+     */
+    const balanceUpdate = await User.updateOne(
       {
-        $match: {
-          phone: user.phone,
-          $expr: {
-            $eq: [
-              { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-              formattedToday,
-            ],
-          },
-        },
+        token: auth,
+        veri: 1,
+        balance: { $gte: totalBetAmount },
       },
-      { $group: { _id: null, total: { $sum: "$money" } } },
-    ]);
-    const totalMoney = totalMoneyResult[0]?.total || 0;
+      {
+        $inc: {
+          balance: -totalBetAmount,
+          rebate: totalBetAmount,
+        },
+      }
+    );
 
-    // Check big and small scores
+    if (balanceUpdate.modifiedCount !== 1) {
+      return res.status(400).json({
+        message: "Insufficient balance",
+        status: false,
+      });
+    }
+
+    try {
+      await Bet.create({
+        id_product,
+        phone: user.phone,
+        code: user.code,
+        invite: user.invite,
+        stage: period,
+        level: user.level,
+        money: total,
+        amount: betCount,
+        fee,
+        get: 0,
+        game: gameJoin,
+        bet: join,
+        status: 0,
+        today: checkTime,
+        isdemo: user.isdemo || false,
+      });
+    } catch (betError) {
+      // Refund balance if bet creation fails.
+      await User.updateOne(
+        { phone: user.phone },
+        {
+          $inc: {
+            balance: totalBetAmount,
+            rebate: -totalBetAmount,
+          },
+        }
+      );
+
+      throw betError;
+    }
+
     const bigScore = await Bet.findOne({
       phone: user.phone,
       stage: period,
       bet: "l",
     });
+
     const smallScore = await Bet.findOne({
       phone: user.phone,
       stage: period,
@@ -322,48 +362,45 @@ const betWinGo = async (req, res) => {
     });
 
     if (bigScore && smallScore) {
-      // Update legal bet score
-      await User.updateOne({ token: auth }, { $inc: { legal_bet_score: 1 } });
+      await User.updateOne(
+        { phone: user.phone },
+        { $inc: { legal_bet_score: 1 } }
+      );
     }
 
-    // Update user balance
-    await User.updateOne(
-      { token: auth },
-      {
-        $inc: {
-          money: -(money * x),
-          rebate: money * x,
-        },
-      },
-    );
-
-    const updatedUser = await User.findOne({ token: auth, veri: 1 });
-
-    // Update recharge
-    let total_money = money * x;
-    let total_recharge = Math.max(user.recharge - total_money, 0);
-    await User.updateOne({ phone: user.phone }, { recharge: total_recharge });
-
-    // Create transaction
     await Transaction.create({
       phone: user.phone,
       detail: "Bet",
-      balance: total,
+      balance: -totalBetAmount,
       time: checkTime,
     });
 
-    // Process commissions
-    await commissions(auth, money * x);
+    await commissions(auth, totalBetAmount);
 
-    res.status(200).json({
+    const updatedUser = await User.findOne({
+      token: auth,
+      veri: 1,
+    });
+
+    return res.status(200).json({
       message: "Bet Succeeded",
       status: true,
-      change: updatedUser.level,
-      money: updatedUser.money,
+      change: updatedUser?.level || null,
+      money: Number(updatedUser?.balance || 0),
+      balance: Number(updatedUser?.balance || 0),
+      betAmount: totalBetAmount,
+      fee,
+      netBetAmount: total,
+      period,
+      game: gameJoin,
     });
   } catch (error) {
-    console.error("Error in betWinGo:", error.message);
-    res.status(500).json({ message: "Internal server error", status: false });
+    console.error("Error in betWinGo:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      status: false,
+      error: error.message,
+    });
   }
 };
 
@@ -581,7 +618,7 @@ const handlingWinGo1P = async (typeid) => {
       $set: { result: result },
     };
 
-    await Bet.updateMany({ status: 0, game }, { $set: { result: result } });
+    await Bet.updateMany({ status: 0, game, stage: winGoNow.period }, { $set: { result: result } });
 
     // Determine winners based on bet type
     const betTypeMap = {
@@ -604,6 +641,7 @@ const handlingWinGo1P = async (typeid) => {
     const losingBets = await Bet.find({
       status: 0,
       game,
+      stage: winGoNow.period,
       bet: { $nin: betInfo.bet },
     });
 
@@ -613,13 +651,13 @@ const handlingWinGo1P = async (typeid) => {
 
     // Handle small/large
     if (result < 5) {
-      await Bet.updateMany({ status: 0, game, bet: "l" }, { status: 2 });
+      await Bet.updateMany({ status: 0, game, stage: winGoNow.period, bet: "l" }, { status: 2 });
     } else {
-      await Bet.updateMany({ status: 0, game, bet: "n" }, { status: 2 });
+      await Bet.updateMany({ status: 0, game, stage: winGoNow.period, bet: "n" }, { status: 2 });
     }
 
     // Get winning bets
-    const winningBets = await Bet.find({ status: 0, game });
+    const winningBets = await Bet.find({ status: 0, game, stage: winGoNow.period });
 
     const processBet = async (bet) => {
       let nhan_duoc = 0;
@@ -676,7 +714,7 @@ const handlingWinGo1P = async (typeid) => {
           time: checkTime2,
         });
 
-        await User.updateOne({ phone: phone }, { $inc: { money: nhan_duoc } });
+        await User.updateOne({ phone: phone }, { $inc: { balance: nhan_duoc } });
       } else {
         await Bet.updateOne({ _id: bet._id }, { status: 2 });
       }
@@ -707,7 +745,7 @@ const tradeCommission = async () => {
       await User.updateOne(
         { phone: user.phone },
         {
-          $inc: { money: user.pending_commission },
+          $inc: { balance: user.pending_commission },
           $set: { pending_commission: 0 },
         },
       );
@@ -741,7 +779,7 @@ const tradeCommissionadmin = async (req, res) => {
       await User.updateOne(
         { phone: user.phone },
         {
-          $inc: { money: user.pending_commission },
+          $inc: { balance: user.pending_commission },
           $set: { pending_commission: 0 },
         },
       );
