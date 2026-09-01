@@ -70,6 +70,7 @@ import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
 import MineGames from "./Pages/MineGames.jsx";
 import MinesGame from "./pages/MinesGame.jsx";
 import Wingo from "./Pages/wingo/Wingo.jsx";
+import Trading from "./Pages/Trading.jsx";
 
 // ========================================
 // Scroll To Top
@@ -699,8 +700,15 @@ function App() {
             />
 
             <Route
-            path="/wingo"
-            element={<Wingo/>}/>
+              path="/wingo"
+              element={<Wingo />} />
+
+            <Route
+              path="/trading"
+              element={<Trading />}
+            />
+
+
 
             {/* ========================================
                 404 / MAINTENANCE
