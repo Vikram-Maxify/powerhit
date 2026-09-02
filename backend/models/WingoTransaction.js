@@ -1,9 +1,9 @@
 // models/Transaction.js
 const mongoose = require('mongoose');
 
-const transactionSchema = new mongoose.Schema(
+const wingotransactionSchema = new mongoose.Schema(
   {
-    phone: {
+    mobile: {
       type: String,
       required: true,
     },
@@ -25,6 +25,6 @@ const transactionSchema = new mongoose.Schema(
   }
 );
 
-transactionSchema.index({ phone: 1, createdAt: -1 });
+wingotransactionSchema.index({ mobile: 1, createdAt: -1 });
 
-module.exports = mongoose.model('transactions', transactionSchema);
+module.exports = mongoose.model('wingotransactions', wingotransactionSchema);

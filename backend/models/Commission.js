@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 
 const commissionSchema = new mongoose.Schema(
   {
-    phone: {
+    mobile: {
       type: String,
       required: true,
     },

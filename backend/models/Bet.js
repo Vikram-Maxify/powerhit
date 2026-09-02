@@ -10,7 +10,7 @@ const betSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
-    phone: {
+    mobile: {
       type: String,
       required: true,
       index: true,
