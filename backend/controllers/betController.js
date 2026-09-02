@@ -141,8 +141,8 @@ const commissions = async (auth, money) => {
 
           // Create commission record
           await Commission.create({
-            phone: upline.phone,
-            bonusby: uplines[0].phone,
+            mobile: upline.mobile,
+            bonusby: uplines[0].mobile,
             type: "Bet",
             commission: rosesFs,
             amount: money,
@@ -152,8 +152,8 @@ const commissions = async (auth, money) => {
 
           // Create subordinate record
           await Subordinate.create({
-            phone: upline.phone,
-            bonusby: uplines[0].phone,
+            mobile: upline.mobile,
+            bonusby: uplines[0].mobile,
             type: "bet commission",
             commission: rosesFs,
             amount: money,
@@ -163,7 +163,7 @@ const commissions = async (auth, money) => {
 
           // Update pending commission
           await User.updateOne(
-            { phone: upline.phone },
+            { mobile: upline.mobile },
             { $inc: { pending_commission: rosesFs } },
           );
 
@@ -266,12 +266,12 @@ const betWinGo = async (req, res) => {
 
     if (Number(user.legal_bet_score || 0) >= 3) {
       await User.updateOne(
-        { phone: user.phone },
+        { mobile: user.mobile },
         { $set: { status: 2 } }
       );
 
       const lockedUser = await User.findOne({
-        phone: user.phone,
+        mobile: user.mobile,
       });
 
       return res.status(403).json({
@@ -319,7 +319,7 @@ const betWinGo = async (req, res) => {
     try {
       await Bet.create({
         id_product,
-        phone: user.phone,
+        mobile: user.mobile,
         code: user.code,
         invite: user.invite,
         stage: period,
@@ -337,7 +337,7 @@ const betWinGo = async (req, res) => {
     } catch (betError) {
       // Refund balance if bet creation fails.
       await User.updateOne(
-        { phone: user.phone },
+        { mobile: user.mobile },
         {
           $inc: {
             balance: totalBetAmount,
@@ -350,26 +350,26 @@ const betWinGo = async (req, res) => {
     }
 
     const bigScore = await Bet.findOne({
-      phone: user.phone,
+      mobile: user.mobile,
       stage: period,
       bet: "l",
     });
 
     const smallScore = await Bet.findOne({
-      phone: user.phone,
+      mobile: user.mobile,
       stage: period,
       bet: "n",
     });
 
     if (bigScore && smallScore) {
       await User.updateOne(
-        { phone: user.phone },
+        { mobile: user.mobile },
         { $inc: { legal_bet_score: 1 } }
       );
     }
 
     await Transaction.create({
-      phone: user.phone,
+      mobile: user.mobile,
       detail: "Bet",
       balance: -totalBetAmount,
       time: checkTime,
@@ -540,7 +540,7 @@ const GetMyEmerdList = async (req, res) => {
       const limit = 100;
       const offset = (1 - 1) * limit;
 
-      const bets = await Bet.find({ phone: user.phone })
+      const bets = await Bet.find({ mobile: user.mobile })
         .sort({ _id: -1 })
         .skip(offset)
         .limit(limit);
@@ -557,12 +557,12 @@ const GetMyEmerdList = async (req, res) => {
     const offset = pageno - 1;
     const limit = pageto - pageno + 1;
 
-    const bets = await Bet.find({ phone: user.phone, game })
+    const bets = await Bet.find({ mobile: user.mobile, game })
       .sort({ _id: -1 })
       .skip(offset)
       .limit(limit);
 
-    const betsAll = await Bet.find({ phone: user.phone, game });
+    const betsAll = await Bet.find({ mobile: user.mobile, game });
 
     if (!bets || bets.length === 0) {
       return res.status(200).json({
@@ -663,7 +663,7 @@ const handlingWinGo1P = async (typeid) => {
       let nhan_duoc = 0;
       let betType = bet.bet;
       let total = bet.money;
-      let phone = bet.phone;
+      let mobile = bet.mobile;
 
       if (betType === "l" || betType === "n") {
         nhan_duoc = total * 2;
@@ -708,13 +708,13 @@ const handlingWinGo1P = async (typeid) => {
         );
 
         await Transaction.create({
-          phone: phone,
+          mobile: mobile,
           detail: "Win",
           balance: nhan_duoc,
           time: checkTime2,
         });
 
-        await User.updateOne({ phone: phone }, { $inc: { balance: nhan_duoc } });
+        await User.updateOne({ mobile: mobile }, { $inc: { balance: nhan_duoc } });
       } else {
         await Bet.updateOne({ _id: bet._id }, { status: 2 });
       }
@@ -743,7 +743,7 @@ const tradeCommission = async () => {
 
     for (const user of users) {
       await User.updateOne(
-        { phone: user.phone },
+        { mobile: user.mobile },
         {
           $inc: { balance: user.pending_commission },
           $set: { pending_commission: 0 },
@@ -751,7 +751,7 @@ const tradeCommission = async () => {
       );
 
       await Transaction.create({
-        phone: user.phone,
+        mobile: user.mobile,
         detail: "Agent Commission",
         balance: user.pending_commission,
         time: sumdate,
@@ -777,7 +777,7 @@ const tradeCommissionadmin = async (req, res) => {
 
     for (const user of users) {
       await User.updateOne(
-        { phone: user.phone },
+        { mobile: user.mobile },
         {
           $inc: { balance: user.pending_commission },
           $set: { pending_commission: 0 },
@@ -785,7 +785,7 @@ const tradeCommissionadmin = async (req, res) => {
       );
 
       await Transaction.create({
-        phone: user.phone,
+        mobile: user.mobile,
         detail: "Agent Commission",
         balance: user.pending_commission,
         time: sumdate,
