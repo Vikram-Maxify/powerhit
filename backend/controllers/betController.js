@@ -265,10 +265,7 @@ const betWinGo = async (req, res) => {
     }
 
     if (Number(user.legal_bet_score || 0) >= 3) {
-      await User.updateOne(
-        { mobile: user.mobile },
-        { $set: { status: 2 } }
-      );
+      await User.updateOne({ mobile: user.mobile }, { $set: { status: 2 } });
 
       const lockedUser = await User.findOne({
         mobile: user.mobile,
@@ -306,7 +303,7 @@ const betWinGo = async (req, res) => {
           balance: -totalBetAmount,
           rebate: totalBetAmount,
         },
-      }
+      },
     );
 
     if (balanceUpdate.modifiedCount !== 1) {
@@ -343,7 +340,7 @@ const betWinGo = async (req, res) => {
             balance: totalBetAmount,
             rebate: -totalBetAmount,
           },
-        }
+        },
       );
 
       throw betError;
@@ -364,7 +361,7 @@ const betWinGo = async (req, res) => {
     if (bigScore && smallScore) {
       await User.updateOne(
         { mobile: user.mobile },
-        { $inc: { legal_bet_score: 1 } }
+        { $inc: { legal_bet_score: 1 } },
       );
     }
 
@@ -618,7 +615,10 @@ const handlingWinGo1P = async (typeid) => {
       $set: { result: result },
     };
 
-    await Bet.updateMany({ status: 0, game, stage: winGoNow.period }, { $set: { result: result } });
+    await Bet.updateMany(
+      { status: 0, game, stage: winGoNow.period },
+      { $set: { result: result } },
+    );
 
     // Determine winners based on bet type
     const betTypeMap = {
@@ -651,13 +651,23 @@ const handlingWinGo1P = async (typeid) => {
 
     // Handle small/large
     if (result < 5) {
-      await Bet.updateMany({ status: 0, game, stage: winGoNow.period, bet: "l" }, { status: 2 });
+      await Bet.updateMany(
+        { status: 0, game, stage: winGoNow.period, bet: "l" },
+        { status: 2 },
+      );
     } else {
-      await Bet.updateMany({ status: 0, game, stage: winGoNow.period, bet: "n" }, { status: 2 });
+      await Bet.updateMany(
+        { status: 0, game, stage: winGoNow.period, bet: "n" },
+        { status: 2 },
+      );
     }
 
     // Get winning bets
-    const winningBets = await Bet.find({ status: 0, game, stage: winGoNow.period });
+    const winningBets = await Bet.find({
+      status: 0,
+      game,
+      stage: winGoNow.period,
+    });
 
     const processBet = async (bet) => {
       let nhan_duoc = 0;
@@ -714,7 +724,10 @@ const handlingWinGo1P = async (typeid) => {
           time: checkTime2,
         });
 
-        await User.updateOne({ mobile: mobile }, { $inc: { balance: nhan_duoc } });
+        await User.updateOne(
+          { mobile: mobile },
+          { $inc: { balance: nhan_duoc } },
+        );
       } else {
         await Bet.updateOne({ _id: bet._id }, { status: 2 });
       }
