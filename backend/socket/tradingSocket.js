@@ -10,7 +10,7 @@ let engineStarted = false;
 let timer = null;
 let io = null;
 
-let currentPrice = DEFAULT_PRICE;
+let currentPrice = 0;
 
 // =====================================================
 // ROUND ID

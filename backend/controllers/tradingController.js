@@ -33,9 +33,7 @@ async function createRound(req, res) {
     }
 
     const now = new Date();
-    const startValue = Number(
-      req.body?.startValue || DEFAULT_PRICE
-    );
+    const startValue = Number(req.body?.startValue || DEFAULT_PRICE);
 
     const round = await TradingRound.create({
       roundId: makeRoundId(),
@@ -77,7 +75,7 @@ async function getCurrentRound(req, res) {
       const now = new Date();
       round = await TradingRound.create({
         roundId: makeRoundId(),
-        startValue: DEFAULT_PRICE,
+        startValue: 0,
         currentValue: DEFAULT_PRICE,
         status: "active",
         startsAt: now,
@@ -182,10 +180,7 @@ async function placeTrade(req, res) {
       });
     }
 
-    if (
-      !Number.isFinite(numericAmount) ||
-      numericAmount <= 0
-    ) {
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({
         success: false,
         message: "Amount must be greater than 0",
@@ -210,10 +205,7 @@ async function placeTrade(req, res) {
       });
     }
 
-    if (
-      round.status !== "active" ||
-      new Date(round.endsAt) <= new Date()
-    ) {
+    if (round.status !== "active" || new Date(round.endsAt) <= new Date()) {
       return res.status(400).json({
         success: false,
         message: "Trading round is not active",
@@ -306,17 +298,14 @@ async function resolveTrades(round) {
     let result = "cancelled";
 
     if (round.finalValue > trade.entryValue) {
-      result =
-        trade.direction === "up" ? "won" : "lost";
+      result = trade.direction === "up" ? "won" : "lost";
     } else if (round.finalValue < trade.entryValue) {
-      result =
-        trade.direction === "down" ? "won" : "lost";
+      result = trade.direction === "down" ? "won" : "lost";
     }
 
     trade.exitValue = round.finalValue;
     trade.result = result;
-    trade.status =
-      result === "cancelled" ? "cancelled" : "completed";
+    trade.status = result === "cancelled" ? "cancelled" : "completed";
 
     await trade.save();
   }
