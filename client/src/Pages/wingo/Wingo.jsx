@@ -275,7 +275,11 @@ const Wingo = () => {
       const res = await dispatch(
         getMyBets({ typeid: typeid1, pageno, pageto }),
       ).unwrap();
-      setWingoHistoryData(res);
+      // ✅ Fix: extract gameslist from res.data
+      setWingoHistoryData({
+        ...res,
+        gameslist: res?.data?.gameslist || [], // ← flatten the structure
+      });
       setHistoryPage(res?.page);
     } catch (err) {
       console.error("fetchHistory failed:", err);
@@ -1042,7 +1046,7 @@ const Wingo = () => {
         {wingoHistoryData?.gameslist?.length === 0 ? (
           <EmptyData />
         ) : (
-          (wingoHistoryData?.gameslist || []).map((item, i) => (
+          (wingoHistoryData?.data?.gameslist || []).map((item, i) => (
             <div
               key={i}
               className="mb-2 rounded-xl border border-[#d9aa3d]/20 bg-[#fffaf0] p-3 last:mb-0"
