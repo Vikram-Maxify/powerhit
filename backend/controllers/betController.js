@@ -13,7 +13,18 @@ const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 
-// ==================== HELPER FUNCTIONS ====================
+// ============================================
+// GLOBAL IO REFERENCE
+// ============================================
+let ioInstance = null;
+
+const setIo = (io) => {
+  ioInstance = io;
+};
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
 const isNumber = (params) => {
   let pattern = /^[0-9]*\d$/;
@@ -83,7 +94,55 @@ function shuffleArrayInPlace(array) {
   }
 }
 
-// ==================== PAGE RENDERERS ====================
+// ============================================
+// CALCULATE TIMER FUNCTION FOR SOCKET
+// ============================================
+function calculateTimer(intervalSeconds) {
+  const now = new Date();
+  const totalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  
+  let remaining = intervalSeconds - (totalSeconds % intervalSeconds);
+  if (remaining === 0) remaining = intervalSeconds;
+  
+  const minute = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const secondtime1 = Math.floor(seconds / 10);
+  const secondtime2 = seconds % 10;
+  
+  return { minute, secondtime1, secondtime2 };
+}
+
+// ============================================
+// SOCKET EMIT FUNCTIONS
+// ============================================
+const emitTimerUpdate = (type, timerData) => {
+  if (ioInstance) {
+    const eventMap = {
+      10: 'timeUpdate_30',
+      1: 'timeUpdate_11',
+      3: 'timeUpdate_3',
+      5: 'timeUpdate_5',
+    };
+    const event = eventMap[type];
+    if (event) {
+      ioInstance.emit(event, timerData);
+      console.log(`[SOCKET] Emitted ${event}:`, timerData);
+    }
+  }
+};
+
+const emitGameResult = (game, period, amount) => {
+  if (ioInstance) {
+    ioInstance.emit('data-server', {
+      data: [{ game, period, amount }]
+    });
+    console.log(`[SOCKET] Emitted result for ${game}: ${period} -> ${amount}`);
+  }
+};
+
+// ============================================
+// PAGE RENDERERS
+// ============================================
 
 const winGoPage = async (req, res) => {
   return res.render("bet/wingo/win.ejs");
@@ -117,11 +176,12 @@ const trxPage10 = async (req, res) => {
   return res.render("bet/trx/trx10.ejs");
 };
 
-// ==================== COMMISSION FUNCTIONS ====================
+// ============================================
+// COMMISSION FUNCTIONS
+// ============================================
 
-const commissions = async (auth, money) => {
+const commissions = async (user, money) => {
   try {
-    const user = await User.findOne({ token: auth, veri: 1 });
     if (!user) return;
 
     const levels = await Level.find().sort({ level: 1 });
@@ -139,7 +199,6 @@ const commissions = async (auth, money) => {
         if (upline) {
           count++;
 
-          // Create commission record
           await Commission.create({
             mobile: upline.mobile,
             bonusby: uplines[0].mobile,
@@ -150,7 +209,6 @@ const commissions = async (auth, money) => {
             date: checkTime2,
           });
 
-          // Create subordinate record
           await Subordinate.create({
             mobile: upline.mobile,
             bonusby: uplines[0].mobile,
@@ -161,7 +219,6 @@ const commissions = async (auth, money) => {
             date: checkTime2,
           });
 
-          // Update pending commission
           await User.updateOne(
             { mobile: upline.mobile },
             { $inc: { pending_commission: rosesFs } },
@@ -180,33 +237,32 @@ const commissions = async (auth, money) => {
   }
 };
 
-// ==================== BET PLACEMENT ====================
+// ============================================
+// BET PLACEMENT
+// ============================================
 
 const betWinGo = async (req, res) => {
   try {
     const { typeid, join, x, money } = req.body;
+    const user = req.user;
+
+    console.log("Received bet request:", { typeid, join, x, money, userId: user?._id });
     
-    // FIXED: Use consistent cookie name - changed from token to auth
-    const auth = req.cookies.auth || req.cookies.token;
-    
-    if (!auth) {
+    if (!user) {
       return res.status(401).json({
         message: "Authentication required",
         status: false,
       });
     }
 
-    // FIXED: Find user by token instead of using req.user.id
-    const user = await User.findOne({ token: auth, veri: 1 });
-    
-    if (!user) {
+    if (user.veri !== 1) {
       return res.status(401).json({
-        message: "User not found or unauthorized",
+        message: "User not verified",
         status: false,
       });
     }
 
-    const userId = user._id; // FIXED: Use user._id instead of req.user.id
+    const userId = user._id;
     console.log("User ID:", userId);
 
     const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100];
@@ -305,15 +361,9 @@ const betWinGo = async (req, res) => {
       Math.floor(Math.random() * 1000000000000000);
     const checkTime = formatDate(Date.now());
 
-    /*
-     * IMPORTANT:
-     * Deduct directly from balance using an atomic query.
-     * This prevents two simultaneous bets from spending
-     * the same balance.
-     */
     const balanceUpdate = await User.updateOne(
       {
-        token: auth,
+        _id: user._id,
         veri: 1,
         balance: { $gte: totalBetAmount },
       },
@@ -351,9 +401,8 @@ const betWinGo = async (req, res) => {
         isdemo: user.isdemo || false,
       });
     } catch (betError) {
-      // Refund balance if bet creation fails.
       await User.updateOne(
-        { mobile: user.mobile },
+        { _id: user._id },
         {
           $inc: {
             balance: totalBetAmount,
@@ -361,7 +410,6 @@ const betWinGo = async (req, res) => {
           },
         },
       );
-
       throw betError;
     }
 
@@ -391,10 +439,10 @@ const betWinGo = async (req, res) => {
       time: checkTime,
     });
 
-    await commissions(auth, totalBetAmount);
+    await commissions(user, totalBetAmount);
 
     const updatedUser = await User.findOne({
-      token: auth,
+      _id: user._id,
       veri: 1,
     });
 
@@ -420,7 +468,9 @@ const betWinGo = async (req, res) => {
   }
 };
 
-// ==================== ORDER LIST ====================
+// ============================================
+// ORDER LIST
+// ============================================
 
 const listOrderOld = async (req, res) => {
   try {
@@ -442,8 +492,7 @@ const listOrderOld = async (req, res) => {
       });
     }
 
-    let auth = req.cookies.auth || req.cookies.token;
-    const user = await User.findOne({ token: auth, veri: 1 });
+    const user = req.user;
     if (!user) {
       return res
         .status(200)
@@ -508,7 +557,9 @@ const listOrderOld = async (req, res) => {
   }
 };
 
-// ==================== GET MY BET HISTORY ====================
+// ============================================
+// GET MY BET HISTORY
+// ============================================
 
 const GetMyEmerdList = async (req, res) => {
   try {
@@ -530,8 +581,7 @@ const GetMyEmerdList = async (req, res) => {
       });
     }
 
-    let auth = req.cookies.auth || req.cookies.token;
-    const user = await User.findOne({ token: auth, veri: 1 });
+    const user = req.user;
     if (!user) {
       return res.status(200).json({
         code: 0,
@@ -604,7 +654,9 @@ const GetMyEmerdList = async (req, res) => {
   }
 };
 
-// ==================== HANDLE WIN RESULTS ====================
+// ============================================
+// HANDLE WIN RESULTS
+// ============================================
 
 const handlingWinGo1P = async (typeid) => {
   try {
@@ -620,7 +672,6 @@ const handlingWinGo1P = async (typeid) => {
     };
     const game = gameMap[typeid];
 
-    // Get winning result
     const winGoNow = await Wingo.findOne({ status: { $ne: 0 }, game })
       .sort({ _id: -1 })
       .limit(1);
@@ -629,17 +680,11 @@ const handlingWinGo1P = async (typeid) => {
 
     const result = Number(winGoNow.amount);
 
-    // Update bet results based on win/lose
-    const updateQuery = {
-      $set: { result: result },
-    };
-
     await Bet.updateMany(
       { status: 0, game, stage: winGoNow.period },
       { $set: { result: result } },
     );
 
-    // Determine winners based on bet type
     const betTypeMap = {
       0: { bet: ["0", "t", "d", "n", "l"], special: true },
       1: { bet: ["1", "x", "n", "l"], special: false },
@@ -656,7 +701,6 @@ const handlingWinGo1P = async (typeid) => {
     const betInfo = betTypeMap[result];
     if (!betInfo) return;
 
-    // Mark losing bets
     const losingBets = await Bet.find({
       status: 0,
       game,
@@ -668,7 +712,6 @@ const handlingWinGo1P = async (typeid) => {
       await Bet.updateOne({ _id: bet._id }, { status: 2 });
     }
 
-    // Handle small/large
     if (result < 5) {
       await Bet.updateMany(
         { status: 0, game, stage: winGoNow.period, bet: "l" },
@@ -681,7 +724,6 @@ const handlingWinGo1P = async (typeid) => {
       );
     }
 
-    // Get winning bets
     const winningBets = await Bet.find({
       status: 0,
       game,
@@ -755,12 +797,18 @@ const handlingWinGo1P = async (typeid) => {
     for (const bet of winningBets) {
       await processBet(bet);
     }
+
+    // ============ SOCKET EMIT FOR RESULT ============
+    emitGameResult(game, winGoNow.period, result);
+
   } catch (error) {
     console.error("Error in handlingWinGo1P:", error.message);
   }
 };
 
-// ==================== TRADE COMMISSION ====================
+// ============================================
+// TRADE COMMISSION
+// ============================================
 
 const tradeCommission = async () => {
   try {
@@ -852,7 +900,9 @@ const tradeCommissionGet = async (req, res) => {
   }
 };
 
-// ==================== API FETCH FUNCTIONS (30 Seconds) ====================
+// ============================================
+// API FETCH FUNCTIONS (30 Seconds)
+// ============================================
 
 const maxApiRetries = 3;
 const apiTimeout = 900;
@@ -897,7 +947,9 @@ const fetchApiData_bdgwin_10 = async () => {
   return null;
 };
 
-// ==================== DEFINERESULT (30 Seconds) ====================
+// ============================================
+// DEFINERESULT
+// ============================================
 
 const defineresult = async (game) => {
   try {
@@ -978,7 +1030,9 @@ const defineresult = async (game) => {
   }
 };
 
-// ==================== ADD WINGO 30 SECOND ====================
+// ============================================
+// ADD WINGO 30 SECOND
+// ============================================
 
 const logFilePath = path.join(__dirname, "wingo30.log");
 let lastCallTime30 = 0;
@@ -994,18 +1048,15 @@ const addWinGo_30 = async (period_id) => {
     const join = "wingo10";
     const checkTime2 = formatDate(Date.now());
 
-    // Get current period
     let winGoNow = await Wingo.findOne({ status: 0, game: join })
       .sort({ _id: -1 })
       .limit(1);
 
     let period = winGoNow?.period || "98778990";
 
-    // Get admin settings
     const setting = await Admin.findOne();
     let nextResult = setting?.wingo10 || "-1";
 
-    // Fetch new period data (30 seconds)
     let newPeriodData = await fetchNewPeriod_30(period_id);
 
     if (!newPeriodData) {
@@ -1015,7 +1066,6 @@ const addWinGo_30 = async (period_id) => {
 
     let { newPeriod, resultAmount, attempts } = newPeriodData;
 
-    // Check if there are players
     const minPlayers = await Bet.countDocuments({ status: 0, game: join });
 
     if (minPlayers > 0) {
@@ -1024,7 +1074,6 @@ const addWinGo_30 = async (period_id) => {
       }
     }
 
-    // Update results
     let newArr = "";
     if (nextResult === "-1") {
       await Wingo.updateOne(
@@ -1041,13 +1090,11 @@ const addWinGo_30 = async (period_id) => {
       );
     }
 
-    // Update previous periods
     await Wingo.updateMany(
       { period: { $ne: newPeriod }, game: join },
       { $set: { status: 1 } },
     );
 
-    // Insert new period
     await Wingo.create({
       period: String(newPeriod),
       amount: 0,
@@ -1058,8 +1105,16 @@ const addWinGo_30 = async (period_id) => {
       time: checkTime2,
     });
 
-    // Update admin settings
     await Admin.updateOne({}, { $set: { wingo10: newArr } });
+
+    // ============ SOCKET EMIT ============
+    // Emit timer update for 30s game
+    const timerData = calculateTimer(30);
+    emitTimerUpdate(10, timerData);
+    
+    // Emit game result
+    emitGameResult(join, period, resultAmount);
+
   } catch (error) {
     console.error("Error in addWinGo_30:", error);
   }
@@ -1090,7 +1145,9 @@ const fetchNewPeriod_30 = async (currentPeriod) => {
   return null;
 };
 
-// ==================== ADD WINGO 1 MINUTE (KEPT FOR BACKWARDS COMPATIBILITY) ====================
+// ============================================
+// ADD WINGO 1 MINUTE
+// ============================================
 
 const addWinGo_1 = async (period_id) => {
   try {
@@ -1159,6 +1216,12 @@ const addWinGo_1 = async (period_id) => {
     });
 
     await Admin.updateOne({}, { $set: { wingo: newArr } });
+
+    // ============ SOCKET EMIT ============
+    const timerData = calculateTimer(60);
+    emitTimerUpdate(1, timerData);
+    emitGameResult(join, period, resultAmount);
+
   } catch (error) {
     console.error("Error in addWinGo_1:", error);
   }
@@ -1225,7 +1288,9 @@ const fetchNewPeriod_1 = async (currentPeriod) => {
   return null;
 };
 
-// ==================== ADD WINGO 3 MINUTE ====================
+// ============================================
+// ADD WINGO 3 MINUTE
+// ============================================
 
 let lastCallTime3 = 0;
 const lockDuration3 = 3000;
@@ -1299,6 +1364,12 @@ const addWinGo_3 = async () => {
     });
 
     await Admin.updateOne({}, { $set: { wingo3: newArr } });
+
+    // ============ SOCKET EMIT ============
+    const timerData = calculateTimer(180);
+    emitTimerUpdate(3, timerData);
+    emitGameResult(join, period, amount);
+
   } catch (error) {
     console.error("addWinGo_3 error:", error.message);
   }
@@ -1342,7 +1413,9 @@ const fetchLatestWingo3Data = async () => {
   return null;
 };
 
-// ==================== ADD WINGO 5 MINUTE ====================
+// ============================================
+// ADD WINGO 5 MINUTE
+// ============================================
 
 let lastCallTime5 = 0;
 const lockDuration5 = 3000;
@@ -1416,6 +1489,12 @@ const addWinGo_5 = async () => {
     });
 
     await Admin.updateOne({}, { $set: { wingo5: newArr } });
+
+    // ============ SOCKET EMIT ============
+    const timerData = calculateTimer(300);
+    emitTimerUpdate(5, timerData);
+    emitGameResult(join, period, amount);
+
   } catch (error) {
     console.error("addWinGo_5 error:", error.message);
   }
@@ -1459,7 +1538,9 @@ const fetchLatestWingo5Data = async () => {
   return null;
 };
 
-// ==================== ADD TRX ====================
+// ============================================
+// ADD TRX
+// ============================================
 
 let lastCallTime11 = 0;
 const lockDuration11 = 3000;
@@ -1549,6 +1630,17 @@ const addWinGo_11 = async (periodfromserver) => {
     });
 
     await Admin.updateOne({}, { $set: { trx: newArr } });
+
+    // ============ SOCKET EMIT ============
+    // TRX uses 1 minute timer
+    const timerData = calculateTimer(60);
+    if (ioInstance) {
+      ioInstance.emit('timeUpdate_11', timerData);
+      ioInstance.emit('data-server', {
+        data: [{ game: join, period: period, amount: resultAmount }]
+      });
+    }
+
   } catch (error) {
     console.error("Error in addWinGo_11:", error);
   }
@@ -1635,7 +1727,9 @@ const fetchNewPeriod_11 = async (currentPeriod, game) => {
   };
 };
 
-// ==================== EXPORT ====================
+// ============================================
+// EXPORT
+// ============================================
 
 module.exports = {
   winGoPage,
@@ -1653,9 +1747,10 @@ module.exports = {
   tradeCommission,
   tradeCommissionadmin,
   tradeCommissionGet,
-  addWinGo_30, // 30 seconds version
-  addWinGo_1, // 1 minute version (kept for compatibility)
+  addWinGo_30,
+  addWinGo_1,
   addWinGo_3,
   addWinGo_5,
   addWinGo_11,
+  setIo,
 };
