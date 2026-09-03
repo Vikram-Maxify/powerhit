@@ -262,11 +262,11 @@ const Wingo = () => {
       line.setAttribute("y1", `${first.offsetTop + first.offsetHeight / 2}px`);
       line.setAttribute(
         "x2",
-        `${second.offsetLeft + second.offsetWidth / 2}px`
+        `${second.offsetLeft + second.offsetWidth / 2}px`,
       );
       line.setAttribute(
         "y2",
-        `${second.offsetTop + second.offsetHeight / 2}px`
+        `${second.offsetTop + second.offsetHeight / 2}px`,
       );
       line.setAttribute("stroke", "red");
       line.setAttribute("stroke-width", "0.6");
@@ -280,7 +280,7 @@ const Wingo = () => {
   const fetchHistory = async () => {
     try {
       const res = await dispatch(
-        getMyBets({ typeid: typeid1, pageno, pageto })
+        getMyBets({ typeid: typeid1, pageno, pageto }),
       ).unwrap();
       setWingoHistoryData({
         ...res,
@@ -295,7 +295,7 @@ const Wingo = () => {
   const fetchNewData = async (pageno, pageto) => {
     try {
       const res = await dispatch(
-        getOrderList({ typeid: typeid1, pageno, pageto })
+        getOrderList({ typeid: typeid1, pageno, pageto }),
       ).unwrap();
       if (res.status) {
         setWingoPeriodListData(res);
@@ -313,7 +313,7 @@ const Wingo = () => {
     debounce(async (typeid1, pageno, pageto) => {
       try {
         const res = await dispatch(
-          getOrderList({ typeid: typeid1, pageno, pageto })
+          getOrderList({ typeid: typeid1, pageno, pageto }),
         ).unwrap();
         if (res.status) {
           setWingoPeriodListData(res);
@@ -326,7 +326,7 @@ const Wingo = () => {
 
       try {
         const historyRes = await dispatch(
-          getMyBets({ typeid: typeid1, pageno, pageto })
+          getMyBets({ typeid: typeid1, pageno, pageto }),
         ).unwrap();
         setWingoHistoryData(historyRes);
         setHistoryPage(historyRes?.page);
@@ -336,14 +336,14 @@ const Wingo = () => {
 
       updateNumbers();
     }, 500),
-    [dispatch]
+    [dispatch],
   );
 
   const debouncedFetchResult = useCallback(
     debounce(async (typeid1, pageno, pageto) => {
       try {
         const res = await dispatch(
-          getMyBets({ typeid: typeid1, pageno, pageto })
+          getMyBets({ typeid: typeid1, pageno, pageto }),
         ).unwrap();
         setWingoHistoryData(res);
         setHistoryPage(res?.page);
@@ -363,119 +363,132 @@ const Wingo = () => {
         console.error("debouncedFetchResult failed:", err);
       }
     }, 500),
-    [dispatch]
+    [dispatch],
   );
 
   // ============================================================
   // SOCKET LISTENERS - FIXED
   // ============================================================
-  
-  const setSocketListeners = useCallback((typeid) => {
-    const eventMap = {
-      5: "timeUpdate_5",
-      3: "timeUpdate_3",
-      1: "timeUpdate_11",
-      10: "timeUpdate_30",
-    };
-    const eventName = eventMap[typeid];
-    if (!eventName) return;
 
-    // Remove all existing listeners
-    socket.off();
-
-    // Timer update listener
-    socket.on(eventName, (data) => {
-      if (!data) return;
-      
-      // Fix: Map server data to component state
-      const { minute, secondtime1, secondtime2 } = data;
-      
-      // Set timer values - minute ko minutetime2 mein daal rahe hain
-      setMinutetime2(minute || 0);
-      setSecondtime1(secondtime1 || 0);
-      setSecondtime2(secondtime2 || 0);
-
-      // Trigger open time when timer reaches last seconds
-      if (
-        minute === 0 &&
-        secondtime1 === 0 &&
-        secondtime2 <= 5 &&
-        secondtime2 >= 1
-      ) {
-        setOpenTime(true);
-        setOpenPopup(false);
-        if (activeVoice) playAudio(audio1Ref);
-      } else {
-        setOpenTime(false);
-      }
-
-      // Audio triggers for specific times
-      const triggerMap = {
-        5: minute === 4 && secondtime1 === 5 && secondtime2 === 9,
-        3: minute === 2 && secondtime1 === 5 && secondtime2 === 9,
-        1: minute === 0 && secondtime1 === 5 && secondtime2 === 9,
-        10: minute === 0 && secondtime1 === 5 && secondtime2 === 9,
+  const setSocketListeners = useCallback(
+    (typeid) => {
+      const eventMap = {
+        5: "timeUpdate_5",
+        3: "timeUpdate_3",
+        1: "timeUpdate_11",
+        10: "timeUpdate_30",
       };
-      
-      if (triggerMap[typeid] && activeVoice) {
-        playAudio(audio2Ref);
-      }
-    });
+      const eventName = eventMap[typeid];
+      if (!eventName) return;
 
-    // Data server listener for period updates
-    socket.on("data-server", async (msg) => {
-      if (!msg?.data) return;
+      // Remove all existing listeners
+      socket.off();
 
-      setPage(1);
-      setPageto(10);
+      // Timer update listener
+      socket.on(eventName, (data) => {
+        if (!data) return;
 
-      // Check if this message is for current game
-      const gameMap = {
-        1: "wingo",
-        3: "wingo3",
-        5: "wingo5",
-        10: "wingo10",
-      };
-      
-      const currentGame = gameMap[typeid];
-      const isCurrentGame = msg.data.some(item => item.game === currentGame);
+        // Fix: Map server data to component state
+        const { minute, secondtime1, secondtime2 } = data;
 
-      if (isCurrentGame && !calledRef.current) {
-        calledRef.current = true;
-        await debouncedFetch(typeid, pageno, pageto);
-        setTimeout(() => {
-          calledRef.current = false;
-        }, 2000);
-      }
+        // Set timer values - minute ko minutetime2 mein daal rahe hain
+        setMinutetime2(minute || 0);
+        setSecondtime1(secondtime1 || 0);
+        setSecondtime2(secondtime2 || 0);
 
-      // Check for result update
-      if (
-        wingoHistoryData?.gameslist?.[0]?.stage &&
-        msg.data.some(item => item.period === wingoHistoryData.gameslist[0].stage) &&
-        !calledRef.current
-      ) {
-        await debouncedFetchResult(typeid, pageno, pageto);
-        setResultPopup(true);
-        setTimeout(() => {
-          calledRef.current = false;
-        }, 2000);
-      }
-    });
+        // Trigger open time when timer reaches last seconds
+        if (
+          minute === 0 &&
+          secondtime1 === 0 &&
+          secondtime2 <= 5 &&
+          secondtime2 >= 1
+        ) {
+          setOpenTime(true);
+          setOpenPopup(false);
+          if (activeVoice) playAudio(audio1Ref);
+        } else {
+          setOpenTime(false);
+        }
 
-    // Connection events
-    socket.on("connect", () => {
-      console.log("Socket connected successfully");
-    });
+        // Audio triggers for specific times
+        const triggerMap = {
+          5: minute === 4 && secondtime1 === 5 && secondtime2 === 9,
+          3: minute === 2 && secondtime1 === 5 && secondtime2 === 9,
+          1: minute === 0 && secondtime1 === 5 && secondtime2 === 9,
+          10: minute === 0 && secondtime1 === 5 && secondtime2 === 9,
+        };
 
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
-    });
+        if (triggerMap[typeid] && activeVoice) {
+          playAudio(audio2Ref);
+        }
+      });
 
-    socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-    });
+      // Data server listener for period updates
+      socket.on("data-server", async (msg) => {
+        if (!msg?.data) return;
 
-  }, [activeVoice, debouncedFetch, debouncedFetchResult, pageno, pageto, wingoHistoryData]);
+        setPage(1);
+        setPageto(10);
+
+        // Check if this message is for current game
+        const gameMap = {
+          1: "wingo",
+          3: "wingo3",
+          5: "wingo5",
+          10: "wingo10",
+        };
+
+        const currentGame = gameMap[typeid];
+        const isCurrentGame = msg.data.some(
+          (item) => item.game === currentGame,
+        );
+
+        if (isCurrentGame && !calledRef.current) {
+          calledRef.current = true;
+          await debouncedFetch(typeid, pageno, pageto);
+          setTimeout(() => {
+            calledRef.current = false;
+          }, 2000);
+        }
+
+        // Check for result update
+        if (
+          wingoHistoryData?.gameslist?.[0]?.stage &&
+          msg.data.some(
+            (item) => item.period === wingoHistoryData.gameslist[0].stage,
+          ) &&
+          !calledRef.current
+        ) {
+          await debouncedFetchResult(typeid, pageno, pageto);
+          setResultPopup(true);
+          setTimeout(() => {
+            calledRef.current = false;
+          }, 2000);
+        }
+      });
+
+      // Connection events
+      socket.on("connect", () => {
+        console.log("Socket connected successfully");
+      });
+
+      socket.on("disconnect", () => {
+        console.log("Socket disconnected");
+      });
+
+      socket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+      });
+    },
+    [
+      activeVoice,
+      debouncedFetch,
+      debouncedFetchResult,
+      pageno,
+      pageto,
+      wingoHistoryData,
+    ],
+  );
 
   // ============================================================
   // EVENT HANDLERS
@@ -544,7 +557,7 @@ const Wingo = () => {
           join: selectBet,
           x: multiplier,
           money: balance,
-        })
+        }),
       ).unwrap();
 
       setBetAlert(true);
@@ -643,10 +656,10 @@ const Wingo = () => {
       socket.connect();
       isConnectedRef.current = true;
     }
-    
+
     // Set socket listeners
     setSocketListeners(typeid1);
-    
+
     return () => {
       socket.off();
     };
@@ -662,7 +675,7 @@ const Wingo = () => {
   // ============================================================
   // RENDER HELPERS
   // ============================================================
-  
+
   const goldCard =
     "rounded-2xl border border-[#d9aa3d]/55 bg-[linear-gradient(145deg,#fffdf7,#fff7df)] shadow-[0_8px_24px_rgba(122,82,10,.10)]";
 
@@ -966,7 +979,7 @@ const Wingo = () => {
                 <span
                   className={`inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-lg font-black shadow-sm ${getColorClass(
                     item.amount,
-                    "text"
+                    "text",
                   )} bg-white`}
                 >
                   {item.amount}
@@ -1125,7 +1138,7 @@ const Wingo = () => {
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[9px] font-black shadow-sm ${getBetClass(
-                      item.bet
+                      item.bet,
                     )}`}
                   >
                     {["x", "d", "t"].includes(item.bet)
@@ -1159,7 +1172,7 @@ const Wingo = () => {
                     >
                       {item.status === 1 ? "+₹" : "-₹"}
                       {Number(
-                        item.status === 1 ? item.get : item.money
+                        item.status === 1 ? item.get : item.money,
                       ).toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -1191,7 +1204,7 @@ const Wingo = () => {
                     [
                       "Win/Loss",
                       `${item.status === 1 ? "+" : "-"}₹${Number(
-                        item.status === 1 ? item.get : item.money
+                        item.status === 1 ? item.get : item.money,
                       ).toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
                       })}`,
@@ -1299,7 +1312,7 @@ const Wingo = () => {
           <div className="fixed bottom-[76px] left-1/2 z-50 w-[calc(100%-16px)] max-w-[500px] -translate-x-1/2 overflow-hidden rounded-t-[26px] border border-[#d9aa3d]/55 bg-[#21180b] shadow-[0_-10px_40px_rgba(0,0,0,.35)]">
             <div
               className={`p-4 text-center ${getBetClass(
-                selectBet
+                selectBet,
               )} popup-select-effect`}
             >
               <p className="text-[10px] font-black uppercase tracking-[.18em] text-black/65">
@@ -1502,9 +1515,10 @@ const Wingo = () => {
             {winResult ? (
               <p className="mt-4 text-3xl font-black text-[#ffd85a]">
                 ₹
-                {Number(
-                  wingoHistoryData?.gameslist?.[0]?.get
-                ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                {Number(wingoHistoryData?.gameslist?.[0]?.get).toLocaleString(
+                  "en-IN",
+                  { minimumFractionDigits: 2 },
+                )}
               </p>
             ) : (
               <p className="mt-4 text-xl font-black text-white/45">Lose</p>

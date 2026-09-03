@@ -513,7 +513,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
       {/* ================= MOBILE BOTTOM NAV ================= */}
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden perspective-1000">
         <div className="relative mx-auto max-w-full">
-          <div className="relative h-[72px] bg-white/95 backdrop-blur-xl rounded-t-3xl border-t border-white/40 shadow-[0_-8px_40px_rgba(0,0,0,0.08)] transform-gpu translate-y-0 hover:-translate-y-3 transition-all duration-700 [transform-style:preserve-3d]">
+          <div className="relative h-[72px] bg-white/95 backdrop-blur-xl rounded-t-3xl border-t border-white/40 shadow-[0_-8px_40px_rgba(0,0,0,0.08)] transform-gpu translate-y-0 transition-all duration-700 [transform-style:preserve-3d]">
             {/* Grid Layout - 5 columns */}
             <div className="grid grid-cols-5 h-full w-full">
               {/* Home */}

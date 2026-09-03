@@ -512,19 +512,18 @@ const MatkaMarkets = () => {
           >
             <ArrowLeft size={18} />
           </button>
+          <div className="flex items-center gap-2">
+            <span className="h-4 w-1 rounded-full bg-amber-500" />
+            <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
+              Choose Market
+            </h2>
+          </div>
         </div>
         {/* ======================================================
            CHOOSE MARKET
         ====================================================== */}
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="h-4 w-1 rounded-full bg-amber-500" />
-              <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
-                Choose Market
-              </h2>
-            </div>
-
             <div className="flex overflow-hidden rounded-full border border-amber-100 bg-amber-50/40 p-1 text-xs font-bold">
               {["live", "open", "upcoming"].map((tab) => {
                 const style = STATUS_STYLES[tab === "open" ? "live" : tab];
