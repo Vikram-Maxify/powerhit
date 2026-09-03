@@ -39,6 +39,7 @@ const Recharge = require("./models/Recharge");
 // =====================================================
 
 const betController = require("./controllers/betController");
+const betRoutes = require("./routes/betRoutes");
 
 // =====================================================
 // USER ROUTES
@@ -320,24 +321,7 @@ app.use("/api", (req, res, next) => {
 // =====================================================
 // BET ROUTES
 // =====================================================
-
-// Bet pages
-app.get("/bet/wingo", protect, betController.winGoPage);
-
-app.get("/bet/wingo10", protect, betController.winGoPage10);
-
-app.get("/bet/trx", protect, betController.trxPage);
-
-// API routes
-app.post("/api/bet", protect, betController.betWinGo);
-
-app.post("/api/order-list", protect, betController.listOrderOld);
-
-app.post("/api/my-bets", protect, betController.GetMyEmerdList);
-
-app.post("/api/commission-admin", protect, betController.tradeCommissionadmin);
-
-app.get("/api/commission-get", protect, betController.tradeCommissionGet);
+app.use("/api", betRoutes);
 
 // =====================================================
 // USER ROUTES
@@ -545,6 +529,67 @@ app.use((err, req, res, next) => {
 });
 
 // =====================================================
+// =====================================================
+// SOCKET TIMER FUNCTIONS
+// =====================================================
+// =====================================================
+
+/**
+ * Calculate remaining time for a game interval
+ * @param {number} intervalSeconds - Total interval in seconds (30, 60, 180, 300)
+ * @returns {object} { minute, secondtime1, secondtime2 }
+ */
+function calculateTimer(intervalSeconds) {
+  const now = new Date();
+  const totalSeconds =
+    now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+  // Calculate remaining time in the current cycle
+  let remaining = intervalSeconds - (totalSeconds % intervalSeconds);
+
+  // If remaining is 0, it means exactly at the boundary, show full cycle
+  if (remaining === 0) remaining = intervalSeconds;
+
+  const minute = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const secondtime1 = Math.floor(seconds / 10);
+  const secondtime2 = seconds % 10;
+
+  return { minute, secondtime1, secondtime2 };
+}
+
+/**
+ * Broadcast all timer updates to connected clients
+ */
+function broadcastTimers() {
+  const timers = {
+    // 30 seconds - Wingo 10
+    timeUpdate_30: calculateTimer(30),
+    // 1 minute - Wingo 1
+    timeUpdate_11: calculateTimer(60),
+    // 3 minutes - Wingo 3
+    timeUpdate_3: calculateTimer(180),
+    // 5 minutes - Wingo 5
+    timeUpdate_5: calculateTimer(300),
+  };
+
+  // Emit each timer event
+  io.emit("timeUpdate_30", timers.timeUpdate_30);
+  io.emit("timeUpdate_11", timers.timeUpdate_11);
+  io.emit("timeUpdate_3", timers.timeUpdate_3);
+  io.emit("timeUpdate_5", timers.timeUpdate_5);
+}
+
+/**
+ * Broadcast period/result updates when game result is declared
+ */
+async function broadcastGameResult(game, period, amount) {
+  io.emit("data-server", {
+    data: [{ game: game, period: period, amount: amount }],
+  });
+}
+
+// =====================================================
 // DATABASE + SERVER
 // =====================================================
 
@@ -608,7 +653,7 @@ const startServer = async () => {
     // INITIAL GAME PERIODS
     // -----------------------------------------------
 
-    const games = ["wingo", "wingo10", "trx"];
+    const games = ["wingo", "wingo10", "trx", "wingo3", "wingo5"];
 
     for (const game of games) {
       const existing = await Wingo.findOne({
@@ -646,6 +691,23 @@ const startServer = async () => {
     initTradingSocket(io);
 
     // =================================================
+    // START TIMER BROADCAST - EVERY SECOND
+    // =================================================
+
+    // Send initial timers immediately
+    setTimeout(() => {
+      broadcastTimers();
+      console.log("[SOCKET] Initial timers broadcasted");
+    }, 1000);
+
+    // Broadcast timers every second
+    setInterval(() => {
+      broadcastTimers();
+    }, 1000);
+
+    console.log("[SOCKET] Timer broadcast started (every 1s)");
+
+    // =================================================
     // START SERVER
     // =================================================
 
@@ -666,9 +728,15 @@ const startServer = async () => {
 
       console.log("Socket.IO: enabled");
 
+      console.log(
+        "Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5",
+      );
+
       console.log("Trading Engine: enabled");
 
-      console.log("Games: 30s (wingo10), 1m (wingo), TRX (trx)");
+      console.log(
+        "Games: 30s (wingo10), 1m (wingo), 3m (wingo3), 5m (wingo5), TRX (trx)",
+      );
 
       console.log("Database: MongoDB");
 
@@ -700,6 +768,18 @@ const startServer = async () => {
           await betController.addWinGo_30(period?.period);
 
           await betController.handlingWinGo1P(10);
+
+          // Broadcast result after handling
+          const result = await Wingo.findOne({
+            status: 1,
+            game: "wingo10",
+          })
+            .sort({ _id: -1 })
+            .limit(1);
+
+          if (result) {
+            broadcastGameResult("wingo10", result.period, result.amount);
+          }
         } catch (error) {
           console.error("30s cron error:", error);
         }
@@ -731,8 +811,88 @@ const startServer = async () => {
           await betController.addWinGo_1(period?.period);
 
           await betController.handlingWinGo1P(1);
+
+          // Broadcast result after handling
+          const result = await Wingo.findOne({
+            status: 1,
+            game: "wingo",
+          })
+            .sort({ _id: -1 })
+            .limit(1);
+
+          if (result) {
+            broadcastGameResult("wingo", result.period, result.amount);
+          }
         } catch (error) {
           console.error("1m cron error:", error);
+        }
+      }
+    }, 1000);
+
+    // =================================================
+    // CRON JOBS - 3 MINUTE GAME
+    // =================================================
+
+    let lastRun3 = 0;
+
+    setInterval(async () => {
+      const now = Date.now();
+
+      if (now - lastRun3 >= 180000) {
+        lastRun3 = now;
+
+        try {
+          await betController.addWinGo_3();
+
+          await betController.handlingWinGo1P(3);
+
+          // Broadcast result after handling
+          const result = await Wingo.findOne({
+            status: 1,
+            game: "wingo3",
+          })
+            .sort({ _id: -1 })
+            .limit(1);
+
+          if (result) {
+            broadcastGameResult("wingo3", result.period, result.amount);
+          }
+        } catch (error) {
+          console.error("3m cron error:", error);
+        }
+      }
+    }, 1000);
+
+    // =================================================
+    // CRON JOBS - 5 MINUTE GAME
+    // =================================================
+
+    let lastRun5 = 0;
+
+    setInterval(async () => {
+      const now = Date.now();
+
+      if (now - lastRun5 >= 300000) {
+        lastRun5 = now;
+
+        try {
+          await betController.addWinGo_5();
+
+          await betController.handlingWinGo1P(5);
+
+          // Broadcast result after handling
+          const result = await Wingo.findOne({
+            status: 1,
+            game: "wingo5",
+          })
+            .sort({ _id: -1 })
+            .limit(1);
+
+          if (result) {
+            broadcastGameResult("wingo5", result.period, result.amount);
+          }
+        } catch (error) {
+          console.error("5m cron error:", error);
         }
       }
     }, 1000);
@@ -759,9 +919,21 @@ const startServer = async () => {
             })
             .limit(1);
 
-          await betController.addWinGo_trx(period?.period);
+          await betController.addWinGo_11(period?.period);
 
           await betController.handlingWinGo1P(11);
+
+          // Broadcast result after handling
+          const result = await Wingo.findOne({
+            status: 1,
+            game: "trx",
+          })
+            .sort({ _id: -1 })
+            .limit(1);
+
+          if (result) {
+            broadcastGameResult("trx", result.period, result.amount);
+          }
         } catch (error) {
           console.error("TRX cron error:", error);
         }

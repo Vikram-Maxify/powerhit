@@ -9,7 +9,7 @@ import io from "socket.io-client";
 import CopyCopmponent from "../../components/CopyCopmponent.jsx";
 import EmptyData from "../../components/EmptyData.jsx";
 import { host } from "../../redux/slices/api.js";
-import { getProfile } from "../../redux/Slices/authSlice.js"; // ⚠️ path/name apne actual profile-refresh thunk ke hisaab se check kar lena
+import { getProfile } from "../../redux/Slices/authSlice.js";
 import {
   getMyBets,
   getOrderList,
@@ -59,7 +59,12 @@ const TIME_OPTIONS = [
   { value: 5, label: "5Min", game: "wingo5" },
 ];
 
-const socket = io(host);
+const socket = io(host, {
+  transports: ["websocket", "polling"],
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+});
 
 // ============================================================
 // MAIN COMPONENT
@@ -103,6 +108,7 @@ const Wingo = () => {
   const [number2, setNumber2] = useState([4, 1, 9, 14, 18, 11, 10, 9, 12, 22]);
   const [number3, setNumber3] = useState([4, 16, 3, 14, 18, 18, 1, 9, 7, 22]);
   const [number4, setNumber4] = useState([4, 16, 3, 14, 18, 18, 1, 9, 7, 22]);
+  const [periodData, setPeriodData] = useState(null);
 
   // ---- Refs ----
   const intervalRef = useRef(null);
@@ -110,6 +116,7 @@ const Wingo = () => {
   const isConnectedRef = useRef(false);
   const audio1Ref = useRef(new Audio(Audio1));
   const audio2Ref = useRef(new Audio(Audio2));
+  const timerIntervalRef = useRef(null);
 
   // ---- Router ----
   const navigate = useNavigate();
@@ -205,7 +212,7 @@ const Wingo = () => {
   };
 
   // ============================================================
-  // FUNCTIONS (defined before useEffect hooks)
+  // FUNCTIONS
   // ============================================================
 
   const openAudio = () => {
@@ -255,11 +262,11 @@ const Wingo = () => {
       line.setAttribute("y1", `${first.offsetTop + first.offsetHeight / 2}px`);
       line.setAttribute(
         "x2",
-        `${second.offsetLeft + second.offsetWidth / 2}px`,
+        `${second.offsetLeft + second.offsetWidth / 2}px`
       );
       line.setAttribute(
         "y2",
-        `${second.offsetTop + second.offsetHeight / 2}px`,
+        `${second.offsetTop + second.offsetHeight / 2}px`
       );
       line.setAttribute("stroke", "red");
       line.setAttribute("stroke-width", "0.6");
@@ -273,12 +280,11 @@ const Wingo = () => {
   const fetchHistory = async () => {
     try {
       const res = await dispatch(
-        getMyBets({ typeid: typeid1, pageno, pageto }),
+        getMyBets({ typeid: typeid1, pageno, pageto })
       ).unwrap();
-      // ✅ Fix: extract gameslist from res.data
       setWingoHistoryData({
         ...res,
-        gameslist: res?.data?.gameslist || [], // ← flatten the structure
+        gameslist: res?.data?.gameslist || [],
       });
       setHistoryPage(res?.page);
     } catch (err) {
@@ -289,10 +295,11 @@ const Wingo = () => {
   const fetchNewData = async (pageno, pageto) => {
     try {
       const res = await dispatch(
-        getOrderList({ typeid: typeid1, pageno, pageto }),
+        getOrderList({ typeid: typeid1, pageno, pageto })
       ).unwrap();
       if (res.status) {
         setWingoPeriodListData(res);
+        setPeriodData(res);
         setTimeout(chartFunction, 100);
       }
     } catch (err) {
@@ -301,15 +308,16 @@ const Wingo = () => {
     await fetchHistory();
   };
 
-  // ---- Debounced Functions (defined before useEffect that uses them) ----
+  // ---- Debounced Functions ----
   const debouncedFetch = useCallback(
     debounce(async (typeid1, pageno, pageto) => {
       try {
         const res = await dispatch(
-          getOrderList({ typeid: typeid1, pageno, pageto }),
+          getOrderList({ typeid: typeid1, pageno, pageto })
         ).unwrap();
         if (res.status) {
           setWingoPeriodListData(res);
+          setPeriodData(res);
           setTimeout(chartFunction, 100);
         }
       } catch (err) {
@@ -318,7 +326,7 @@ const Wingo = () => {
 
       try {
         const historyRes = await dispatch(
-          getMyBets({ typeid: typeid1, pageno, pageto }),
+          getMyBets({ typeid: typeid1, pageno, pageto })
         ).unwrap();
         setWingoHistoryData(historyRes);
         setHistoryPage(historyRes?.page);
@@ -328,14 +336,14 @@ const Wingo = () => {
 
       updateNumbers();
     }, 500),
-    [dispatch],
+    [dispatch]
   );
 
   const debouncedFetchResult = useCallback(
     debounce(async (typeid1, pageno, pageto) => {
       try {
         const res = await dispatch(
-          getMyBets({ typeid: typeid1, pageno, pageto }),
+          getMyBets({ typeid: typeid1, pageno, pageto })
         ).unwrap();
         setWingoHistoryData(res);
         setHistoryPage(res?.page);
@@ -355,11 +363,14 @@ const Wingo = () => {
         console.error("debouncedFetchResult failed:", err);
       }
     }, 500),
-    [dispatch],
+    [dispatch]
   );
 
-  // ---- Socket Listeners ----
-  const setSocketListeners = (typeid) => {
+  // ============================================================
+  // SOCKET LISTENERS - FIXED
+  // ============================================================
+  
+  const setSocketListeners = useCallback((typeid) => {
     const eventMap = {
       5: "timeUpdate_5",
       3: "timeUpdate_3",
@@ -369,14 +380,22 @@ const Wingo = () => {
     const eventName = eventMap[typeid];
     if (!eventName) return;
 
+    // Remove all existing listeners
     socket.off();
+
+    // Timer update listener
     socket.on(eventName, (data) => {
       if (!data) return;
+      
+      // Fix: Map server data to component state
       const { minute, secondtime1, secondtime2 } = data;
-      setMinutetime2(minute);
-      setSecondtime1(secondtime1);
-      setSecondtime2(secondtime2);
+      
+      // Set timer values - minute ko minutetime2 mein daal rahe hain
+      setMinutetime2(minute || 0);
+      setSecondtime1(secondtime1 || 0);
+      setSecondtime2(secondtime2 || 0);
 
+      // Trigger open time when timer reaches last seconds
       if (
         minute === 0 &&
         secondtime1 === 0 &&
@@ -390,17 +409,78 @@ const Wingo = () => {
         setOpenTime(false);
       }
 
+      // Audio triggers for specific times
       const triggerMap = {
         5: minute === 4 && secondtime1 === 5 && secondtime2 === 9,
         3: minute === 2 && secondtime1 === 5 && secondtime2 === 9,
         1: minute === 0 && secondtime1 === 5 && secondtime2 === 9,
         10: minute === 0 && secondtime1 === 5 && secondtime2 === 9,
       };
-      if (triggerMap[typeid] && activeVoice) playAudio(audio2Ref);
+      
+      if (triggerMap[typeid] && activeVoice) {
+        playAudio(audio2Ref);
+      }
     });
-  };
 
-  // ---- Event Handlers ----
+    // Data server listener for period updates
+    socket.on("data-server", async (msg) => {
+      if (!msg?.data) return;
+
+      setPage(1);
+      setPageto(10);
+
+      // Check if this message is for current game
+      const gameMap = {
+        1: "wingo",
+        3: "wingo3",
+        5: "wingo5",
+        10: "wingo10",
+      };
+      
+      const currentGame = gameMap[typeid];
+      const isCurrentGame = msg.data.some(item => item.game === currentGame);
+
+      if (isCurrentGame && !calledRef.current) {
+        calledRef.current = true;
+        await debouncedFetch(typeid, pageno, pageto);
+        setTimeout(() => {
+          calledRef.current = false;
+        }, 2000);
+      }
+
+      // Check for result update
+      if (
+        wingoHistoryData?.gameslist?.[0]?.stage &&
+        msg.data.some(item => item.period === wingoHistoryData.gameslist[0].stage) &&
+        !calledRef.current
+      ) {
+        await debouncedFetchResult(typeid, pageno, pageto);
+        setResultPopup(true);
+        setTimeout(() => {
+          calledRef.current = false;
+        }, 2000);
+      }
+    });
+
+    // Connection events
+    socket.on("connect", () => {
+      console.log("Socket connected successfully");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected");
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+    });
+
+  }, [activeVoice, debouncedFetch, debouncedFetchResult, pageno, pageto, wingoHistoryData]);
+
+  // ============================================================
+  // EVENT HANDLERS
+  // ============================================================
+
   const handleWingoMinut = (data) => {
     setActiveTime(data);
     localStorage.setItem("wingominute", data);
@@ -464,7 +544,7 @@ const Wingo = () => {
           join: selectBet,
           x: multiplier,
           money: balance,
-        }),
+        })
       ).unwrap();
 
       setBetAlert(true);
@@ -521,7 +601,7 @@ const Wingo = () => {
   };
 
   // ============================================================
-  // EFFECTS (all useCallback functions are now defined above)
+  // EFFECTS
   // ============================================================
 
   useEffect(() => {
@@ -557,17 +637,20 @@ const Wingo = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Socket connection
+  // ---- Socket Connection ----
   useEffect(() => {
     if (!isConnectedRef.current) {
       socket.connect();
       isConnectedRef.current = true;
     }
+    
+    // Set socket listeners
     setSocketListeners(typeid1);
+    
     return () => {
       socket.off();
     };
-  }, [typeid1, activeVoice]);
+  }, [typeid1, activeVoice, setSocketListeners]);
 
   useEffect(() => {
     return () => {
@@ -576,53 +659,10 @@ const Wingo = () => {
     };
   }, []);
 
-  // Socket messages handler
-  useEffect(() => {
-    const handler = async (msg) => {
-      setPage(1);
-      setPageto(10);
-
-      const isWingo = (game) => {
-        const map = { 1: "wingo", 3: "wingo3", 5: "wingo5", 10: "wingo10" };
-        return msg?.data?.[0]?.game === map[typeid1];
-      };
-
-      if (isWingo(typeid1) && !calledRef.current) {
-        calledRef.current = true;
-        await debouncedFetch(typeid1, pageno, pageto);
-        setTimeout(() => {
-          calledRef.current = false;
-        }, 2000);
-      }
-
-      if (
-        msg?.data?.[1]?.period === wingoHistoryData?.gameslist?.[0]?.stage &&
-        !calledRef.current
-      ) {
-        await debouncedFetchResult(typeid1, pageno, pageto);
-        setResultPopup(true);
-        setTimeout(() => {
-          calledRef.current = false;
-        }, 2000);
-      }
-    };
-
-    socket.on("data-server", handler);
-    return () => socket.off("data-server", handler);
-  }, [
-    typeid1,
-    pageno,
-    pageto,
-    betAlert,
-    messages,
-    wingoHistoryData,
-    debouncedFetch,
-    debouncedFetchResult,
-  ]);
-
   // ============================================================
-  // RENDER HELPERS — GOLDEN UI
+  // RENDER HELPERS
   // ============================================================
+  
   const goldCard =
     "rounded-2xl border border-[#d9aa3d]/55 bg-[linear-gradient(145deg,#fffdf7,#fff7df)] shadow-[0_8px_24px_rgba(122,82,10,.10)]";
 
@@ -646,11 +686,15 @@ const Wingo = () => {
                 <img
                   src={active ? TimeActiveImg : TimeImg}
                   alt={label}
-                  className={`h-7 w-7 object-contain sm:h-8 sm:w-8 ${active ? "scale-105" : "opacity-80"}`}
+                  className={`h-7 w-7 object-contain sm:h-8 sm:w-8 ${
+                    active ? "scale-105" : "opacity-80"
+                  }`}
                 />
                 <div className="min-w-0 text-left leading-tight">
                   <p
-                    className={`truncate text-[10px] font-extrabold sm:text-[11px] ${active ? "text-[#3c2a0b]" : "text-[#9a8257]"}`}
+                    className={`truncate text-[10px] font-extrabold sm:text-[11px] ${
+                      active ? "text-[#3c2a0b]" : "text-[#9a8257]"
+                    }`}
                   >
                     WIN GO
                   </p>
@@ -713,16 +757,19 @@ const Wingo = () => {
             Time remaining
           </p>
           <div className="mt-1 flex items-center justify-center">
-            {[minutetime1, minutetime2, ":", secondtime1, secondtime2].map(
-              (item, idx) => (
-                <span
-                  key={idx}
-                  className={`mx-0.5 flex h-7 items-center justify-center rounded-md bg-[#33270f] text-sm font-black text-[#ffe79b] shadow-[inset_0_1px_2px_rgba(255,255,255,.15)] ${idx === 2 ? "w-3 bg-transparent text-[#9d711c] shadow-none" : "w-6"}`}
-                >
-                  {item}
-                </span>
-              ),
-            )}
+            {/* Timer Display - Fixed: Showing minutes and seconds properly */}
+            <span className="mx-0.5 flex h-7 w-6 items-center justify-center rounded-md bg-[#33270f] text-sm font-black text-[#ffe79b] shadow-[inset_0_1px_2px_rgba(255,255,255,.15)]">
+              {minutetime2}
+            </span>
+            <span className="mx-0.5 flex h-7 w-3 items-center justify-center rounded-md bg-transparent text-sm font-black text-[#9d711c] shadow-none">
+              :
+            </span>
+            <span className="mx-0.5 flex h-7 w-6 items-center justify-center rounded-md bg-[#33270f] text-sm font-black text-[#ffe79b] shadow-[inset_0_1px_2px_rgba(255,255,255,.15)]">
+              {secondtime1}
+            </span>
+            <span className="mx-0.5 flex h-7 w-6 items-center justify-center rounded-md bg-[#33270f] text-sm font-black text-[#ffe79b] shadow-[inset_0_1px_2px_rgba(255,255,255,.15)]">
+              {secondtime2}
+            </span>
           </div>
           <p className="mt-1 truncate text-[10px] font-bold text-[#765a27]">
             {wingoPeriodListData?.period || "Loading..."}
@@ -795,7 +842,9 @@ const Wingo = () => {
                 key={i}
                 type="button"
                 onClick={() => selectBetHandle(i)}
-                className={`flex min-w-0 items-center justify-center rounded-xl border border-[#b58a32]/40 bg-[#fffaf0] p-1.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#f2c85b] hover:shadow-[0_4px_12px_rgba(220,164,39,.25)] ${animate ? "animate-bounce" : ""}`}
+                className={`flex min-w-0 items-center justify-center rounded-xl border border-[#b58a32]/40 bg-[#fffaf0] p-1.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#f2c85b] hover:shadow-[0_4px_12px_rgba(220,164,39,.25)] ${
+                  animate ? "animate-bounce" : ""
+                }`}
                 style={{ animationDelay: `${i * 0.06}s` }}
               >
                 <img
@@ -915,14 +964,21 @@ const Wingo = () => {
               </div>
               <div className="col-span-2 text-center">
                 <span
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-lg font-black shadow-sm ${getColorClass(item.amount, "text")} bg-white`}
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-lg font-black shadow-sm ${getColorClass(
+                    item.amount,
+                    "text"
+                  )} bg-white`}
                 >
                   {item.amount}
                 </span>
               </div>
               <div className="col-span-3 text-center">
                 <span
-                  className={`rounded-full px-2 py-1 text-[9px] font-black ${item.amount > 4 ? "bg-[#fff0bd] text-[#9a6a0d]" : "bg-[#f1eadb] text-[#78644a]"}`}
+                  className={`rounded-full px-2 py-1 text-[9px] font-black ${
+                    item.amount > 4
+                      ? "bg-[#fff0bd] text-[#9a6a0d]"
+                      : "bg-[#f1eadb] text-[#78644a]"
+                  }`}
                 >
                   {item.amount > 4 ? "BIG" : "SMALL"}
                 </span>
@@ -1010,14 +1066,22 @@ const Wingo = () => {
                     {Array.from({ length: 10 }, (_, n) => (
                       <span
                         key={n}
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black ${item.amount === n ? "active bg-[#d79b1c] text-white shadow-md" : "border border-[#e4d5b3] text-[#b5a27f]"}`}
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black ${
+                          item.amount === n
+                            ? "active bg-[#d79b1c] text-white shadow-md"
+                            : "border border-[#e4d5b3] text-[#b5a27f]"
+                        }`}
                       >
                         {n}
                       </span>
                     ))}
                   </div>
                   <span
-                    className={`third shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${item.amount > 4 ? "bg-[#fff0bd] text-[#9a6a0d]" : "bg-[#f0eadf] text-[#78644a]"}`}
+                    className={`third shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${
+                      item.amount > 4
+                        ? "bg-[#fff0bd] text-[#9a6a0d]"
+                        : "bg-[#f0eadf] text-[#78644a]"
+                    }`}
                   >
                     {item.amount > 4 ? "B" : "S"}
                   </span>
@@ -1039,7 +1103,10 @@ const Wingo = () => {
             </p>
             <h3 className="text-base font-black text-[#3b2b13]">My Bets</h3>
           </div>
-          <Link className="rounded-full border border-[#d1a13b] px-3 py-1 text-[10px] font-black text-[#8a620f]">
+          <Link
+            className="rounded-full border border-[#d1a13b] px-3 py-1 text-[10px] font-black text-[#8a620f]"
+            to="#"
+          >
             Details
           </Link>
         </div>
@@ -1057,7 +1124,9 @@ const Wingo = () => {
               >
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[9px] font-black shadow-sm ${getBetClass(item.bet)}`}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[9px] font-black shadow-sm ${getBetClass(
+                      item.bet
+                    )}`}
                   >
                     {["x", "d", "t"].includes(item.bet)
                       ? "●"
@@ -1075,16 +1144,22 @@ const Wingo = () => {
                 {item.status !== 0 && (
                   <div className="shrink-0 text-right">
                     <span
-                      className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${item.status === 1 ? "border-green-500 text-green-600" : "border-red-400 text-red-500"}`}
+                      className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${
+                        item.status === 1
+                          ? "border-green-500 text-green-600"
+                          : "border-red-400 text-red-500"
+                      }`}
                     >
                       {item.status === 1 ? "Succeed" : "Failed"}
                     </span>
                     <p
-                      className={`mt-1 text-xs font-black ${item.status === 1 ? "text-green-600" : "text-red-500"}`}
+                      className={`mt-1 text-xs font-black ${
+                        item.status === 1 ? "text-green-600" : "text-red-500"
+                      }`}
                     >
                       {item.status === 1 ? "+₹" : "-₹"}
                       {Number(
-                        item.status === 1 ? item.get : item.money,
+                        item.status === 1 ? item.get : item.money
                       ).toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -1105,7 +1180,9 @@ const Wingo = () => {
                     ["Quantity", item.amount],
                     [
                       "Amount after tax",
-                      `₹${Number(item.money).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+                      `₹${Number(item.money).toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}`,
                     ],
                     ["Tax", `₹${item.fee}`],
                     ["Result", item.result],
@@ -1113,7 +1190,11 @@ const Wingo = () => {
                     ["Status", item.status === 1 ? "Succeed" : "Failed"],
                     [
                       "Win/Loss",
-                      `${item.status === 1 ? "+" : "-"}₹${Number(item.status === 1 ? item.get : item.money).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+                      `${item.status === 1 ? "+" : "-"}₹${Number(
+                        item.status === 1 ? item.get : item.money
+                      ).toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}`,
                     ],
                     ["Order time", item.today],
                   ].map(([label, value], n) => (
@@ -1148,7 +1229,11 @@ const Wingo = () => {
     <div className="flex items-center justify-center gap-3 border-t border-[#d9aa3d]/20 px-2 pb-1 pt-3">
       <button
         type="button"
-        className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${pageto / 10 >= 2 ? "border-[#d4a237] bg-[#fff4cf] text-[#805a17] hover:bg-[#f7e7bb]" : "border-[#e5dbc5] bg-[#f7f3ea] text-[#c9c0ae]"}`}
+        className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
+          pageto / 10 >= 2
+            ? "border-[#d4a237] bg-[#fff4cf] text-[#805a17] hover:bg-[#f7e7bb]"
+            : "border-[#e5dbc5] bg-[#f7f3ea] text-[#c9c0ae]"
+        }`}
         disabled={pageto / 10 < 2}
         onClick={handleDecrease}
       >
@@ -1159,7 +1244,11 @@ const Wingo = () => {
       </span>
       <button
         type="button"
-        className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${wingoPeriodListData?.page > pageto / 10 ? "border-[#d4a237] bg-[#fff4cf] text-[#805a17] hover:bg-[#f7e7bb]" : "border-[#e5dbc5] bg-[#f7f3ea] text-[#c9c0ae]"}`}
+        className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
+          wingoPeriodListData?.page > pageto / 10
+            ? "border-[#d4a237] bg-[#fff4cf] text-[#805a17] hover:bg-[#f7e7bb]"
+            : "border-[#e5dbc5] bg-[#f7f3ea] text-[#c9c0ae]"
+        }`}
         disabled={!(wingoPeriodListData?.page > pageto / 10)}
         onClick={handleIncrease}
       >
@@ -1209,7 +1298,9 @@ const Wingo = () => {
           />
           <div className="fixed bottom-[76px] left-1/2 z-50 w-[calc(100%-16px)] max-w-[500px] -translate-x-1/2 overflow-hidden rounded-t-[26px] border border-[#d9aa3d]/55 bg-[#21180b] shadow-[0_-10px_40px_rgba(0,0,0,.35)]">
             <div
-              className={`p-4 text-center ${getBetClass(selectBet)} popup-select-effect`}
+              className={`p-4 text-center ${getBetClass(
+                selectBet
+              )} popup-select-effect`}
             >
               <p className="text-[10px] font-black uppercase tracking-[.18em] text-black/65">
                 Win Go {activeTime === 10 ? "30s" : `${activeTime}Min`}
@@ -1226,7 +1317,11 @@ const Wingo = () => {
                     <button
                       key={val}
                       type="button"
-                      className={`rounded-lg px-2.5 py-1 text-xs font-black ${balance === val ? `${getBetClass(selectBet)} text-black shadow-md` : "bg-white/10 text-white"}`}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-black ${
+                        balance === val
+                          ? `${getBetClass(selectBet)} text-black shadow-md`
+                          : "bg-white/10 text-white"
+                      }`}
                       onClick={() => setBalance(val)}
                     >
                       ₹{val}
@@ -1267,7 +1362,11 @@ const Wingo = () => {
                   <button
                     key={i}
                     type="button"
-                    className={`rounded-lg py-2 text-[10px] font-black ${activeX === i ? `${getBetClass(selectBet)} text-black shadow-md` : "bg-white/10 text-white"}`}
+                    className={`rounded-lg py-2 text-[10px] font-black ${
+                      activeX === i
+                        ? `${getBetClass(selectBet)} text-black shadow-md`
+                        : "bg-white/10 text-white"
+                    }`}
                     onClick={() => {
                       setActiveX(i);
                       setMultiplier(item);
@@ -1290,7 +1389,6 @@ const Wingo = () => {
               </label>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
-                {/* Cancel */}
                 <button
                   type="button"
                   onClick={() => setOpenPopup(false)}
@@ -1302,16 +1400,13 @@ const Wingo = () => {
                   </span>
                 </button>
 
-                {/* Submit Bet */}
                 <button
                   type="button"
                   disabled={loader || !isChecked}
                   onClick={handleBet}
                   className="group relative overflow-hidden rounded-xl border border-[#f5cf68]/70 bg-gradient-to-b from-[#ffe58a] via-[#e0ad2d] to-[#b97908] py-3.5 text-sm font-black text-[#2b1b03] shadow-[inset_0_1px_0_rgba(255,255,255,.75),0_5px_16px_rgba(201,148,29,.28)] transition-all duration-200 hover:brightness-105 active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:grayscale-[.2]"
                 >
-                  {/* Shine */}
                   <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-
                   <span className="relative z-10 flex items-center justify-center gap-2">
                     {loader ? (
                       <>
@@ -1372,26 +1467,34 @@ const Wingo = () => {
               className="mx-auto h-auto max-h-32 w-auto max-w-[80%] object-contain"
             />
             <p
-              className={`mt-3 text-2xl font-black ${winResult ? "text-[#ffe79b]" : "text-white/70"}`}
+              className={`mt-3 text-2xl font-black ${
+                winResult ? "text-[#ffe79b]" : "text-white/70"
+              }`}
             >
               {winResult ? "Congratulations" : "Sorry"}
             </p>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
               <span className="text-white/60">Result</span>
               <span
-                className={`rounded-full px-3 py-1 font-black text-white ${winResult ? "bg-green-600" : "bg-gray-600"}`}
+                className={`rounded-full px-3 py-1 font-black text-white ${
+                  winResult ? "bg-green-600" : "bg-gray-600"
+                }`}
               >
                 {wingoHistoryData?.gameslist?.[0]?.result % 2 === 0
                   ? "Red"
                   : "Green"}
               </span>
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full font-black text-white ${winResult ? "bg-[#d99a18]" : "bg-gray-600"}`}
+                className={`flex h-8 w-8 items-center justify-center rounded-full font-black text-white ${
+                  winResult ? "bg-[#d99a18]" : "bg-gray-600"
+                }`}
               >
                 {wingoHistoryData?.gameslist?.[0]?.result}
               </span>
               <span
-                className={`rounded-full px-3 py-1 font-black text-white ${winResult ? "bg-[#d99a18]" : "bg-gray-600"}`}
+                className={`rounded-full px-3 py-1 font-black text-white ${
+                  winResult ? "bg-[#d99a18]" : "bg-gray-600"
+                }`}
               >
                 {wingoHistoryData?.gameslist?.[0]?.result > 4 ? "Big" : "Small"}
               </span>
@@ -1399,10 +1502,9 @@ const Wingo = () => {
             {winResult ? (
               <p className="mt-4 text-3xl font-black text-[#ffd85a]">
                 ₹
-                {Number(wingoHistoryData?.gameslist?.[0]?.get).toLocaleString(
-                  "en-IN",
-                  { minimumFractionDigits: 2 },
-                )}
+                {Number(
+                  wingoHistoryData?.gameslist?.[0]?.get
+                ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </p>
             ) : (
               <p className="mt-4 text-xl font-black text-white/45">Lose</p>
