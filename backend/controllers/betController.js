@@ -113,6 +113,13 @@ function calculateTimer(intervalSeconds) {
 }
 
 // ============================================
+// GENERATE RANDOM RESULT (0-9)
+// ============================================
+function generateRandomResult() {
+  return Math.floor(Math.random() * 10);
+}
+
+// ============================================
 // SOCKET EMIT FUNCTIONS
 // ============================================
 const emitTimerUpdate = (type, timerData) => {
@@ -122,6 +129,10 @@ const emitTimerUpdate = (type, timerData) => {
       1: 'timeUpdate_11',
       3: 'timeUpdate_3',
       5: 'timeUpdate_5',
+      11: 'timeUpdate_11',
+      33: 'timeUpdate_33',
+      55: 'timeUpdate_55',
+      100: 'timeUpdate_100',
     };
     const event = eventMap[type];
     if (event) {
@@ -131,11 +142,22 @@ const emitTimerUpdate = (type, timerData) => {
   }
 };
 
-const emitGameResult = (game, period, amount) => {
+const emitGameResult = (game, period, amount, status) => {
   if (ioInstance) {
+    // Emit result for popup
+    ioInstance.emit('game-result', {
+      game: game,
+      period: period,
+      result: amount,
+      status: status || 'completed',
+      timestamp: new Date().toISOString()
+    });
+    
+    // Emit data-server for history
     ioInstance.emit('data-server', {
       data: [{ game, period, amount }]
     });
+    
     console.log(`[SOCKET] Emitted result for ${game}: ${period} -> ${amount}`);
   }
 };
@@ -798,8 +820,8 @@ const handlingWinGo1P = async (typeid) => {
       await processBet(bet);
     }
 
-    // ============ SOCKET EMIT FOR RESULT ============
-    emitGameResult(game, winGoNow.period, result);
+    // ============ SOCKET EMIT FOR RESULT WITH POPUP ============
+    emitGameResult(game, winGoNow.period, result, 'completed');
 
   } catch (error) {
     console.error("Error in handlingWinGo1P:", error.message);
@@ -901,7 +923,7 @@ const tradeCommissionGet = async (req, res) => {
 };
 
 // ============================================
-// API FETCH FUNCTIONS (30 Seconds)
+// API FETCH FUNCTIONS
 // ============================================
 
 const maxApiRetries = 3;
@@ -948,7 +970,7 @@ const fetchApiData_bdgwin_10 = async () => {
 };
 
 // ============================================
-// DEFINERESULT
+// DEFINERESULT - Smart Result Generation
 // ============================================
 
 const defineresult = async (game) => {
@@ -972,7 +994,7 @@ const defineresult = async (game) => {
       .limit(1);
 
     if (!winGoNow) {
-      return Math.floor(Math.random() * 10);
+      return generateRandomResult();
     }
 
     const period = winGoNow.period;
@@ -1026,7 +1048,7 @@ const defineresult = async (game) => {
     return parseInt(validBets[randomIndex], 10);
   } catch (error) {
     console.error("Error in defineresult:", error);
-    return Math.floor(Math.random() * 10);
+    return generateRandomResult();
   }
 };
 
@@ -1057,14 +1079,20 @@ const addWinGo_30 = async (period_id) => {
     const setting = await Admin.findOne();
     let nextResult = setting?.wingo10 || "-1";
 
+    // Try to fetch from API first
     let newPeriodData = await fetchNewPeriod_30(period_id);
+    let resultAmount;
+    let newPeriod;
 
-    if (!newPeriodData) {
-      console.error("No new period received. Aborting function.");
-      return;
+    if (newPeriodData) {
+      newPeriod = newPeriodData.newPeriod;
+      resultAmount = newPeriodData.resultAmount;
+    } else {
+      // If API fails, generate random result
+      newPeriod = (BigInt(period) + BigInt(1)).toString();
+      resultAmount = generateRandomResult();
+      console.log(`[${join}] Using random result: ${resultAmount}`);
     }
-
-    let { newPeriod, resultAmount, attempts } = newPeriodData;
 
     const minPlayers = await Bet.countDocuments({ status: 0, game: join });
 
@@ -1074,6 +1102,7 @@ const addWinGo_30 = async (period_id) => {
       }
     }
 
+    // Update current period with result
     let newArr = "";
     if (nextResult === "-1") {
       await Wingo.updateOne(
@@ -1090,11 +1119,13 @@ const addWinGo_30 = async (period_id) => {
       );
     }
 
+    // Update previous periods
     await Wingo.updateMany(
       { period: { $ne: newPeriod }, game: join },
       { $set: { status: 1 } },
     );
 
+    // Insert new period
     await Wingo.create({
       period: String(newPeriod),
       amount: 0,
@@ -1112,8 +1143,10 @@ const addWinGo_30 = async (period_id) => {
     const timerData = calculateTimer(30);
     emitTimerUpdate(10, timerData);
     
-    // Emit game result
-    emitGameResult(join, period, resultAmount);
+    // Emit game result with popup
+    emitGameResult(join, period, resultAmount, 'completed');
+
+    console.log(`[${join}] Period ${period} result: ${resultAmount}, New period: ${newPeriod}`);
 
   } catch (error) {
     console.error("Error in addWinGo_30:", error);
@@ -1167,14 +1200,20 @@ const addWinGo_1 = async (period_id) => {
     const setting = await Admin.findOne();
     let nextResult = setting?.wingo || "-1";
 
+    // Try to fetch from API first
     let newPeriodData = await fetchNewPeriod_1(period_id);
+    let resultAmount;
+    let newPeriod;
 
-    if (!newPeriodData) {
-      console.error("No new period received.");
-      return;
+    if (newPeriodData) {
+      newPeriod = newPeriodData.newPeriod;
+      resultAmount = newPeriodData.resultAmount;
+    } else {
+      // If API fails, generate random result
+      newPeriod = (BigInt(period) + BigInt(1)).toString();
+      resultAmount = generateRandomResult();
+      console.log(`[${join}] Using random result: ${resultAmount}`);
     }
-
-    let { newPeriod, resultAmount, attempts } = newPeriodData;
 
     const minPlayers = await Bet.countDocuments({ status: 0, game: join });
 
@@ -1220,7 +1259,9 @@ const addWinGo_1 = async (period_id) => {
     // ============ SOCKET EMIT ============
     const timerData = calculateTimer(60);
     emitTimerUpdate(1, timerData);
-    emitGameResult(join, period, resultAmount);
+    emitGameResult(join, period, resultAmount, 'completed');
+
+    console.log(`[${join}] Period ${period} result: ${resultAmount}, New period: ${newPeriod}`);
 
   } catch (error) {
     console.error("Error in addWinGo_1:", error);
@@ -1310,7 +1351,7 @@ const addWinGo_3 = async () => {
     let period = winGoNow?.period || "98778990";
     const setting = await Admin.findOne();
 
-    let amount = Math.floor(Math.random() * 10);
+    let amount = generateRandomResult();
     const minPlayers = await Bet.countDocuments({ status: 0, game: join });
 
     if (minPlayers > 0) {
@@ -1328,6 +1369,9 @@ const addWinGo_3 = async () => {
       if (latestData) {
         period = latestData.period;
         amount = latestData.amount;
+      } else {
+        amount = generateRandomResult();
+        console.log(`[${join}] Using random result: ${amount}`);
       }
     }
 
@@ -1368,7 +1412,9 @@ const addWinGo_3 = async () => {
     // ============ SOCKET EMIT ============
     const timerData = calculateTimer(180);
     emitTimerUpdate(3, timerData);
-    emitGameResult(join, period, amount);
+    emitGameResult(join, period, amount, 'completed');
+
+    console.log(`[${join}] Period ${period} result: ${amount}, New period: ${newPeriod}`);
 
   } catch (error) {
     console.error("addWinGo_3 error:", error.message);
@@ -1435,7 +1481,7 @@ const addWinGo_5 = async () => {
     let period = winGoNow?.period || "98778990";
     const setting = await Admin.findOne();
 
-    let amount = Math.floor(Math.random() * 10);
+    let amount = generateRandomResult();
     const minPlayers = await Bet.countDocuments({ status: 0, game: join });
 
     if (minPlayers > 0) {
@@ -1453,6 +1499,9 @@ const addWinGo_5 = async () => {
       if (latestData) {
         period = latestData.period;
         amount = latestData.amount;
+      } else {
+        amount = generateRandomResult();
+        console.log(`[${join}] Using random result: ${amount}`);
       }
     }
 
@@ -1493,7 +1542,9 @@ const addWinGo_5 = async () => {
     // ============ SOCKET EMIT ============
     const timerData = calculateTimer(300);
     emitTimerUpdate(5, timerData);
-    emitGameResult(join, period, amount);
+    emitGameResult(join, period, amount, 'completed');
+
+    console.log(`[${join}] Period ${period} result: ${amount}, New period: ${newPeriod}`);
 
   } catch (error) {
     console.error("addWinGo_5 error:", error.message);
@@ -1561,14 +1612,23 @@ const addWinGo_11 = async (periodfromserver) => {
     const setting = await Admin.findOne();
 
     let newPeriodData = await fetchNewPeriod_11(periodfromserver, join);
+    let resultAmount;
+    let newPeriod;
+    let hashvalue;
+    let blockNumber;
 
-    if (!newPeriodData) {
-      console.error("No new period received.");
-      return;
+    if (newPeriodData) {
+      newPeriod = newPeriodData.newPeriod;
+      resultAmount = newPeriodData.resultAmount;
+      hashvalue = newPeriodData.hashvalue;
+      blockNumber = newPeriodData.blockNumber;
+    } else {
+      newPeriod = (BigInt(period) + BigInt(1)).toString();
+      resultAmount = generateRandomResult();
+      hashvalue = generateRandomHash(10);
+      blockNumber = 50;
+      console.log(`[${join}] Using random result: ${resultAmount}`);
     }
-
-    let { newPeriod, resultAmount, attempts, hashvalue, blockNumber } =
-      newPeriodData;
 
     if (newPeriod && period === newPeriod) {
       newPeriod = (BigInt(newPeriod) + BigInt(1)).toString();
@@ -1632,14 +1692,22 @@ const addWinGo_11 = async (periodfromserver) => {
     await Admin.updateOne({}, { $set: { trx: newArr } });
 
     // ============ SOCKET EMIT ============
-    // TRX uses 1 minute timer
     const timerData = calculateTimer(60);
     if (ioInstance) {
       ioInstance.emit('timeUpdate_11', timerData);
+      ioInstance.emit('game-result', {
+        game: join,
+        period: period,
+        result: resultAmount,
+        status: 'completed',
+        timestamp: new Date().toISOString()
+      });
       ioInstance.emit('data-server', {
         data: [{ game: join, period: period, amount: resultAmount }]
       });
     }
+
+    console.log(`[${join}] Period ${period} result: ${resultAmount}, New period: ${newPeriod}`);
 
   } catch (error) {
     console.error("Error in addWinGo_11:", error);
@@ -1753,4 +1821,5 @@ module.exports = {
   addWinGo_5,
   addWinGo_11,
   setIo,
+  generateRandomResult,
 };
