@@ -101,6 +101,7 @@ const {
   initTradingSocket,
   stopTradingSocket,
 } = require("./socket/tradingSocket");
+const { protect } = require("./middleware/authMiddleware");
 
 // =====================================================
 // APP
@@ -328,7 +329,7 @@ app.get("/bet/wingo10", betController.winGoPage10);
 app.get("/bet/trx", betController.trxPage);
 
 // API routes
-app.post("/api/bet", betController.betWinGo);
+app.post("/api/bet", protect, betController.betWinGo);
 
 app.post("/api/order-list", betController.listOrderOld);
 

@@ -185,7 +185,10 @@ const commissions = async (auth, money) => {
 const betWinGo = async (req, res) => {
   try {
     const { typeid, join, x, money } = req.body;
-    const auth = req.cookies.auth;
+    const auth = req.cookies.token;
+
+    const userId = req.user.id;
+    console.log(userId);
 
     const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100];
     const numericTypeId = Number(typeid);
@@ -217,10 +220,9 @@ const betWinGo = async (req, res) => {
       .sort({ _id: -1 })
       .limit(1);
 
-    const user = await User.findOne({
-      token: auth,
-      veri: 1,
-    });
+    const user = await User.findById(userId);
+
+    console.log(user, winGoNow, "ye rha wingo and user");
 
     if (!winGoNow || !user) {
       return res.status(400).json({
