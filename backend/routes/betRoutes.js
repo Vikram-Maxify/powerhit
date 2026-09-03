@@ -17,10 +17,6 @@ router.get("/wingo3", betController.winGoPage3);
 router.get("/wingo5", betController.winGoPage5);
 router.get("/wingo10", betController.winGoPage10);
 
-router.get("/trx", betController.trxPage);
-router.get("/trx3", betController.trxPage3);
-router.get("/trx5", betController.trxPage5);
-router.get("/trx10", betController.trxPage10);
 
 
 // =====================================================
