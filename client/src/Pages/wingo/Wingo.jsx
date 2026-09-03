@@ -1,4 +1,5 @@
 import debounce from "lodash/debounce";
+import { Crown, Gem, Shuffle, Zap } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FaCircle, FaMinus, FaPlus } from "react-icons/fa";
 import { IoIosArrowBack, IoIosArrowForward } from "react-icons/io";
@@ -6,7 +7,6 @@ import { useDispatch } from "react-redux";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import io from "socket.io-client";
 
-import CopyCopmponent from "../../components/CopyCopmponent.jsx";
 import EmptyData from "../../components/EmptyData.jsx";
 import { host } from "../../redux/slices/api.js";
 import { getProfile } from "../../redux/Slices/authSlice.js";
@@ -122,6 +122,9 @@ const Wingo = () => {
   const [hasUserBet, setHasUserBet] = useState(false);
   // Track current period to check against
   const [currentPeriod, setCurrentPeriod] = useState(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showCountdownOverlay, setShowCountdownOverlay] = useState(false);
+  const [countdownNumber, setCountdownNumber] = useState(0);
 
   // ---- Refs ----
   const intervalRef = useRef(null);
@@ -132,6 +135,7 @@ const Wingo = () => {
   const timerIntervalRef = useRef(null);
   const resultProcessedRef = useRef(new Set());
   const displayedResultRef = useRef(new Set());
+  const lastPlayedCountdownRef = useRef(null);
 
   // ---- Router ----
   const navigate = useNavigate();
@@ -183,17 +187,17 @@ const Wingo = () => {
   const getHowToPlayContent = () => {
     const base = (period, total) => (
       <>
-        <p className="font-bold text-white">
+        <p className="font-bold text-[#30281B]">
           {period} 1 issue,{" "}
           {period === "30 seconds" ? "25" : String(parseInt(period) * 60 - 15)}{" "}
           seconds to order, 15 seconds waiting for the draw. It opens all day.
           Total {total} issues.
         </p>
-        <p className="font-bold mt-2 text-white/80">
+        <p className="font-bold mt-2 text-[#5A410C]">
           If you spend 100 to trade, after deducting 2 service fee, your
           contract amount is 98:
         </p>
-        <ul className="list-disc pl-4 space-y-1 text-white/70">
+        <ul className="list-disc pl-4 space-y-1 text-[#7A5A1A]">
           <li>
             <span className="text-green-400">Green</span>: 1,3,7,9 → (98×2)=196;
             5 → (98×1.5)=147
@@ -619,14 +623,13 @@ const Wingo = () => {
         }),
       ).unwrap();
 
-      setBetAlert(true);
       setOpenPopup(false);
-      setMessage(res.message || "Bet placed successfully");
+      setShowSuccessPopup(true);
       setBalance(1);
       setMultiplier(1);
       setActiveX(0);
       localStorage.setItem("bet", true);
-      setTimeout(() => setMessage(""), 3000);
+      setTimeout(() => setShowSuccessPopup(false), 1800);
 
       await fetchHistory();
 
@@ -740,6 +743,59 @@ const Wingo = () => {
     };
   }, []);
 
+  // ---- Auto-close Result Popup after 3 seconds ----
+  useEffect(() => {
+    if (resultPopup && winResult !== null && hasUserBet) {
+      const timer = setTimeout(() => {
+        handleClose();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [resultPopup, winResult, hasUserBet]);
+
+  // ---- Final Countdown Overlay ----
+  useEffect(() => {
+    // Calculate total remaining seconds
+    const totalRemainingSeconds =
+      minutetime2 * 60 + secondtime1 * 10 + secondtime2;
+
+    // Determine when countdown should start based on game type
+    const countdownStartAt = activeTime === 10 ? 5 : 10;
+
+    // Check if we're in the final countdown window
+    if (
+      totalRemainingSeconds > 0 &&
+      totalRemainingSeconds <= countdownStartAt
+    ) {
+      setShowCountdownOverlay(true);
+      setCountdownNumber(totalRemainingSeconds);
+
+      // Play audio only when the countdown number changes (not on every render)
+      if (
+        lastPlayedCountdownRef.current !== totalRemainingSeconds &&
+        activeVoice
+      ) {
+        try {
+          // Reset audio to start and play
+          audio1Ref.current.currentTime = 0;
+          audio1Ref.current.play().catch(() => {
+            // Silently catch audio play errors (e.g., browser restrictions)
+          });
+        } catch (err) {
+          // Silently handle any audio errors
+        }
+        lastPlayedCountdownRef.current = totalRemainingSeconds;
+      }
+    } else {
+      setShowCountdownOverlay(false);
+      setCountdownNumber(0);
+      // Reset the last played countdown when we exit the countdown window
+      if (totalRemainingSeconds === 0) {
+        lastPlayedCountdownRef.current = null;
+      }
+    }
+  }, [minutetime2, secondtime1, secondtime2, activeTime, activeVoice]);
+
   // ============================================================
   // RENDER HELPERS
   // ============================================================
@@ -789,34 +845,40 @@ const Wingo = () => {
     </section>
   );
 
+  // 👇 Yahan apna imgbb wala Win Go banner URL paste karo (Image 1)
+  const WINGO_BANNER_BG =
+    "https://i.ibb.co/Fk1Wgj2P/Chat-GPT-Image-Sep-3-2026-04-52-17-PM.png";
+
   const renderPeriodSection = () => (
-    <section className={`${goldCard} mt-3 overflow-hidden`}>
-      <div className="flex items-center justify-between gap-3 border-b border-[#d9aa3d]/30 bg-[linear-gradient(135deg,#fff9e8,#f6df9e)] px-3 py-3 sm:px-4">
+    <section
+      className="relative mt-3 h-[260px] overflow-hidden rounded-2xl py-3 border border-[#d9aa3d]/40 bg-cover bg-center bg-no-repeat shadow-lg sm:min-h-[240px]"
+      style={{ backgroundImage: `url(${WINGO_BANNER_BG})`, loading: "lazy" }}
+    >
+      {/* Header row — title left, "How to play" pill right */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4">
         <div className="min-w-0">
-          <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#a47724] sm:text-xs">
+          <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#8a5c0b] sm:text-xs">
             Current Game
           </p>
-          <h2 className="truncate text-base font-black text-[#3c2b12] sm:text-lg">
-            Win Go {activeTime === 10 ? "30s" : `${activeTime}Min`}
+          <h2 className="truncate font-black border-b border-[#d9aa3d]/70 mt-2 text-[#3c2b12] drop-shadow-sm text-xl">
+            Wingo {activeTime === 10 ? "30s" : `${activeTime}Min`}
           </h2>
         </div>
         <button
           type="button"
           onClick={() => setHowtoPlay(true)}
-          className="shrink-0 rounded-full border border-[#c58c1b] bg-white/80 px-3 py-1.5 text-[11px] font-extrabold text-[#8a5c0b] shadow-sm transition hover:bg-white"
+          className="shrink-0 px-3 py-1.5 text-[11px] font-extrabold text-[#8a5c0b] transition -mt-[2.25rem]"
         >
           How to play
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-[1fr_auto] sm:items-center sm:px-4">
+      {/* Bottom row — recent results left, time-remaining card right */}
+      <div className="grid grid-cols-1 gap-2 px-4 pb-[0.5rem] sm:grid-cols-[1fr_auto] sm:items-center sm:px-5 sm:pb-5">
         <div className="min-w-0">
           <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#9a8257]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#5b4321]">
               Recent results
-            </span>
-            <span className="rounded-full bg-[#f8edcf] px-2 py-0.5 text-[10px] font-bold text-[#9a6c15]">
-              LIVE
             </span>
           </div>
           <div className="flex items-center gap-1.5 overflow-hidden">
@@ -833,25 +895,61 @@ const Wingo = () => {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[#d8ae4e]/45 bg-[#fffaf0] px-3 py-2 text-center shadow-inner sm:min-w-[150px]">
+        <div className="rounded-xl border border-[#d8ae4e]/50 bg-[#fffaf0]/90 px-3 py-2 text-center shadow-md backdrop-blur-sm w-[180px]">
           <p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-[#9a8257]">
             Time remaining
           </p>
           <div className="mt-1 flex items-center justify-center">
-            <span className="mx-0.5 flex h-7 w-6 items-center justify-center rounded-md bg-[#33270f] text-sm font-black text-[#ffe79b] shadow-[inset_0_1px_2px_rgba(255,255,255,.15)]">
+            <span
+              className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md  bg-gradient-to-b
+          from-[#FFF19A]
+          via-[#FFC928]
+          to-[#D99200]
+          border
+          border-[#FFD75A]
+          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-2xl font-black text-white "
+            >
+              {minutetime1}
+            </span>
+            <span
+              className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md  bg-gradient-to-b
+          from-[#FFF19A]
+          via-[#FFC928]
+          to-[#D99200]
+          border
+          border-[#FFD75A]
+          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-2xl font-black text-white "
+            >
               {minutetime2}
             </span>
-            <span className="mx-0.5 flex h-7 w-3 items-center justify-center rounded-md bg-transparent text-sm font-black text-[#9d711c] shadow-none">
+            <span className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md bg-transparent text-2xl font-black text-black shadow-none">
               :
             </span>
-            <span className="mx-0.5 flex h-7 w-6 items-center justify-center rounded-md bg-[#33270f] text-sm font-black text-[#ffe79b] shadow-[inset_0_1px_2px_rgba(255,255,255,.15)]">
+            <span
+              className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md  bg-gradient-to-b
+          from-[#FFF19A]
+          via-[#FFC928]
+          to-[#D99200]
+          border
+          border-[#FFD75A]
+          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-2xl font-black text-white "
+            >
               {secondtime1}
             </span>
-            <span className="mx-0.5 flex h-7 w-6 items-center justify-center rounded-md bg-[#33270f] text-sm font-black text-[#ffe79b] shadow-[inset_0_1px_2px_rgba(255,255,255,.15)]">
+            <span
+              className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md  bg-gradient-to-b
+          from-[#FFF19A]
+          via-[#FFC928]
+          to-[#D99200]
+          border
+          border-[#FFD75A]
+          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-2xl font-black text-white "
+            >
               {secondtime2}
             </span>
           </div>
-          <p className="mt-1 truncate text-[10px] font-bold text-[#765a27]">
+          <p className="mt-1 truncate text-[12px] font-semibold text-[#765a27]">
+            Period:
             {wingoPeriodListData?.period || "Loading..."}
           </p>
         </div>
@@ -859,70 +957,97 @@ const Wingo = () => {
     </section>
   );
 
+  // 👇 Agar tumhare paas already koi state hai jo current selected bet-type
+  // (color / number / big-small) track karta hai, to yahan uska naam use karo.
+  // Neeche maine sirf Big/Small ke active-highlight ke liye ek naya state
+  // add kiya hai — agar tumhara `selectBetHandle` already kahi is type ka
+  // selection store karta hai, to `activeBigSmall` ki jagah wahi variable
+  // use kar lena, duplicate state nahi chahiye.
+  const [activeBigSmall, setActiveBigSmall] = useState(null); // "l" = Big, "n" = Small
+
   const renderBetSection = () => (
-    <section className={`${goldCard} relative mt-3 overflow-hidden`}>
-      <div className="bg-[linear-gradient(135deg,#3b2a10,#17130c)] p-3 sm:p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[.18em] text-[#d9b15a]">
-              Place your bet
-            </p>
-            <h3 className="text-base font-black text-[#fff0b8] sm:text-lg">
-              Choose a color or number
-            </h3>
-          </div>
+    <section
+      className={`${goldCard} relative mt-3 overflow-hidden bg-[linear-gradient(160deg,#fffdf6,#fdf3d8)] p-3 sm:p-4`}
+    >
+      {/* ===== Header: "PLACE YOUR BET" + Random ===== */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex flex-1 items-center gap-2 text-[#c9941f]">
+          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#d8a72b]/70" />
+          <h3 className="shrink-0 text-sm font-black uppercase tracking-[.1em] text-[#b8801a] sm:text-base">
+            Place your bet
+          </h3>
+          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#d8a72b]/70" />
+        </div>
+        <button
+          type="button"
+          onClick={generateRandomNumber}
+          className="shrink-0 flex items-center gap-1 rounded-full border border-[#e3c67c] bg-white px-3 py-1.5 text-[11px] font-black text-[#8a6a1f] shadow-sm transition hover:-translate-y-0.5"
+        >
+          <Shuffle className="h-3.5 w-3.5" />
+          Random
+        </button>
+      </div>
+
+      {/* ===== Color bets: Green / Violet / Red ===== */}
+      <div className="grid grid-cols-3 gap-2.5">
+        {[
+          {
+            key: "x",
+            label: "Green",
+            gradient: "from-[#d7f3d9] to-[#a9e6ae]",
+            border: "border-[#7fce89]",
+            text: "text-[#1c7a34]",
+            gem: "text-[#22a744]",
+          },
+          {
+            key: "t",
+            label: "Violet",
+            gradient: "from-[#e5dcfb] to-[#c6adf6]",
+            border: "border-[#a97cf2]",
+            text: "text-[#5b2f9c]",
+            gem: "text-[#8b5cf6]",
+          },
+          {
+            key: "d",
+            label: "Red",
+            gradient: "from-[#fbdcdb] to-[#f5b0ac]",
+            border: "border-[#ec7c74]",
+            text: "text-[#a6221b]",
+            gem: "text-[#e0342a]",
+          },
+        ].map(({ key, label, gradient, border, text, gem }) => (
           <button
+            key={key}
             type="button"
-            onClick={generateRandomNumber}
-            className="rounded-full border border-[#d8a72b] bg-[#fff5ce] px-3 py-1.5 text-[10px] font-black text-[#76500d] shadow-sm transition hover:-translate-y-0.5"
+            onClick={() => selectBetHandle(key)}
+            className={`bg-gradient-to-br ${gradient} rounded-2xl border ${border} px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md active:scale-95`}
           >
-            🎲 Random
+            <div className="flex items-center justify-between">
+              <span className={`text-sm font-black ${text} sm:text-base`}>
+                {label}
+              </span>
+              <Gem className={`h-6 w-6 ${gem} drop-shadow-sm`} />
+            </div>
           </button>
-        </div>
+        ))}
+      </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            {
-              key: "x",
-              label: "Green",
-              cls: "bg-[linear-gradient(135deg,#69c86b,#218b43)]",
-            },
-            {
-              key: "t",
-              label: "Violet",
-              cls: "bg-[linear-gradient(135deg,#bd7cf2,#6f32a8)]",
-            },
-            {
-              key: "d",
-              label: "Red",
-              cls: "bg-[linear-gradient(135deg,#f36b62,#b82827)]",
-            },
-          ].map(({ key, label, cls }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => selectBetHandle(key)}
-              className={`${cls} rounded-xl py-3 text-xs font-black text-white shadow-[0_4px_10px_rgba(0,0,0,.22)] transition hover:-translate-y-0.5 hover:brightness-105 active:scale-95 sm:text-sm`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-3 rounded-2xl border border-[#a97c25]/50 bg-[#241c0d] p-2.5 sm:p-3">
+      {/* ===== Pick a number + Multiplier ===== */}
+      <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-[#e3c67c]/70 bg-white/70 p-3 shadow-sm sm:grid-cols-[1fr_auto_auto] sm:items-stretch sm:gap-4 sm:p-4">
+        {/* Pick a number */}
+        <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#c9aa68]">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#a6821f] sm:text-xs">
               Pick a number
             </span>
-            <span className="text-[10px] font-bold text-[#8f784b]">0 — 9</span>
           </div>
-          <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
+          <div className="grid grid-cols-5 gap-2">
             {ImgData.map((item, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => selectBetHandle(i)}
-                className={`flex min-w-0 items-center justify-center rounded-xl border border-[#b58a32]/40 bg-[#fffaf0] p-1.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#f2c85b] hover:shadow-[0_4px_12px_rgba(220,164,39,.25)] ${
+                className={`flex items-center justify-center rounded-xl border border-[#e3c67c]/70 bg-white p-2.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#f2c85b] hover:shadow-[0_4px_12px_rgba(220,164,39,.25)] active:scale-95 ${
                   animate ? "animate-bounce" : ""
                 }`}
                 style={{ animationDelay: `${i * 0.06}s` }}
@@ -937,11 +1062,18 @@ const Wingo = () => {
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-wider text-[#c9aa68]">
-            Multiplier
-          </span>
-          <div className="grid grid-cols-6 gap-1.5">
+        {/* Vertical divider (desktop only) */}
+        <div className="hidden self-stretch border-l border-[#e3c67c]/60 sm:block" />
+
+        {/* Multiplier */}
+        <div className="sm:w-[190px]">
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#a6821f] sm:text-xs">
+              Multiplier
+            </span>
+            <Zap className="h-3.5 w-3.5 text-[#d8a72b]" fill="currentColor" />
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
             {X_DATA.map((item, i) => (
               <button
                 key={i}
@@ -950,10 +1082,10 @@ const Wingo = () => {
                   setActiveX(i);
                   setMultiplier(item);
                 }}
-                className={`rounded-lg px-2 py-1.5 text-[10px] font-black transition sm:text-xs ${
+                className={`rounded-lg px-2 py-2 text-[11px] font-black transition sm:text-xs ${
                   activeX === i
                     ? "bg-[linear-gradient(135deg,#fff0a5,#d89a17)] text-[#3a2909] shadow-md"
-                    : "border border-white/10 bg-white/5 text-[#ead9ae] hover:bg-white/10"
+                    : "border border-[#e3c67c]/70 bg-white text-[#7c6329] hover:bg-[#fff7e0]"
                 }`}
               >
                 X{item}
@@ -961,25 +1093,48 @@ const Wingo = () => {
             ))}
           </div>
         </div>
+      </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => selectBetHandle("l")}
-            className="rounded-xl bg-[linear-gradient(135deg,#ffe48a,#d59a18)] py-3 text-sm font-black text-[#382607] shadow-md transition hover:-translate-y-0.5"
-          >
-            Big
-            <span className="ml-1 text-[10px] opacity-70">5–9</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => selectBetHandle("n")}
-            className="rounded-xl border border-[#d2a13b] bg-[#fff9e9] py-3 text-sm font-black text-[#72541c] shadow-md transition hover:-translate-y-0.5"
-          >
-            Small
-            <span className="ml-1 text-[10px] opacity-70">0–4</span>
-          </button>
-        </div>
+      {/* ===== Big / Small ===== */}
+      <div className="mt-3 grid grid-cols-2 gap-2.5">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveBigSmall("l");
+            selectBetHandle("l");
+          }}
+          className={`relative flex items-center justify-center gap-1.5 overflow-hidden rounded-xl py-3.5 text-sm font-black shadow-md transition hover:-translate-y-0.5 sm:text-base ${
+            activeBigSmall === "l"
+              ? "bg-[linear-gradient(135deg,#ffe48a,#d59a18)] text-[#382607]"
+              : "border border-[#e3c67c]/70 bg-white text-[#7c6329]"
+          }`}
+        >
+          Big <span className="text-[11px] opacity-70">5–9</span>
+          <Crown
+            className={`absolute right-3 h-5 w-5 ${
+              activeBigSmall === "l" ? "text-[#a6721b]/60" : "text-[#e3c67c]/60"
+            }`}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveBigSmall("n");
+            selectBetHandle("n");
+          }}
+          className={`relative flex items-center justify-center gap-1.5 overflow-hidden rounded-xl py-3.5 text-sm font-black shadow-md transition hover:-translate-y-0.5 sm:text-base ${
+            activeBigSmall === "n"
+              ? "bg-[linear-gradient(135deg,#ffe48a,#d59a18)] text-[#382607]"
+              : "border border-[#e3c67c]/70 bg-white text-[#7c6329]"
+          }`}
+        >
+          Small <span className="text-[11px] opacity-70">0–4</span>
+          <Crown
+            className={`absolute right-3 h-5 w-5 ${
+              activeBigSmall === "n" ? "text-[#a6721b]/60" : "text-[#e3c67c]/60"
+            }`}
+          />
+        </button>
       </div>
 
       {openTime && (
@@ -1368,15 +1523,14 @@ const Wingo = () => {
           {renderGameHistory()}
         </div>
       </main>
-
       {/* ====== BET POPUP ====== */}
       {openPopup && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
             onClick={() => setOpenPopup(false)}
           />
-          <div className="fixed bottom-[76px] left-1/2 z-50 w-[calc(100%-16px)] max-w-[500px] -translate-x-1/2 overflow-hidden rounded-t-[26px] border border-[#d9aa3d]/55 bg-[#21180b] shadow-[0_-10px_40px_rgba(0,0,0,.35)]">
+          <div className="fixed bottom-[76px] left-1/2 z-50 w-[calc(100%-16px)] max-w-[500px] -translate-x-1/2 overflow-hidden rounded-t-[26px] border border-[#d9aa3d]/60 bg-[#fffaf0] shadow-[0_-10px_40px_rgba(122,82,10,.12)]">
             <div
               className={`p-4 text-center ${getBetClass(
                 selectBet,
@@ -1389,8 +1543,8 @@ const Wingo = () => {
                 Select {getBetLabel(selectBet)}
               </h2>
             </div>
-            <div className="max-h-[72vh] overflow-y-auto p-4">
-              <div className="flex items-center justify-between gap-3 text-white">
+            <div className="max-h-[72vh] overflow-y-auto p-4 bg-white">
+              <div className="flex items-center justify-between gap-3 text-[#3b2b13]">
                 <span className="text-sm font-bold">Balance</span>
                 <div className="flex flex-wrap justify-end gap-1.5">
                   {BALANCE_OPTIONS.map((val) => (
@@ -1400,7 +1554,7 @@ const Wingo = () => {
                       className={`rounded-lg px-2.5 py-1 text-xs font-black ${
                         balance === val
                           ? `${getBetClass(selectBet)} text-black shadow-md`
-                          : "bg-white/10 text-white"
+                          : "border border-[#e3c67c]/60 bg-[#fff7e0] text-[#7c6329]"
                       }`}
                       onClick={() => setBalance(val)}
                     >
@@ -1410,7 +1564,7 @@ const Wingo = () => {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between gap-3 text-white">
+              <div className="mt-4 flex items-center justify-between gap-3 text-[#3b2b13]">
                 <span className="text-sm font-bold">Quantity</span>
                 <div className="flex items-center gap-2">
                   <button
@@ -1424,7 +1578,7 @@ const Wingo = () => {
                     type="number"
                     min="1"
                     value={multiplier}
-                    className="h-9 w-16 rounded-lg border border-white/20 bg-white/10 text-center font-black text-white outline-none"
+                    className="h-9 w-16 rounded-lg border border-[#e3c67c]/60 bg-white text-center font-black text-[#3b2b13] outline-none"
                     onChange={(e) => setMultiplier(Number(e.target.value) || 1)}
                   />
                   <button
@@ -1445,7 +1599,7 @@ const Wingo = () => {
                     className={`rounded-lg py-2 text-[10px] font-black ${
                       activeX === i
                         ? `${getBetClass(selectBet)} text-black shadow-md`
-                        : "bg-white/10 text-white"
+                        : "border border-[#e3c67c]/60 bg-[#fff7e0] text-[#7c6329]"
                     }`}
                     onClick={() => {
                       setActiveX(i);
@@ -1457,7 +1611,7 @@ const Wingo = () => {
                 ))}
               </div>
 
-              <label className="mt-4 flex cursor-pointer items-center gap-2 text-xs text-white/80">
+              <label className="mt-4 flex cursor-pointer items-center gap-2 text-xs text-[#5b4321]">
                 <input
                   type="checkbox"
                   checked={isChecked}
@@ -1465,14 +1619,14 @@ const Wingo = () => {
                   className="h-4 w-4 accent-yellow-400"
                 />
                 <span>I agree</span>
-                <span className="font-bold text-[#e9bd50]">Pre-sale rules</span>
+                <span className="font-bold text-[#b8801a]">Pre-sale rules</span>
               </label>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setOpenPopup(false)}
-                  className="group relative overflow-hidden rounded-xl border border-white/15 bg-white/[0.06] py-3.5 text-sm font-extrabold text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_4px_12px_rgba(0,0,0,.18)] transition-all duration-200 hover:border-white/25 hover:bg-white/[0.10] hover:text-white active:scale-[.97]"
+                  className="group relative overflow-hidden rounded-xl border border-[#d9aa3d]/50 bg-[#f6ebcf] py-3.5 text-sm font-extrabold text-[#7c6329] shadow-sm transition-all duration-200 hover:bg-[#f0e0b8] active:scale-[.97]"
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">
                     <span className="text-base opacity-70">✕</span>
@@ -1506,26 +1660,35 @@ const Wingo = () => {
           </div>
         </>
       )}
-
       {/* ====== HOW TO PLAY POPUP ====== */}
+
       {openHowtoPlay && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]"
             onClick={() => setHowtoPlay(false)}
           />
-          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-24px)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#d9aa3d] bg-[#241b0c] shadow-2xl">
-            <div className="bg-[linear-gradient(135deg,#fff0a5,#d99a18)] px-4 py-3 text-center text-lg font-black text-[#3a2909]">
-              How to Play — Win Go{" "}
-              {activeTime === 10 ? "30s" : `${activeTime}Min`}
+
+          <div className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-24px)] max-w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#D9AA3D]/60 bg-white shadow-[0_15px_50px_rgba(122,82,10,.2)]">
+            <div className="bg-gradient-to-br from-[#FFF8D6] via-[#FFE98A] to-[#D99A18] px-4 py-4 text-center border-b border-[#D9AA3D]/30">
+              <h3 className="text-lg font-black text-[#2F2208]">
+                How to Play — Win Go
+              </h3>
+              <p className="mt-0.5 text-xs font-semibold text-[#6B4D0B]">
+                {activeTime === 10 ? "30s" : `${activeTime}Min`}
+              </p>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto p-4 text-sm leading-6">
-              {getHowToPlayContent()}
+
+            <div className="max-h-[60vh] overflow-y-auto bg-white p-5 text-sm leading-7 text-[#30281B]">
+              <div className="[&_p]:mb-3 [&_strong]:font-extrabold [&_strong]:text-[#2F2208] [&_li]:mb-2 [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:font-black [&_h3]:text-[#5A410C]">
+                {getHowToPlayContent()}
+              </div>
             </div>
-            <div className="border-t border-white/10 p-3 text-center">
+
+            <div className="border-t border-[#D9AA3D]/20 bg-[#FFFDF7] p-3">
               <button
                 type="button"
-                className="rounded-full bg-[linear-gradient(135deg,#fff0a5,#d99a18)] px-10 py-2 font-black text-[#3a2909] shadow-lg"
+                className="w-full rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] px-6 py-2.5 text-sm font-black text-[#2F2208] shadow-[0_3px_8px_rgba(210,145,0,.3)]"
                 onClick={() => setHowtoPlay(false)}
               >
                 Close
@@ -1539,10 +1702,10 @@ const Wingo = () => {
       {resultPopup && winResult !== null && hasUserBet && (
         <>
           <div
-            className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm"
             onClick={handleClose}
           />
-          <div className="fixed left-1/2 top-1/2 z-[70] w-[calc(100%-28px)] max-w-[390px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-[#d9aa3d] bg-[linear-gradient(145deg,#2c200d,#120e08)] p-5 text-center shadow-[0_20px_70px_rgba(0,0,0,.55)]">
+          <div className="fixed left-1/2 top-1/2 z-[70] w-[calc(100%-28px)] max-w-[390px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl border border-[#d9aa3d]/60 bg-white p-5 text-center shadow-[0_10px_40px_rgba(122,82,10,.15)]">
             <img
               src={winResult ? WinImg : LoseImg}
               alt="result"
@@ -1550,7 +1713,7 @@ const Wingo = () => {
             />
             <p
               className={`mt-3 text-2xl font-black ${
-                winResult ? "text-[#ffe79b]" : "text-white/70"
+                winResult ? "text-[#c9941f]" : "text-[#8a5c0b]"
               }`}
             >
               {winResult ? "Congratulations!" : "Better Luck Next Time"}
@@ -1558,7 +1721,7 @@ const Wingo = () => {
 
             {/* Result Display */}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
-              <span className="text-white/60">Result</span>
+              <span className="text-[#9a8257]">Result</span>
 
               {(() => {
                 // Try multiple possible paths for result
@@ -1574,7 +1737,7 @@ const Wingo = () => {
 
                 if (resultNum === null || isNaN(resultNum)) {
                   return (
-                    <span className="rounded-full px-3 py-1 font-black text-white bg-gray-600">
+                    <span className="rounded-full px-3 py-1 font-black text-white bg-[#9a8257]">
                       --
                     </span>
                   );
@@ -1622,7 +1785,7 @@ const Wingo = () => {
             </div>
 
             {/* Period Display */}
-            <p className="mt-4 text-[10px] text-white/50">
+            <p className="mt-4 text-[10px] text-[#9a8257]">
               Period:{" "}
               {wingoHistoryData?.data?.gameslist?.[0]?.stage ||
                 wingoHistoryData?.gameslist?.[0]?.stage ||
@@ -1633,7 +1796,7 @@ const Wingo = () => {
 
             <button
               type="button"
-              className="mt-4 rounded-full border border-white/15 bg-white/10 px-6 py-2 text-xs font-black text-white hover:bg-white/20 transition"
+              className="mt-4 rounded-full border border-[#d9aa3d]/50 bg-[#fffaf0] px-6 py-2 text-xs font-black text-[#7c6329] hover:bg-[#f6ebcf] transition"
               onClick={handleClose}
             >
               Close
@@ -1641,13 +1804,41 @@ const Wingo = () => {
           </div>
         </>
       )}
+      {/* ====== SUCCESS POPUP ====== */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center pointer-events-none">
+          <div className="animate-in fade-in zoom-in duration-300 rounded-xl border border-[#d9aa3d]/70 bg-white p-5 shadow-[0_8px_32px_rgba(122,82,10,.16)] text-center">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-2xl text-[#c9941f]">✓</span>
+              <div className="text-left">
+                <h3 className="text-base font-black text-[#3b2b13]">
+                  Bet Placed Successfully
+                </h3>
+                <p className="text-[10px] text-[#9a8257] mt-0.5">
+                  Your bet has been placed.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* ====== COPY POPUPS ====== */}
-      <CopyCopmponent
-        copyPopup={refershPopup}
-        message="✅ Refreshed successfully"
-      />
-      <CopyCopmponent copyPopup={copyPopup} message="📋 Copied to clipboard" />
+      {/* ====== FINAL COUNTDOWN OVERLAY ====== */}
+      {showCountdownOverlay && countdownNumber > 0 && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="animate-in fade-in duration-200 flex items-center justify-center">
+            <span
+              className="text-9xl font-black text-[#FFD75A] drop-shadow-lg tracking-wide"
+              style={{
+                textShadow:
+                  "0 0 30px rgba(255, 215, 90, 0.6), 0 8px 20px rgba(0, 0, 0, 0.4)",
+              }}
+            >
+              {countdownNumber}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ====== BET ALERT ====== */}
       <div className={`place-bet-popup ${betAlert ? "active" : ""}`}>
