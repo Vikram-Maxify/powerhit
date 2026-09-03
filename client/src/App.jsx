@@ -57,6 +57,7 @@ import MatkaMarkets from "./Pages/user/Markets.jsx";
 import PlaceBid from "./Pages/user/PlaceBid.jsx";
 import MatkaResults from "./Pages/user/Results.jsx";
 
+import MarketDetailedResults from "./Pages/MarketDetailedResults.jsx";
 import MinesGame from "./pages/MinesGame.jsx";
 import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
 import TradingPage from "./Pages/TradingPage.jsx";
@@ -475,6 +476,11 @@ function App() {
                   <MatkaChartAnalysis />
                 </ProtectedRoute>
               }
+            />
+
+            <Route
+              path="/market-results/:marketId"
+              element={<MarketDetailedResults />}
             />
 
             {/* ========================================

@@ -1,5 +1,4 @@
 require("dotenv").config();
-
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -461,16 +460,17 @@ const lastTimerBoundary = {
 
 function calculateTimer(intervalSeconds) {
   const now = new Date();
-  const totalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-  
+  const totalSeconds =
+    now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
   let remaining = intervalSeconds - (totalSeconds % intervalSeconds);
   if (remaining === 0) remaining = intervalSeconds;
-  
+
   const minute = Math.floor(remaining / 60);
   const seconds = remaining % 60;
   const secondtime1 = Math.floor(seconds / 10);
   const secondtime2 = seconds % 10;
-  
+
   return { minute, secondtime1, secondtime2 };
 }
 
@@ -496,27 +496,19 @@ async function processResultImmediately(gameName, typeId) {
 
     const period = String(winGoNow.period);
 
-    console.log(
-      `[${gameName}] Attempting atomic processing: ${period}`
-    );
+    console.log(`[${gameName}] Attempting atomic processing: ${period}`);
 
     // -------------------------------------------------
     // 2. Generate result
     // -------------------------------------------------
-    const resultAmount = Number(
-      betController.generateRandomResult()
-    );
+    const resultAmount = Number(betController.generateRandomResult());
 
     const finalResult =
-      Number.isInteger(resultAmount) &&
-      resultAmount >= 0 &&
-      resultAmount <= 9
+      Number.isInteger(resultAmount) && resultAmount >= 0 && resultAmount <= 9
         ? resultAmount
         : Math.floor(Math.random() * 10);
 
-    console.log(
-      `[${gameName}] Generated result: ${period} -> ${finalResult}`
-    );
+    console.log(`[${gameName}] Generated result: ${period} -> ${finalResult}`);
 
     // -------------------------------------------------
     // 3. ATOMIC CLAIM
@@ -535,7 +527,7 @@ async function processResultImmediately(gameName, typeId) {
           amount: finalResult,
           status: 1,
         },
-      }
+      },
     );
 
     // -------------------------------------------------
@@ -543,21 +535,17 @@ async function processResultImmediately(gameName, typeId) {
     // -------------------------------------------------
     if (updateResult.modifiedCount !== 1) {
       console.log(
-        `[${gameName}] Period ${period} already processed by another caller. SKIP.`
+        `[${gameName}] Period ${period} already processed by another caller. SKIP.`,
       );
       return;
     }
 
-    console.log(
-      `[${gameName}] LOCKED/PROCESSED: ${period} -> ${finalResult}`
-    );
+    console.log(`[${gameName}] LOCKED/PROCESSED: ${period} -> ${finalResult}`);
 
     // -------------------------------------------------
     // 5. Create next period
     // -------------------------------------------------
-    const newPeriod = String(
-      BigInt(period) + BigInt(1)
-    );
+    const newPeriod = String(BigInt(period) + BigInt(1));
 
     const existingNext = await Wingo.findOne({
       game: gameName,
@@ -570,20 +558,14 @@ async function processResultImmediately(gameName, typeId) {
         amount: 0,
         game: gameName,
         status: 0,
-        hashvalue: require("crypto")
-          .randomBytes(5)
-          .toString("hex"),
+        hashvalue: require("crypto").randomBytes(5).toString("hex"),
         blocs: 50,
         time: new Date().toISOString(),
       });
 
-      console.log(
-        `[${gameName}] New period created: ${newPeriod}`
-      );
+      console.log(`[${gameName}] New period created: ${newPeriod}`);
     } else {
-      console.log(
-        `[${gameName}] Next period ${newPeriod} already exists`
-      );
+      console.log(`[${gameName}] Next period ${newPeriod} already exists`);
     }
 
     // -------------------------------------------------
@@ -595,7 +577,7 @@ async function processResultImmediately(gameName, typeId) {
         $set: {
           [gameName]: "-1",
         },
-      }
+      },
     );
 
     // -------------------------------------------------
@@ -607,9 +589,7 @@ async function processResultImmediately(gameName, typeId) {
     // 8. Emit result EXACTLY ONCE
     // -------------------------------------------------
     if (emittedPeriods[gameName] === period) {
-      console.log(
-        `[${gameName}] Period ${period} already emitted. SKIP emit.`
-      );
+      console.log(`[${gameName}] Period ${period} already emitted. SKIP emit.`);
       return;
     }
 
@@ -628,13 +608,10 @@ async function processResultImmediately(gameName, typeId) {
     });
 
     console.log(
-      `[${gameName}] RESULT EMITTED ONCE: ${period} -> ${finalResult}`
+      `[${gameName}] RESULT EMITTED ONCE: ${period} -> ${finalResult}`,
     );
   } catch (error) {
-    console.error(
-      `[${gameName}] processResultImmediately ERROR:`,
-      error
-    );
+    console.error(`[${gameName}] processResultImmediately ERROR:`, error);
   }
 }
 
@@ -645,22 +622,20 @@ function broadcastTimers() {
     timeUpdate_3: calculateTimer(180),
     timeUpdate_5: calculateTimer(300),
   };
-  
+
   currentTimers = timers;
-  
-  io.emit('timeUpdate_30', timers.timeUpdate_30);
-  io.emit('timeUpdate_11', timers.timeUpdate_11);
-  io.emit('timeUpdate_3', timers.timeUpdate_3);
-  io.emit('timeUpdate_5', timers.timeUpdate_5);
-  
+
+  io.emit("timeUpdate_30", timers.timeUpdate_30);
+  io.emit("timeUpdate_11", timers.timeUpdate_11);
+  io.emit("timeUpdate_3", timers.timeUpdate_3);
+  io.emit("timeUpdate_5", timers.timeUpdate_5);
+
   // =====================================================
   // RESULT PROCESSING - ONLY AT EXACT TIMER COMPLETION
   // =====================================================
   const now = new Date();
   const totalSeconds =
-    now.getHours() * 3600 +
-    now.getMinutes() * 60 +
-    now.getSeconds();
+    now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
   const gameConfigs = [
     { name: "wingo10", interval: 30, type: 10 },
@@ -693,31 +668,28 @@ function broadcastTimers() {
     lastTimerBoundary[config.name] = boundary;
 
     console.log(
-      `[TIMER] ${config.name} completed exactly. Processing result now.`
+      `[TIMER] ${config.name} completed exactly. Processing result now.`,
     );
 
     processResultImmediately(config.name, config.type).catch((error) => {
-      console.error(
-        `[TIMER] ${config.name} result processing error:`,
-        error
-      );
+      console.error(`[TIMER] ${config.name} result processing error:`, error);
     });
   }
 }
 
 // Send timer and result on new connection
-io.on('connection', (socket) => {
+io.on("connection", (socket) => {
   // Send current timers
-  socket.emit('timeUpdate_30', currentTimers.timeUpdate_30);
-  socket.emit('timeUpdate_11', currentTimers.timeUpdate_11);
-  socket.emit('timeUpdate_3', currentTimers.timeUpdate_3);
-  socket.emit('timeUpdate_5', currentTimers.timeUpdate_5);
-  
+  socket.emit("timeUpdate_30", currentTimers.timeUpdate_30);
+  socket.emit("timeUpdate_11", currentTimers.timeUpdate_11);
+  socket.emit("timeUpdate_3", currentTimers.timeUpdate_3);
+  socket.emit("timeUpdate_5", currentTimers.timeUpdate_5);
+
   // Send last results for all games
-  Object.keys(lastResults).forEach(game => {
+  Object.keys(lastResults).forEach((game) => {
     if (lastResults[game]) {
-      socket.emit('data-server', {
-        data: [lastResults[game]]
+      socket.emit("data-server", {
+        data: [lastResults[game]],
       });
     }
   });
@@ -849,9 +821,13 @@ const startServer = async () => {
       console.log(`Mines: http://localhost:${PORT}/api/mine-games`);
       console.log(`Bet:   http://localhost:${PORT}/bet`);
       console.log("Socket.IO: enabled");
-      console.log("Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5");
+      console.log(
+        "Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5",
+      );
       console.log("Trading Engine: enabled");
-      console.log("Games: 30s (wingo10), 1m (wingo), 3m (wingo3), 5m (wingo5), TRX (trx)");
+      console.log(
+        "Games: 30s (wingo10), 1m (wingo), 3m (wingo3), 5m (wingo5), TRX (trx)",
+      );
       console.log("Database: MongoDB");
       console.log("======================================");
     });
