@@ -185,10 +185,29 @@ const commissions = async (auth, money) => {
 const betWinGo = async (req, res) => {
   try {
     const { typeid, join, x, money } = req.body;
-    const auth = req.cookies.token;
+    
+    // FIXED: Use consistent cookie name - changed from token to auth
+    const auth = req.cookies.auth || req.cookies.token;
+    
+    if (!auth) {
+      return res.status(401).json({
+        message: "Authentication required",
+        status: false,
+      });
+    }
 
-    const userId = req.user.id;
-    console.log(userId);
+    // FIXED: Find user by token instead of using req.user.id
+    const user = await User.findOne({ token: auth, veri: 1 });
+    
+    if (!user) {
+      return res.status(401).json({
+        message: "User not found or unauthorized",
+        status: false,
+      });
+    }
+
+    const userId = user._id; // FIXED: Use user._id instead of req.user.id
+    console.log("User ID:", userId);
 
     const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100];
     const numericTypeId = Number(typeid);
@@ -220,13 +239,11 @@ const betWinGo = async (req, res) => {
       .sort({ _id: -1 })
       .limit(1);
 
-    const user = await User.findById(userId);
+    console.log("User:", user.mobile, "Wingo:", winGoNow?.period);
 
-    console.log(user, winGoNow, "ye rha wingo and user");
-
-    if (!winGoNow || !user) {
+    if (!winGoNow) {
       return res.status(400).json({
-        message: "Invalid data",
+        message: "Game not available",
         status: false,
       });
     }
@@ -425,7 +442,7 @@ const listOrderOld = async (req, res) => {
       });
     }
 
-    let auth = req.cookies.auth;
+    let auth = req.cookies.auth || req.cookies.token;
     const user = await User.findOne({ token: auth, veri: 1 });
     if (!user) {
       return res
@@ -513,7 +530,7 @@ const GetMyEmerdList = async (req, res) => {
       });
     }
 
-    let auth = req.cookies.auth;
+    let auth = req.cookies.auth || req.cookies.token;
     const user = await User.findOne({ token: auth, veri: 1 });
     if (!user) {
       return res.status(200).json({
