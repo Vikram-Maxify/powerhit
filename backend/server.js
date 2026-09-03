@@ -322,22 +322,22 @@ app.use("/api", (req, res, next) => {
 // =====================================================
 
 // Bet pages
-app.get("/bet/wingo", betController.winGoPage);
+app.get("/bet/wingo", protect, betController.winGoPage);
 
-app.get("/bet/wingo10", betController.winGoPage10);
+app.get("/bet/wingo10", protect, betController.winGoPage10);
 
-app.get("/bet/trx", betController.trxPage);
+app.get("/bet/trx", protect, betController.trxPage);
 
 // API routes
 app.post("/api/bet", protect, betController.betWinGo);
 
-app.post("/api/order-list", betController.listOrderOld);
+app.post("/api/order-list", protect, betController.listOrderOld);
 
-app.post("/api/my-bets", betController.GetMyEmerdList);
+app.post("/api/my-bets", protect, betController.GetMyEmerdList);
 
-app.post("/api/commission-admin", betController.tradeCommissionadmin);
+app.post("/api/commission-admin", protect, betController.tradeCommissionadmin);
 
-app.get("/api/commission-get", betController.tradeCommissionGet);
+app.get("/api/commission-get", protect, betController.tradeCommissionGet);
 
 // =====================================================
 // USER ROUTES
