@@ -59,6 +59,14 @@ const TIME_OPTIONS = [
   { value: 5, label: "5Min", game: "wingo5" },
 ];
 
+// Game mapping for socket events
+const GAME_EVENT_MAP = {
+  10: { event: "timeUpdate_30", game: "wingo10", type: 10 },
+  1: { event: "timeUpdate_11", game: "wingo", type: 1 },
+  3: { event: "timeUpdate_3", game: "wingo3", type: 3 },
+  5: { event: "timeUpdate_5", game: "wingo5", type: 5 },
+};
+
 const socket = io(host, {
   transports: ["websocket", "polling"],
   reconnection: true,
@@ -109,6 +117,11 @@ const Wingo = () => {
   const [number3, setNumber3] = useState([4, 16, 3, 14, 18, 18, 1, 9, 7, 22]);
   const [number4, setNumber4] = useState([4, 16, 3, 14, 18, 18, 1, 9, 7, 22]);
   const [periodData, setPeriodData] = useState(null);
+  const [lastResultPeriod, setLastResultPeriod] = useState(null);
+  // Track if user has bet in current period
+  const [hasUserBet, setHasUserBet] = useState(false);
+  // Track current period to check against
+  const [currentPeriod, setCurrentPeriod] = useState(null);
 
   // ---- Refs ----
   const intervalRef = useRef(null);
@@ -117,6 +130,8 @@ const Wingo = () => {
   const audio1Ref = useRef(new Audio(Audio1));
   const audio2Ref = useRef(new Audio(Audio2));
   const timerIntervalRef = useRef(null);
+  const resultProcessedRef = useRef(new Set());
+  const displayedResultRef = useRef(new Set());
 
   // ---- Router ----
   const navigate = useNavigate();
@@ -126,6 +141,7 @@ const Wingo = () => {
 
   // ---- Derived ----
   const totalAmount = balance * multiplier;
+  const currentGameInfo = GAME_EVENT_MAP[typeid1] || GAME_EVENT_MAP[10];
 
   // ============================================================
   // HELPERS
@@ -300,6 +316,10 @@ const Wingo = () => {
       if (res.status) {
         setWingoPeriodListData(res);
         setPeriodData(res);
+        // Store current period
+        if (res.period) {
+          setCurrentPeriod(res.period);
+        }
         setTimeout(chartFunction, 100);
       }
     } catch (err) {
@@ -318,6 +338,9 @@ const Wingo = () => {
         if (res.status) {
           setWingoPeriodListData(res);
           setPeriodData(res);
+          if (res.period) {
+            setCurrentPeriod(res.period);
+          }
           setTimeout(chartFunction, 100);
         }
       } catch (err) {
@@ -339,156 +362,202 @@ const Wingo = () => {
     [dispatch]
   );
 
-  const debouncedFetchResult = useCallback(
-    debounce(async (typeid1, pageno, pageto) => {
-      try {
-        const res = await dispatch(
-          getMyBets({ typeid: typeid1, pageno, pageto })
-        ).unwrap();
-        setWingoHistoryData(res);
-        setHistoryPage(res?.page);
-
-        if (res?.data?.gameslist?.[0]?.status === 1) {
-          try {
-            const profile = await dispatch(getProfile()).unwrap();
-            setUserInfo(profile);
-          } catch (err) {
-            console.error("Profile refresh failed:", err);
-          }
-          setWinResult(true);
-        } else if (res?.data?.gameslist?.[0]?.status === 2) {
-          setWinResult(false);
-        }
-      } catch (err) {
-        console.error("debouncedFetchResult failed:", err);
-      }
-    }, 500),
-    [dispatch]
-  );
-
   // ============================================================
-  // SOCKET LISTENERS - FIXED
+  // SOCKET LISTENERS - DURATION SAFE
   // ============================================================
-  
+
   const setSocketListeners = useCallback((typeid) => {
-    const eventMap = {
-      5: "timeUpdate_5",
-      3: "timeUpdate_3",
-      1: "timeUpdate_11",
-      10: "timeUpdate_30",
-    };
-    const eventName = eventMap[typeid];
-    if (!eventName) return;
+    const gameInfo = GAME_EVENT_MAP[typeid];
+    if (!gameInfo) return;
 
-    // Remove all existing listeners
-    socket.off();
+    const { event: timerEvent, game: currentGame } = gameInfo;
 
-    // Timer update listener
-    socket.on(eventName, (data) => {
+    // Every listener created here belongs to the currently selected game.
+    // Remove the previous listeners before attaching the new ones.
+    socket.off(timerEvent);
+    socket.off("data-server");
+
+    // ---- Timer update: ONLY current selected duration ----
+    const handleTimerUpdate = (data) => {
       if (!data) return;
-      
-      // Fix: Map server data to component state
-      const { minute, secondtime1, secondtime2 } = data;
-      
-      // Set timer values - minute ko minutetime2 mein daal rahe hain
-      setMinutetime2(minute || 0);
-      setSecondtime1(secondtime1 || 0);
-      setSecondtime2(secondtime2 || 0);
 
-      // Trigger open time when timer reaches last seconds
-      if (
-        minute === 0 &&
-        secondtime1 === 0 &&
-        secondtime2 <= 5 &&
-        secondtime2 >= 1
-      ) {
+      const minute = Number(data.minute) || 0;
+      const second1 = Number(data.secondtime1) || 0;
+      const second2 = Number(data.secondtime2) || 0;
+
+      // Ignore timer packets if this is no longer the active tab.
+      if (Number(typeid1) !== Number(typeid)) return;
+
+      setMinutetime2(minute);
+      setSecondtime1(second1);
+      setSecondtime2(second2);
+
+      // When the selected game's timer reaches 00:00:00,
+      // refresh ONLY that game's data.
+      if (minute === 0 && second1 === 0 && second2 === 0) {
         setOpenTime(true);
         setOpenPopup(false);
+
+        debouncedFetch(typeid, 1, 10);
+
         if (activeVoice) playAudio(audio1Ref);
       } else {
         setOpenTime(false);
       }
 
-      // Audio triggers for specific times
-      const triggerMap = {
-        5: minute === 4 && secondtime1 === 5 && secondtime2 === 9,
-        3: minute === 2 && secondtime1 === 5 && secondtime2 === 9,
-        1: minute === 0 && secondtime1 === 5 && secondtime2 === 9,
-        10: minute === 0 && secondtime1 === 5 && secondtime2 === 9,
-      };
-      
-      if (triggerMap[typeid] && activeVoice) {
+      if (minute === 0 && second1 === 5 && second2 === 9 && activeVoice) {
         playAudio(audio2Ref);
       }
-    });
+    };
 
-    // Data server listener for period updates
-    socket.on("data-server", async (msg) => {
-      if (!msg?.data) return;
+    socket.on(timerEvent, handleTimerUpdate);
 
-      setPage(1);
-      setPageto(10);
+    // ---- Result listener: ONLY current duration/game ----
+    const handleDataServer = async (msg) => {
+      if (!msg?.data || !Array.isArray(msg.data)) return;
 
-      // Check if this message is for current game
-      const gameMap = {
-        1: "wingo",
-        3: "wingo3",
-        5: "wingo5",
-        10: "wingo10",
-      };
-      
-      const currentGame = gameMap[typeid];
-      const isCurrentGame = msg.data.some(item => item.game === currentGame);
+      // IMPORTANT:
+      // data-server can contain results for multiple games at the same time.
+      // Never use another game's result in the active tab.
+      const resultForCurrentGame = msg.data.find(
+        (item) => item?.game === currentGame
+      );
 
-      if (isCurrentGame && !calledRef.current) {
-        calledRef.current = true;
-        await debouncedFetch(typeid, pageno, pageto);
-        setTimeout(() => {
-          calledRef.current = false;
-        }, 2000);
+      if (!resultForCurrentGame) return;
+
+      // User may have switched tabs while this socket packet was arriving.
+      if (Number(typeid1) !== Number(typeid)) return;
+
+      const period = String(resultForCurrentGame.period ?? "");
+      if (!period) return;
+
+      // Include game + type in the key so the same period number from
+      // different durations can NEVER block each other.
+      const processKey = `${currentGame}:${typeid}:${period}`;
+
+      // HARD CLIENT GUARD:
+      // One period + one game + one duration can be displayed only once.
+      if (resultProcessedRef.current.has(processKey)) {
+        console.log(
+          `[${currentGame}] ${period} already handled on client. SKIP duplicate.`
+        );
+        return;
       }
 
-      // Check for result update
-      if (
-        wingoHistoryData?.gameslist?.[0]?.stage &&
-        msg.data.some(item => item.period === wingoHistoryData.gameslist[0].stage) &&
-        !calledRef.current
-      ) {
-        await debouncedFetchResult(typeid, pageno, pageto);
-        setResultPopup(true);
-        setTimeout(() => {
-          calledRef.current = false;
-        }, 2000);
+      resultProcessedRef.current.add(processKey);
+
+      console.log(
+        `[${currentGame}] Result received | type=${typeid} | period=${period} | amount=${resultForCurrentGame.amount}`
+      );
+
+      try {
+        // Fetch ONLY this duration's period list.
+        await debouncedFetch(typeid, 1, 10);
+
+        // User could switch to another tab while the request was running.
+        if (Number(typeid1) !== Number(typeid)) return;
+
+        // Fetch ONLY this duration's bets.
+        const historyRes = await dispatch(
+          getMyBets({ typeid, pageno: 1, pageto: 10 })
+        ).unwrap();
+
+        // Ignore stale response after a tab switch.
+        if (Number(typeid1) !== Number(typeid)) return;
+
+        const gameslist = historyRes?.data?.gameslist || [];
+
+        setWingoHistoryData({
+          ...historyRes,
+          data: historyRes?.data || { gameslist: [] },
+          gameslist,
+        });
+
+        // Only the current game's period is checked.
+        const betInThisPeriod = gameslist.some(
+          (bet) => String(bet?.stage) === period
+        );
+
+        console.log(
+          `[${currentGame}] Period ${period}, user bet=${betInThisPeriod}`
+        );
+
+        if (betInThisPeriod) {
+          const lastBet = gameslist.find(
+            (bet) => String(bet?.stage) === period
+          );
+
+          setHasUserBet(true);
+          setWinResult(lastBet ? lastBet.status === 1 : true);
+          setResultPopup(true);
+          setLastResultPeriod(period);
+        } else {
+          setHasUserBet(false);
+          setResultPopup(false);
+        }
+
+        // Refresh balance only after processing the current duration.
+        try {
+          const profile = await dispatch(getProfile()).unwrap();
+          if (Number(typeid1) === Number(typeid)) {
+            setUserInfo(profile);
+          }
+        } catch (err) {
+          console.error("Profile refresh failed:", err);
+        }
+      } catch (err) {
+        console.error(
+          `[${currentGame}] Result processing failed for period ${period}:`,
+          err
+        );
+        setResultPopup(false);
       }
-    });
+    };
 
-    // Connection events
-    socket.on("connect", () => {
-      console.log("Socket connected successfully");
-    });
+    socket.on("data-server", handleDataServer);
 
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
-    });
-
-    socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-    });
-
-  }, [activeVoice, debouncedFetch, debouncedFetchResult, pageno, pageto, wingoHistoryData]);
+    return () => {
+      socket.off(timerEvent, handleTimerUpdate);
+      socket.off("data-server", handleDataServer);
+    };
+  }, [activeVoice, debouncedFetch, dispatch, typeid1]);
 
   // ============================================================
   // EVENT HANDLERS
   // ============================================================
 
   const handleWingoMinut = (data) => {
-    setActiveTime(data);
-    localStorage.setItem("wingominute", data);
-    setTypeid1(data);
+    const nextType = Number(data);
+    if (!GAME_EVENT_MAP[nextType]) return;
+
+    // Immediately switch the UI to the selected duration.
+    setActiveTime(nextType);
+    setTypeid1(nextType);
+    localStorage.setItem("wingominute", String(nextType));
+
     setPage(1);
     setPageto(10);
-    debouncedFetch(data, 1, 10);
-    navigate(`/wingo?Game=${data}`);
+
+    // Clear old duration data immediately so, for example, a 30s result
+    // cannot remain visible for a moment inside the 1/3/5 minute tab.
+    setWingoPeriodListData(null);
+    setWingoHistoryData(null);
+    setPeriodData(null);
+    setCurrentPeriod(null);
+    setMinutetime2(0);
+    setSecondtime1(0);
+    setSecondtime2(0);
+
+    // A period is unique per game, not globally.
+    resultProcessedRef.current = {};
+    setHasUserBet(false);
+    setResultPopup(false);
+    setWinResult(null);
+    setLastResultPeriod(null);
+
+    // Fetch only the newly selected duration.
+    debouncedFetch(nextType, 1, 10);
+    navigate(`/wingo?Game=${nextType}`);
   };
 
   const handleVoice = () => {
@@ -598,6 +667,7 @@ const Wingo = () => {
   const handleClose = () => {
     setWinResult(null);
     setResultPopup(false);
+    setHasUserBet(false);
   };
 
   // ============================================================
@@ -618,12 +688,18 @@ const Wingo = () => {
   useEffect(() => {
     debouncedFetch(typeid1, pageno, pageto);
     fetchHistory();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (typeid1 !== null) {
       updateNumbers();
       openAudio();
+      // Reset result tracker when typeid changes
+      // Do not clear result history when switching tabs.
+      // The same socket result must never be shown twice.
+      resultProcessedRef.current = resultProcessedRef.current;
+      setHasUserBet(false);
+      setResultPopup(false);
     }
   }, [typeid1]);
 
@@ -643,12 +719,14 @@ const Wingo = () => {
       socket.connect();
       isConnectedRef.current = true;
     }
-    
-    // Set socket listeners
-    setSocketListeners(typeid1);
-    
+
+    // Attach listeners only for the selected duration.
+    const cleanupListeners = setSocketListeners(typeid1);
+
     return () => {
-      socket.off();
+      if (typeof cleanupListeners === "function") {
+        cleanupListeners();
+      }
     };
   }, [typeid1, activeVoice, setSocketListeners]);
 
@@ -757,7 +835,6 @@ const Wingo = () => {
             Time remaining
           </p>
           <div className="mt-1 flex items-center justify-center">
-            {/* Timer Display - Fixed: Showing minutes and seconds properly */}
             <span className="mx-0.5 flex h-7 w-6 items-center justify-center rounded-md bg-[#33270f] text-sm font-black text-[#ffe79b] shadow-[inset_0_1px_2px_rgba(255,255,255,.15)]">
               {minutetime2}
             </span>
@@ -1258,7 +1335,7 @@ const Wingo = () => {
   );
 
   // ============================================================
-  // RENDER
+  // RENDER - MAIN
   // ============================================================
   return (
     <>
@@ -1289,7 +1366,7 @@ const Wingo = () => {
         </div>
       </main>
 
-      {/* ====== POPUPS ====== */}
+      {/* ====== BET POPUP ====== */}
       {openPopup && (
         <>
           <div
@@ -1427,6 +1504,7 @@ const Wingo = () => {
         </>
       )}
 
+      {/* ====== HOW TO PLAY POPUP ====== */}
       {openHowtoPlay && (
         <>
           <div
@@ -1454,7 +1532,8 @@ const Wingo = () => {
         </>
       )}
 
-      {resultPopup && winResult !== null && (
+      {/* ====== RESULT POPUP - ONLY SHOW IF USER HAS BET ====== */}
+      {resultPopup && winResult !== null && hasUserBet && (
         <>
           <div
             className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm"
@@ -1471,51 +1550,83 @@ const Wingo = () => {
                 winResult ? "text-[#ffe79b]" : "text-white/70"
               }`}
             >
-              {winResult ? "Congratulations" : "Sorry"}
+              {winResult ? "Congratulations!" : "Better Luck Next Time"}
             </p>
+            
+            {/* Result Display */}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
               <span className="text-white/60">Result</span>
-              <span
-                className={`rounded-full px-3 py-1 font-black text-white ${
-                  winResult ? "bg-green-600" : "bg-gray-600"
-                }`}
-              >
-                {wingoHistoryData?.gameslist?.[0]?.result % 2 === 0
-                  ? "Red"
-                  : "Green"}
-              </span>
-              <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full font-black text-white ${
-                  winResult ? "bg-[#d99a18]" : "bg-gray-600"
-                }`}
-              >
-                {wingoHistoryData?.gameslist?.[0]?.result}
-              </span>
-              <span
-                className={`rounded-full px-3 py-1 font-black text-white ${
-                  winResult ? "bg-[#d99a18]" : "bg-gray-600"
-                }`}
-              >
-                {wingoHistoryData?.gameslist?.[0]?.result > 4 ? "Big" : "Small"}
-              </span>
+              
+              {(() => {
+                // Try multiple possible paths for result
+                const resultValue = 
+                  wingoHistoryData?.data?.gameslist?.[0]?.result ?? 
+                  wingoHistoryData?.gameslist?.[0]?.result ?? 
+                  null;
+                
+                const resultNum = resultValue !== null && resultValue !== undefined ? Number(resultValue) : null;
+                
+                if (resultNum === null || isNaN(resultNum)) {
+                  return (
+                    <span className="rounded-full px-3 py-1 font-black text-white bg-gray-600">
+                      --
+                    </span>
+                  );
+                }
+                
+                // Determine color
+                let colorClass = "bg-gray-600";
+                let colorName = "";
+                
+                if (resultNum === 0 || resultNum === 5) {
+                  colorClass = resultNum === 0 ? "bg-red-600" : "bg-green-600";
+                  colorName = resultNum === 0 ? "Red" : "Green";
+                } else if ([1, 3, 7, 9].includes(resultNum)) {
+                  colorClass = "bg-green-600";
+                  colorName = "Green";
+                } else if ([2, 4, 6, 8].includes(resultNum)) {
+                  colorClass = "bg-red-600";
+                  colorName = "Red";
+                }
+                
+                return (
+                  <>
+                    <span className={`rounded-full px-3 py-1 font-black text-white ${colorClass}`}>
+                      {colorName}
+                    </span>
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full font-black text-white ${
+                        winResult ? "bg-[#d99a18]" : "bg-gray-600"
+                      }`}
+                    >
+                      {resultNum}
+                    </span>
+                    <span
+                      className={`rounded-full px-3 py-1 font-black text-white ${
+                        resultNum > 4 ? "bg-[#d99a18]" : "bg-gray-600"
+                      }`}
+                    >
+                      {resultNum > 4 ? "Big" : "Small"}
+                    </span>
+                  </>
+                );
+              })()}
             </div>
-            {winResult ? (
-              <p className="mt-4 text-3xl font-black text-[#ffd85a]">
-                ₹
-                {Number(
-                  wingoHistoryData?.gameslist?.[0]?.get
-                ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-              </p>
-            ) : (
-              <p className="mt-4 text-xl font-black text-white/45">Lose</p>
-            )}
-            <p className="mt-2 text-[10px] text-white/50">
-              Period: Wingo {activeTime === 10 ? "30s" : `${activeTime}Min`}{" "}
-              {wingoPeriodListData?.data?.gameslist?.[0]?.period}
+            
+            {/* Period Display */}
+            <p className="mt-4 text-[10px] text-white/50">
+              Period: {
+                wingoHistoryData?.data?.gameslist?.[0]?.stage || 
+                wingoHistoryData?.gameslist?.[0]?.stage || 
+                wingoHistoryData?.data?.gameslist?.[0]?.period ||
+                wingoHistoryData?.gameslist?.[0]?.period ||
+                "Loading..."
+              }
             </p>
+            
             <button
               type="button"
-              className="mt-4 rounded-full border border-white/15 bg-white/10 px-6 py-2 text-xs font-black text-white"
+              className="mt-4 rounded-full border border-white/15 bg-white/10 px-6 py-2 text-xs font-black text-white hover:bg-white/20 transition"
               onClick={handleClose}
             >
               Close
@@ -1524,11 +1635,14 @@ const Wingo = () => {
         </>
       )}
 
+      {/* ====== COPY POPUPS ====== */}
       <CopyCopmponent
         copyPopup={refershPopup}
         message="✅ Refreshed successfully"
       />
       <CopyCopmponent copyPopup={copyPopup} message="📋 Copied to clipboard" />
+      
+      {/* ====== BET ALERT ====== */}
       <div className={`place-bet-popup ${betAlert ? "active" : ""}`}>
         <div className="text-sm font-bold">{messages}</div>
       </div>

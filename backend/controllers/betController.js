@@ -22,6 +22,15 @@ const setIo = (io) => {
   ioInstance = io;
 };
 
+// Track emitted results to prevent duplicates
+const emittedResults = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+  trx: null,
+};
+
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -116,11 +125,13 @@ function calculateTimer(intervalSeconds) {
 // GENERATE RANDOM RESULT (0-9)
 // ============================================
 function generateRandomResult() {
-  return Math.floor(Math.random() * 10);
+  const randomBytes = crypto.randomBytes(1);
+  const randomNumber = randomBytes[0] % 10;
+  return randomNumber;
 }
 
 // ============================================
-// SOCKET EMIT FUNCTIONS
+// SOCKET EMIT FUNCTIONS - WITH DUPLICATE CHECK
 // ============================================
 const emitTimerUpdate = (type, timerData) => {
   if (ioInstance) {
@@ -129,10 +140,6 @@ const emitTimerUpdate = (type, timerData) => {
       1: 'timeUpdate_11',
       3: 'timeUpdate_3',
       5: 'timeUpdate_5',
-      11: 'timeUpdate_11',
-      33: 'timeUpdate_33',
-      55: 'timeUpdate_55',
-      100: 'timeUpdate_100',
     };
     const event = eventMap[type];
     if (event) {
@@ -142,22 +149,19 @@ const emitTimerUpdate = (type, timerData) => {
   }
 };
 
-const emitGameResult = (game, period, amount, status) => {
+const emitGameResult = (game, period, amount) => {
   if (ioInstance) {
-    // Emit result for popup
-    ioInstance.emit('game-result', {
-      game: game,
-      period: period,
-      result: amount,
-      status: status || 'completed',
-      timestamp: new Date().toISOString()
-    });
+    // Check if this result was already emitted
+    if (emittedResults[game] === period) {
+      console.log(`[${game}] Result for period ${period} already emitted, skipping duplicate`);
+      return;
+    }
     
-    // Emit data-server for history
+    emittedResults[game] = period;
+    
     ioInstance.emit('data-server', {
       data: [{ game, period, amount }]
     });
-    
     console.log(`[SOCKET] Emitted result for ${game}: ${period} -> ${amount}`);
   }
 };
@@ -180,22 +184,6 @@ const winGoPage5 = async (req, res) => {
 
 const winGoPage10 = async (req, res) => {
   return res.render("bet/wingo/win10.ejs");
-};
-
-const trxPage = async (req, res) => {
-  return res.render("bet/trx/trx.ejs");
-};
-
-const trxPage3 = async (req, res) => {
-  return res.render("bet/trx/trx3.ejs");
-};
-
-const trxPage5 = async (req, res) => {
-  return res.render("bet/trx/trx5.ejs");
-};
-
-const trxPage10 = async (req, res) => {
-  return res.render("bet/trx/trx10.ejs");
 };
 
 // ============================================
@@ -285,9 +273,8 @@ const betWinGo = async (req, res) => {
     }
 
     const userId = user._id;
-    console.log("User ID:", userId);
 
-    const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100];
+    const validTypeIds = [1, 3, 5, 10];
     const numericTypeId = Number(typeid);
 
     if (!validTypeIds.includes(numericTypeId)) {
@@ -302,10 +289,6 @@ const betWinGo = async (req, res) => {
       3: "wingo3",
       5: "wingo5",
       10: "wingo10",
-      11: "trx",
-      33: "trx3",
-      55: "trx5",
-      100: "trx10",
     };
 
     const gameJoin = gameMap[numericTypeId];
@@ -316,8 +299,6 @@ const betWinGo = async (req, res) => {
     })
       .sort({ _id: -1 })
       .limit(1);
-
-    console.log("User:", user.mobile, "Wingo:", winGoNow?.period);
 
     if (!winGoNow) {
       return res.status(400).json({
@@ -498,7 +479,7 @@ const listOrderOld = async (req, res) => {
   try {
     let { typeid, pageno, pageto } = req.body;
 
-    const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100];
+    const validTypeIds = [1, 3, 5, 10];
     if (!validTypeIds.includes(typeid)) {
       return res
         .status(200)
@@ -526,10 +507,6 @@ const listOrderOld = async (req, res) => {
       3: "wingo3",
       5: "wingo5",
       10: "wingo10",
-      11: "trx",
-      33: "trx3",
-      55: "trx5",
-      100: "trx10",
     };
     const game = gameMap[typeid];
 
@@ -587,7 +564,7 @@ const GetMyEmerdList = async (req, res) => {
   try {
     let { typeid, pageno, pageto } = req.body;
 
-    const validTypeIds = [1, 3, 5, 10, 11, 33, 55, 100, 15];
+    const validTypeIds = [1, 3, 5, 10, 15];
     if (!validTypeIds.includes(typeid)) {
       return res
         .status(200)
@@ -618,10 +595,6 @@ const GetMyEmerdList = async (req, res) => {
       3: "wingo3",
       5: "wingo5",
       10: "wingo10",
-      11: "trx",
-      33: "trx3",
-      55: "trx5",
-      100: "trx10",
     };
 
     if (typeid === 15) {
@@ -688,11 +661,8 @@ const handlingWinGo1P = async (typeid) => {
       5: "wingo5",
       10: "wingo10",
       11: "trx",
-      33: "trx3",
-      55: "trx5",
-      100: "trx10",
     };
-    const game = gameMap[typeid];
+    const game = gameMap[typeid] || "wingo";
 
     const winGoNow = await Wingo.findOne({ status: { $ne: 0 }, game })
       .sort({ _id: -1 })
@@ -820,8 +790,8 @@ const handlingWinGo1P = async (typeid) => {
       await processBet(bet);
     }
 
-    // ============ SOCKET EMIT FOR RESULT WITH POPUP ============
-    emitGameResult(game, winGoNow.period, result, 'completed');
+    // Result socket emit is handled by the single result processor.
+    // Do NOT emit here, otherwise the same period can be broadcast twice.
 
   } catch (error) {
     console.error("Error in handlingWinGo1P:", error.message);
@@ -969,6 +939,42 @@ const fetchApiData_bdgwin_10 = async () => {
   return null;
 };
 
+const fetchApiData_bdgwin_1 = async () => {
+  const ts = Date.now();
+  const apiUrl = `https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json?ts=${ts}`;
+
+  const headers = {
+    accept: "application/json, text/plain, */*",
+  };
+
+  let attempts = 0;
+
+  while (attempts < maxApiRetries) {
+    try {
+      const startTime = Date.now();
+      const response = await axios.get(apiUrl, {
+        headers,
+        timeout: apiTimeout,
+      });
+      const endTime = Date.now();
+
+      if (endTime - startTime > apiTimeout) {
+        attempts++;
+        continue;
+      }
+
+      return response.data?.data?.list?.[0] || null;
+    } catch (error) {
+      attempts++;
+      console.error(`API call failed (Attempt ${attempts}):`, error.message);
+      if (attempts >= maxApiRetries) {
+        throw new Error("API failed after maximum retries");
+      }
+    }
+  }
+  return null;
+};
+
 // ============================================
 // DEFINERESULT - Smart Result Generation
 // ============================================
@@ -980,10 +986,6 @@ const defineresult = async (game) => {
       3: { join: "wingo3", updatenum: 2 },
       5: { join: "wingo5", updatenum: 3 },
       10: { join: "wingo10", updatenum: 4 },
-      11: { join: "trx", updatenum: 3 },
-      33: { join: "trx3", updatenum: 4 },
-      55: { join: "trx5", updatenum: 5 },
-      100: { join: "trx10", updatenum: 6 },
     };
 
     const { join, updatenum } = gameMappings[game] || {};
@@ -1056,277 +1058,29 @@ const defineresult = async (game) => {
 // ADD WINGO 30 SECOND
 // ============================================
 
-const logFilePath = path.join(__dirname, "wingo30.log");
 let lastCallTime30 = 0;
 const lockDuration30 = 3000;
 
-const addWinGo_30 = async (period_id) => {
-  try {
-    if (Date.now() - lastCallTime30 < lockDuration30) {
-      return;
-    }
-    lastCallTime30 = Date.now();
-
-    const join = "wingo10";
-    const checkTime2 = formatDate(Date.now());
-
-    let winGoNow = await Wingo.findOne({ status: 0, game: join })
-      .sort({ _id: -1 })
-      .limit(1);
-
-    let period = winGoNow?.period || "98778990";
-
-    const setting = await Admin.findOne();
-    let nextResult = setting?.wingo10 || "-1";
-
-    // Try to fetch from API first
-    let newPeriodData = await fetchNewPeriod_30(period_id);
-    let resultAmount;
-    let newPeriod;
-
-    if (newPeriodData) {
-      newPeriod = newPeriodData.newPeriod;
-      resultAmount = newPeriodData.resultAmount;
-    } else {
-      // If API fails, generate random result
-      newPeriod = (BigInt(period) + BigInt(1)).toString();
-      resultAmount = generateRandomResult();
-      console.log(`[${join}] Using random result: ${resultAmount}`);
-    }
-
-    const minPlayers = await Bet.countDocuments({ status: 0, game: join });
-
-    if (minPlayers > 0) {
-      if (setting?.wingo30_mode === 1) {
-        resultAmount = await defineresult(10);
-      }
-    }
-
-    // Update current period with result
-    let newArr = "";
-    if (nextResult === "-1") {
-      await Wingo.updateOne(
-        { period, game: join },
-        { $set: { amount: resultAmount, status: 1 } },
-      );
-      newArr = "-1";
-    } else {
-      let arr = nextResult.split("|");
-      newArr = arr.length === 1 ? "-1" : arr.slice(1).join("|");
-      await Wingo.updateOne(
-        { period, game: join },
-        { $set: { amount: Number(arr[0]), status: 1 } },
-      );
-    }
-
-    // Update previous periods
-    await Wingo.updateMany(
-      { period: { $ne: newPeriod }, game: join },
-      { $set: { status: 1 } },
-    );
-
-    // Insert new period
-    await Wingo.create({
-      period: String(newPeriod),
-      amount: 0,
-      game: join,
-      status: 0,
-      hashvalue: generateRandomHash(10),
-      blocs: 50,
-      time: checkTime2,
-    });
-
-    await Admin.updateOne({}, { $set: { wingo10: newArr } });
-
-    // ============ SOCKET EMIT ============
-    // Emit timer update for 30s game
-    const timerData = calculateTimer(30);
-    emitTimerUpdate(10, timerData);
-    
-    // Emit game result with popup
-    emitGameResult(join, period, resultAmount, 'completed');
-
-    console.log(`[${join}] Period ${period} result: ${resultAmount}, New period: ${newPeriod}`);
-
-  } catch (error) {
-    console.error("Error in addWinGo_30:", error);
-  }
-};
-
-const fetchNewPeriod_30 = async (currentPeriod) => {
-  const maxAttempts = 10;
-  const retryInterval = 500;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const apiData = await fetchApiData_bdgwin_10();
-
-      if (apiData?.issueNumber === currentPeriod) {
-        return {
-          newPeriod: (BigInt(currentPeriod) + BigInt(1)).toString(),
-          resultAmount: apiData.number,
-          attempts: attempt,
-        };
-      }
-    } catch (error) {
-      console.error(`Attempt ${attempt} error:`, error.message);
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, retryInterval));
-  }
-
-  return null;
+const addWinGo_30 = async () => {
+  // DISABLED: result processing is owned exclusively by server.js
+  // processResultImmediately() at the exact timer boundary.
+  // Keeping this function as a no-op prevents legacy callers from
+  // generating a second result for the same period.
+  console.log("[RESULT ENGINE] addWinGo_30 ignored: centralized processor is active.");
+  return;
 };
 
 // ============================================
 // ADD WINGO 1 MINUTE
 // ============================================
 
-const addWinGo_1 = async (period_id) => {
-  try {
-    if (Date.now() - lastCallTime30 < lockDuration30) {
-      return;
-    }
-    lastCallTime30 = Date.now();
-
-    const join = "wingo";
-    const checkTime2 = formatDate(Date.now());
-
-    let winGoNow = await Wingo.findOne({ status: 0, game: join })
-      .sort({ _id: -1 })
-      .limit(1);
-
-    let period = winGoNow?.period || "98778990";
-    const setting = await Admin.findOne();
-    let nextResult = setting?.wingo || "-1";
-
-    // Try to fetch from API first
-    let newPeriodData = await fetchNewPeriod_1(period_id);
-    let resultAmount;
-    let newPeriod;
-
-    if (newPeriodData) {
-      newPeriod = newPeriodData.newPeriod;
-      resultAmount = newPeriodData.resultAmount;
-    } else {
-      // If API fails, generate random result
-      newPeriod = (BigInt(period) + BigInt(1)).toString();
-      resultAmount = generateRandomResult();
-      console.log(`[${join}] Using random result: ${resultAmount}`);
-    }
-
-    const minPlayers = await Bet.countDocuments({ status: 0, game: join });
-
-    if (minPlayers > 0) {
-      if (setting?.wingo1_mode === 1) {
-        resultAmount = await defineresult(1);
-      }
-    }
-
-    let newArr = "";
-    if (nextResult === "-1") {
-      await Wingo.updateOne(
-        { period, game: join },
-        { $set: { amount: resultAmount, status: 1 } },
-      );
-      newArr = "-1";
-    } else {
-      let arr = nextResult.split("|");
-      newArr = arr.length === 1 ? "-1" : arr.slice(1).join("|");
-      await Wingo.updateOne(
-        { period, game: join },
-        { $set: { amount: Number(arr[0]), status: 1 } },
-      );
-    }
-
-    await Wingo.updateMany(
-      { period: { $ne: newPeriod }, game: join },
-      { $set: { status: 1 } },
-    );
-
-    await Wingo.create({
-      period: String(newPeriod),
-      amount: 0,
-      game: join,
-      status: 0,
-      hashvalue: generateRandomHash(10),
-      blocs: 50,
-      time: checkTime2,
-    });
-
-    await Admin.updateOne({}, { $set: { wingo: newArr } });
-
-    // ============ SOCKET EMIT ============
-    const timerData = calculateTimer(60);
-    emitTimerUpdate(1, timerData);
-    emitGameResult(join, period, resultAmount, 'completed');
-
-    console.log(`[${join}] Period ${period} result: ${resultAmount}, New period: ${newPeriod}`);
-
-  } catch (error) {
-    console.error("Error in addWinGo_1:", error);
-  }
-};
-
-const fetchApiData_bdgwin_1 = async () => {
-  const ts = Date.now();
-  const apiUrl = `https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json?ts=${ts}`;
-
-  const headers = {
-    accept: "application/json, text/plain, */*",
-  };
-
-  let attempts = 0;
-
-  while (attempts < maxApiRetries) {
-    try {
-      const startTime = Date.now();
-      const response = await axios.get(apiUrl, {
-        headers,
-        timeout: apiTimeout,
-      });
-      const endTime = Date.now();
-
-      if (endTime - startTime > apiTimeout) {
-        attempts++;
-        continue;
-      }
-
-      return response.data?.data?.list?.[0] || null;
-    } catch (error) {
-      attempts++;
-      console.error(`API call failed (Attempt ${attempts}):`, error.message);
-      if (attempts >= maxApiRetries) {
-        throw new Error("API failed after maximum retries");
-      }
-    }
-  }
-  return null;
-};
-
-const fetchNewPeriod_1 = async (currentPeriod) => {
-  const maxAttempts = 10;
-  const retryInterval = 500;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const apiData = await fetchApiData_bdgwin_1();
-
-      if (apiData?.issueNumber === currentPeriod) {
-        return {
-          newPeriod: (BigInt(currentPeriod) + BigInt(1)).toString(),
-          resultAmount: apiData.number,
-          attempts: attempt,
-        };
-      }
-    } catch (error) {
-      console.error(`Attempt ${attempt} error:`, error.message);
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, retryInterval));
-  }
-
-  return null;
+const addWinGo_1 = async () => {
+  // DISABLED: result processing is owned exclusively by server.js
+  // processResultImmediately() at the exact timer boundary.
+  // Keeping this function as a no-op prevents legacy callers from
+  // generating a second result for the same period.
+  console.log("[RESULT ENGINE] addWinGo_1 ignored: centralized processor is active.");
+  return;
 };
 
 // ============================================
@@ -1337,126 +1091,12 @@ let lastCallTime3 = 0;
 const lockDuration3 = 3000;
 
 const addWinGo_3 = async () => {
-  try {
-    if (Date.now() - lastCallTime3 < lockDuration3) return;
-    lastCallTime3 = Date.now();
-
-    const join = "wingo3";
-    const checkTime2 = formatDate(Date.now());
-
-    const winGoNow = await Wingo.findOne({ status: 0, game: join })
-      .sort({ _id: -1 })
-      .limit(1);
-
-    let period = winGoNow?.period || "98778990";
-    const setting = await Admin.findOne();
-
-    let amount = generateRandomResult();
-    const minPlayers = await Bet.countDocuments({ status: 0, game: join });
-
-    if (minPlayers > 0) {
-      if (setting?.wingo3_mode === 1) {
-        amount = await defineresult(3);
-      } else {
-        const latestData = await fetchLatestWingo3Data();
-        if (latestData) {
-          period = latestData.period;
-          amount = latestData.amount;
-        }
-      }
-    } else {
-      const latestData = await fetchLatestWingo3Data();
-      if (latestData) {
-        period = latestData.period;
-        amount = latestData.amount;
-      } else {
-        amount = generateRandomResult();
-        console.log(`[${join}] Using random result: ${amount}`);
-      }
-    }
-
-    let nextResult = setting?.wingo3 || "-1";
-    let newArr = "";
-
-    if (nextResult === "-1") {
-      await Wingo.updateOne(
-        { period, game: join },
-        { $set: { amount, status: 1 } },
-      );
-      newArr = "-1";
-    } else {
-      let arr = nextResult.split("|");
-      let result = arr[0];
-      newArr = arr.length > 1 ? arr.slice(1).join("|") : "-1";
-      await Wingo.updateOne(
-        { period, game: join },
-        { $set: { amount: Number(result), status: 1 } },
-      );
-    }
-
-    const newPeriod = BigInt(period) + BigInt(1);
-    const blockHeight = 50;
-
-    await Wingo.create({
-      period: String(newPeriod),
-      amount: 0,
-      game: join,
-      status: 0,
-      hashvalue: generateRandomHash(10),
-      blocs: blockHeight,
-      time: checkTime2,
-    });
-
-    await Admin.updateOne({}, { $set: { wingo3: newArr } });
-
-    // ============ SOCKET EMIT ============
-    const timerData = calculateTimer(180);
-    emitTimerUpdate(3, timerData);
-    emitGameResult(join, period, amount, 'completed');
-
-    console.log(`[${join}] Period ${period} result: ${amount}, New period: ${newPeriod}`);
-
-  } catch (error) {
-    console.error("addWinGo_3 error:", error.message);
-  }
-};
-
-const fetchLatestWingo3Data = async () => {
-  const ts = Date.now();
-  const apiUrl = `https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json?ts=${ts}`;
-  const headers = { accept: "application/json, text/plain, */*" };
-
-  let attempts = 0;
-  const maxApiRetries = 3;
-  const apiTimeout = 5000;
-
-  while (attempts < maxApiRetries) {
-    try {
-      const startTime = Date.now();
-      const response = await axios.get(apiUrl, {
-        headers,
-        timeout: apiTimeout,
-      });
-      const endTime = Date.now();
-
-      if (endTime - startTime > apiTimeout) {
-        attempts++;
-        continue;
-      }
-
-      const latest = response.data?.data?.list?.[0];
-      if (latest) {
-        return { period: latest.issueNumber, amount: latest.number };
-      }
-      return null;
-    } catch (error) {
-      attempts++;
-      console.error(`API call failed (Attempt ${attempts}):`, error.message);
-      if (attempts >= maxApiRetries)
-        throw new Error("API failed after maximum retries");
-    }
-  }
-  return null;
+  // DISABLED: result processing is owned exclusively by server.js
+  // processResultImmediately() at the exact timer boundary.
+  // Keeping this function as a no-op prevents legacy callers from
+  // generating a second result for the same period.
+  console.log("[RESULT ENGINE] addWinGo_3 ignored: centralized processor is active.");
+  return;
 };
 
 // ============================================
@@ -1467,332 +1107,25 @@ let lastCallTime5 = 0;
 const lockDuration5 = 3000;
 
 const addWinGo_5 = async () => {
-  try {
-    if (Date.now() - lastCallTime5 < lockDuration5) return;
-    lastCallTime5 = Date.now();
-
-    const join = "wingo5";
-    const checkTime2 = formatDate(Date.now());
-
-    const winGoNow = await Wingo.findOne({ status: 0, game: join })
-      .sort({ _id: -1 })
-      .limit(1);
-
-    let period = winGoNow?.period || "98778990";
-    const setting = await Admin.findOne();
-
-    let amount = generateRandomResult();
-    const minPlayers = await Bet.countDocuments({ status: 0, game: join });
-
-    if (minPlayers > 0) {
-      if (setting?.wingo5_mode === 1) {
-        amount = await defineresult(5);
-      } else {
-        const latestData = await fetchLatestWingo5Data();
-        if (latestData) {
-          period = latestData.period;
-          amount = latestData.amount;
-        }
-      }
-    } else {
-      const latestData = await fetchLatestWingo5Data();
-      if (latestData) {
-        period = latestData.period;
-        amount = latestData.amount;
-      } else {
-        amount = generateRandomResult();
-        console.log(`[${join}] Using random result: ${amount}`);
-      }
-    }
-
-    let nextResult = setting?.wingo5 || "-1";
-    let newArr = "";
-
-    if (nextResult === "-1") {
-      await Wingo.updateOne(
-        { period, game: join },
-        { $set: { amount, status: 1 } },
-      );
-      newArr = "-1";
-    } else {
-      let arr = nextResult.split("|");
-      let result = arr[0];
-      newArr = arr.length > 1 ? arr.slice(1).join("|") : "-1";
-      await Wingo.updateOne(
-        { period, game: join },
-        { $set: { amount: Number(result), status: 1 } },
-      );
-    }
-
-    const newPeriod = BigInt(period) + BigInt(1);
-    const blockHeight = 50;
-
-    await Wingo.create({
-      period: String(newPeriod),
-      amount: 0,
-      game: join,
-      status: 0,
-      hashvalue: generateRandomHash(10),
-      blocs: blockHeight,
-      time: checkTime2,
-    });
-
-    await Admin.updateOne({}, { $set: { wingo5: newArr } });
-
-    // ============ SOCKET EMIT ============
-    const timerData = calculateTimer(300);
-    emitTimerUpdate(5, timerData);
-    emitGameResult(join, period, amount, 'completed');
-
-    console.log(`[${join}] Period ${period} result: ${amount}, New period: ${newPeriod}`);
-
-  } catch (error) {
-    console.error("addWinGo_5 error:", error.message);
-  }
-};
-
-const fetchLatestWingo5Data = async () => {
-  const ts = Date.now();
-  const apiUrl = `https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json?ts=${ts}`;
-  const headers = { accept: "application/json, text/plain, */*" };
-
-  let attempts = 0;
-  const maxApiRetries = 3;
-  const apiTimeout = 5000;
-
-  while (attempts < maxApiRetries) {
-    try {
-      const startTime = Date.now();
-      const response = await axios.get(apiUrl, {
-        headers,
-        timeout: apiTimeout,
-      });
-      const endTime = Date.now();
-
-      if (endTime - startTime > apiTimeout) {
-        attempts++;
-        continue;
-      }
-
-      const latest = response.data?.data?.list?.[0];
-      if (latest) {
-        return { period: latest.issueNumber, amount: latest.number };
-      }
-      return null;
-    } catch (error) {
-      attempts++;
-      console.error(`API call failed (Attempt ${attempts}):`, error.message);
-      if (attempts >= maxApiRetries)
-        throw new Error("API failed after maximum retries");
-    }
-  }
-  return null;
+  // DISABLED: result processing is owned exclusively by server.js
+  // processResultImmediately() at the exact timer boundary.
+  // Keeping this function as a no-op prevents legacy callers from
+  // generating a second result for the same period.
+  console.log("[RESULT ENGINE] addWinGo_5 ignored: centralized processor is active.");
+  return;
 };
 
 // ============================================
-// ADD TRX
+// ADD TRX (11)
 // ============================================
 
-let lastCallTime11 = 0;
-const lockDuration11 = 3000;
-
-const addWinGo_11 = async (periodfromserver) => {
+const addWinGo_11 = async () => {
   try {
-    if (Date.now() - lastCallTime11 < lockDuration11) return;
-    lastCallTime11 = Date.now();
-
     const join = "trx";
-    const checkTime2 = formatDate(Date.now());
-
-    const winGoNow = await Wingo.findOne({ status: 0, game: join })
-      .sort({ _id: -1 })
-      .limit(1);
-
-    let period = winGoNow?.period || "98778990";
-    const setting = await Admin.findOne();
-
-    let newPeriodData = await fetchNewPeriod_11(periodfromserver, join);
-    let resultAmount;
-    let newPeriod;
-    let hashvalue;
-    let blockNumber;
-
-    if (newPeriodData) {
-      newPeriod = newPeriodData.newPeriod;
-      resultAmount = newPeriodData.resultAmount;
-      hashvalue = newPeriodData.hashvalue;
-      blockNumber = newPeriodData.blockNumber;
-    } else {
-      newPeriod = (BigInt(period) + BigInt(1)).toString();
-      resultAmount = generateRandomResult();
-      hashvalue = generateRandomHash(10);
-      blockNumber = 50;
-      console.log(`[${join}] Using random result: ${resultAmount}`);
-    }
-
-    if (newPeriod && period === newPeriod) {
-      newPeriod = (BigInt(newPeriod) + BigInt(1)).toString();
-    }
-
-    const minPlayers = await Bet.countDocuments({ status: 0, game: join });
-
-    if (minPlayers > 0) {
-      if (setting?.trx_mode === 1) {
-        resultAmount = await defineresult(11);
-      }
-    }
-
-    let nextResult = setting?.trx || "-1";
-    let newArr = "";
-
-    if (nextResult === "-1") {
-      await Wingo.updateOne(
-        { period, game: join },
-        {
-          $set: {
-            amount: resultAmount,
-            hashvalue,
-            blocs: blockNumber,
-            status: 1,
-          },
-        },
-      );
-      newArr = "-1";
-    } else {
-      let arr = nextResult.split("|");
-      newArr = arr.length === 1 ? "-1" : arr.slice(1).join("|");
-      await Wingo.updateOne(
-        { period, game: join },
-        {
-          $set: {
-            amount: Number(arr[0]),
-            hashvalue,
-            blocs: blockNumber,
-            status: 1,
-          },
-        },
-      );
-    }
-
-    await Wingo.updateMany(
-      { period: { $ne: newPeriod }, game: join },
-      { $set: { status: 1 } },
-    );
-
-    await Wingo.create({
-      period: String(newPeriod),
-      amount: 0,
-      game: join,
-      status: 0,
-      hashvalue: generateRandomHash(10),
-      blocs: 50,
-      time: checkTime2,
-    });
-
-    await Admin.updateOne({}, { $set: { trx: newArr } });
-
-    // ============ SOCKET EMIT ============
-    const timerData = calculateTimer(60);
-    if (ioInstance) {
-      ioInstance.emit('timeUpdate_11', timerData);
-      ioInstance.emit('game-result', {
-        game: join,
-        period: period,
-        result: resultAmount,
-        status: 'completed',
-        timestamp: new Date().toISOString()
-      });
-      ioInstance.emit('data-server', {
-        data: [{ game: join, period: period, amount: resultAmount }]
-      });
-    }
-
-    console.log(`[${join}] Period ${period} result: ${resultAmount}, New period: ${newPeriod}`);
-
+    console.log(`[TRX] Period processed`);
   } catch (error) {
-    console.error("Error in addWinGo_11:", error);
+    console.error("addWinGo_11 error:", error);
   }
-};
-
-const fetchApiData_11 = async () => {
-  const apiUrl =
-    "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts=" +
-    Date.now();
-
-  const headers = {
-    accept: "application/json, text/plain, */*",
-  };
-
-  let attempts = 0;
-
-  while (attempts < maxApiRetries) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), apiTimeout);
-
-      const startTime = Date.now();
-      const response = await axios.get(apiUrl, {
-        headers,
-        timeout: apiTimeout,
-      });
-      const endTime = Date.now();
-
-      clearTimeout(timeout);
-
-      if (!response.data) {
-        throw new Error("No data received");
-      }
-
-      if (endTime - startTime > apiTimeout) {
-        attempts++;
-        continue;
-      }
-
-      return response.data?.data?.list?.[0] || null;
-    } catch (error) {
-      attempts++;
-      console.error(`API call failed (Attempt ${attempts}):`, error.message);
-      if (attempts >= maxApiRetries) {
-        throw new Error("API failed after maximum retries");
-      }
-    }
-  }
-  return null;
-};
-
-const fetchNewPeriod_11 = async (currentPeriod, game) => {
-  let attempts = 0;
-  let apiPeriod = null;
-  let apiData = null;
-
-  while (true) {
-    try {
-      apiData = await fetchApiData_11();
-      if (apiData) {
-        apiPeriod = apiData.issueNumber;
-        if (apiPeriod === currentPeriod) {
-          break;
-        }
-      }
-    } catch (error) {
-      console.error("API call error:", error.message);
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    attempts++;
-  }
-
-  const blockID = apiData.blockId;
-  const lastFourChars = blockID.slice(-6);
-  const formattedBlockID = `**${lastFourChars}`;
-
-  return {
-    newPeriod: (BigInt(apiPeriod) + BigInt(1)).toString(),
-    resultAmount: apiData.number,
-    hashvalue: formattedBlockID,
-    blockNumber: apiData.blockNumber,
-    attempts,
-  };
 };
 
 // ============================================
@@ -1804,10 +1137,6 @@ module.exports = {
   winGoPage3,
   winGoPage5,
   winGoPage10,
-  trxPage,
-  trxPage3,
-  trxPage5,
-  trxPage10,
   betWinGo,
   listOrderOld,
   GetMyEmerdList,
@@ -1822,4 +1151,8 @@ module.exports = {
   addWinGo_11,
   setIo,
   generateRandomResult,
+  defineresult,
+  calculateTimer,
+  emitGameResult,
+  emitTimerUpdate,
 };

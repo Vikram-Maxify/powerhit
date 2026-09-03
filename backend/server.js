@@ -102,7 +102,6 @@ const {
   initTradingSocket,
   stopTradingSocket,
 } = require("./socket/tradingSocket");
-const { protect } = require("./middleware/authMiddleware");
 
 // =====================================================
 // APP
@@ -126,7 +125,6 @@ const allowedOrigins = [
   "http://localhost:5175",
   "http://localhost:5176",
   "http://localhost:5177",
-
   "http://127.0.0.1:5173",
   "http://127.0.0.1:5174",
   "http://127.0.0.1:5175",
@@ -137,7 +135,6 @@ const allowedOrigins = [
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
-      // Allow requests without origin
       if (!origin) {
         return callback(null, true);
       }
@@ -164,78 +161,7 @@ const io = new Server(server, {
 // =====================================================
 
 app.set("io", io);
-
-// Keep global.io because other existing parts
-// of your application may already use it.
 global.io = io;
-
-// =====================================================
-// SOCKET CONNECTION
-// =====================================================
-
-io.on("connection", (socket) => {
-  console.log(`[SOCKET] Connected: ${socket.id}`);
-
-  // -----------------------------------------------
-  // JOIN USER ROOM
-  // -----------------------------------------------
-
-  socket.on("join-user", (userId) => {
-    if (!userId) return;
-
-    const room = `user-${userId}`;
-
-    socket.join(room);
-
-    console.log(`[SOCKET] ${socket.id} joined ${room}`);
-  });
-
-  // -----------------------------------------------
-  // JOIN ADMIN ROOM
-  // -----------------------------------------------
-
-  socket.on("join-admin", (adminId) => {
-    socket.join("admin");
-
-    console.log(`[SOCKET] ${socket.id} joined admin`);
-  });
-
-  // -----------------------------------------------
-  // JOIN MINES GAME
-  // -----------------------------------------------
-
-  socket.on("join-mines-game", (gameId) => {
-    if (!gameId) return;
-
-    const room = `mines-${gameId}`;
-
-    socket.join(room);
-
-    console.log(`[SOCKET] ${socket.id} joined ${room}`);
-  });
-
-  // -----------------------------------------------
-  // LEAVE MINES GAME
-  // -----------------------------------------------
-
-  socket.on("leave-mines-game", (gameId) => {
-    if (!gameId) return;
-
-    const room = `mines-${gameId}`;
-
-    socket.leave(room);
-
-    console.log(`[SOCKET] ${socket.id} left ${room}`);
-  });
-
-  // -----------------------------------------------
-  // DISCONNECT
-  // -----------------------------------------------
-
-  socket.on("disconnect", (reason) => {
-    console.log(`[SOCKET] Disconnected: ${socket.id}`, reason);
-  });
-});
 
 // =====================================================
 // CORS
@@ -310,11 +236,8 @@ app.use(cookieParser());
 
 app.use("/api", (req, res, next) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
-
   res.set("Pragma", "no-cache");
-
   res.set("Expires", "0");
-
   next();
 });
 
@@ -327,22 +250,11 @@ app.use("/api", betRoutes);
 // USER ROUTES
 // =====================================================
 
-// Authentication
 app.use("/api/auth", authRoutes);
-
-// Daily Claim
 app.use("/api/daily-claim", dailyClaimRoutes);
-
-// Withdrawals
 app.use("/api/withdrawals", withdrawalRoutes);
-
-// Deposit
 app.use("/api/deposit", depositRoutes);
-
-// Banner
 app.use("/api/banner", bannerRoutes);
-
-// Public Bids
 app.use("/api/public-bids", publicBidRoutes);
 
 // =====================================================
@@ -350,14 +262,9 @@ app.use("/api/public-bids", publicBidRoutes);
 // =====================================================
 
 app.use("/api/markets", marketRoutes);
-
 app.use("/api/bids", bidRoutes);
-
 app.use("/api/results", resultRoutes);
-
 app.use("/api/currency", currencyRateRoutes);
-
-// Trading API
 app.use("/api/trading", tradingRoutes);
 
 // =====================================================
@@ -383,7 +290,6 @@ app.use("/api/betting-bonus", bettingBonusRoutes);
 // =====================================================
 
 app.use("/api/:country/game-entry", userGameEntryRoutes);
-
 app.use("/api/:country/game-counts", userGameCountRoutes);
 
 // =====================================================
@@ -396,32 +302,18 @@ app.use("/api/mine-games", mineGameRoutes);
 // ADMIN ROUTES
 // =====================================================
 
-// Admin Withdrawals
 app.use("/api/admin/withdrawals", adminWithdrawalRoutes);
-
-// Deposit Settings
 app.use("/api", depositSettingsRoutes);
-
-// Withdrawal Settings
 app.use("/api/withdrawal-settings", withdrawalSettingsRoutes);
-
-// Admin Ticket Types
 app.use("/api/admin/ticket-types", adminTicketTypeRoutes);
 
 // =====================================================
 // COUNTRY ADMIN GAME ROUTES
 // =====================================================
 
-// Game Count
 app.use("/api/admin/:country/game-count", adminGameCountRoutes);
-
-// Game Entries
 app.use("/api/admin/:country/game-entries", adminGameEntryRoutes);
-
-// Powerball Results
 app.use("/api/admin/:country/powerball-results", adminPowerballResultRoutes);
-
-// Powerball Divisions
 app.use(
   "/api/admin/:country/powerball/divisions",
   adminPowerballDivisionRoutes,
@@ -449,13 +341,9 @@ app.use("/api/admin/referral-levels", require("./routes/referralLevelRoutes"));
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
-
-    message: "API is running with MongoDB - 30s & 1m games only",
-
+    message: "API is running with MongoDB",
     port: PORT,
-
     timestamp: new Date(),
-
     games: {
       "30s": "wingo10",
       "1m": "wingo",
@@ -469,7 +357,6 @@ app.get("/api/health", (req, res) => {
 // =====================================================
 
 const userDistPath = path.join(__dirname, "../client/dist");
-
 app.use(express.static(userDistPath));
 
 // =====================================================
@@ -477,7 +364,6 @@ app.use(express.static(userDistPath));
 // =====================================================
 
 const adminDistPath = path.join(__dirname, "../admin/dist");
-
 app.use("/admin", express.static(adminDistPath));
 
 // =====================================================
@@ -503,9 +389,7 @@ app.get("/{*path}", (req, res) => {
 app.use("/api", (req, res) => {
   res.status(404).json({
     success: false,
-
     message: "API route not found",
-
     path: req.originalUrl,
   });
 });
@@ -516,37 +400,70 @@ app.use("/api", (req, res) => {
 
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err);
-
   if (res.headersSent) {
     return next(err);
   }
-
   res.status(err.status || 500).json({
     success: false,
-
     message: err.message || "Internal server error",
   });
 });
 
 // =====================================================
-// =====================================================
-// SOCKET TIMER FUNCTIONS
-// =====================================================
+// SOCKET TIMER FUNCTIONS - FIXED
 // =====================================================
 
-/**
- * Calculate remaining time for a game interval
- * @param {number} intervalSeconds - Total interval in seconds (30, 60, 180, 300)
- * @returns {object} { minute, secondtime1, secondtime2 }
+// Store current timer values to emit on new connections
+let currentTimers = {
+  timeUpdate_30: { minute: 0, secondtime1: 0, secondtime2: 0 },
+  timeUpdate_11: { minute: 0, secondtime1: 0, secondtime2: 0 },
+  timeUpdate_3: { minute: 0, secondtime1: 0, secondtime2: 0 },
+  timeUpdate_5: { minute: 0, secondtime1: 0, secondtime2: 0 },
+};
+
+// Store last game results
+let lastResults = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+  trx: null,
+};
+
+// Track processed periods to prevent duplicate processing
+const processedPeriods = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+  trx: null,
+};
+
+// Track if result has been emitted for a period (to prevent duplicate emits)
+const emittedPeriods = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+  trx: null,
+};
+
+/*
+ * Exact timer boundary guard.
+ * A game is allowed to process only once for each completed interval.
  */
+const lastTimerBoundary = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+};
+
 function calculateTimer(intervalSeconds) {
   const now = new Date();
   const totalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   
-  // Calculate remaining time in the current cycle
   let remaining = intervalSeconds - (totalSeconds % intervalSeconds);
-  
-  // If remaining is 0, it means exactly at the boundary, show full cycle
   if (remaining === 0) remaining = intervalSeconds;
   
   const minute = Math.floor(remaining / 60);
@@ -557,38 +474,285 @@ function calculateTimer(intervalSeconds) {
   return { minute, secondtime1, secondtime2 };
 }
 
-/**
- * Broadcast all timer updates to connected clients
- */
+// ============================================
+// PROCESS RESULT - ATOMIC / NO DUPLICATE
+// ============================================
+async function processResultImmediately(gameName, typeId) {
+  try {
+    // -------------------------------------------------
+    // 1. Find latest pending period
+    // -------------------------------------------------
+    const winGoNow = await Wingo.findOne({
+      status: 0,
+      game: gameName,
+    })
+      .sort({ _id: -1 })
+      .limit(1);
+
+    if (!winGoNow) {
+      console.log(`[${gameName}] No pending period found`);
+      return;
+    }
+
+    const period = String(winGoNow.period);
+
+    console.log(
+      `[${gameName}] Attempting atomic processing: ${period}`
+    );
+
+    // -------------------------------------------------
+    // 2. Generate result
+    // -------------------------------------------------
+    const resultAmount = Number(
+      betController.generateRandomResult()
+    );
+
+    const finalResult =
+      Number.isInteger(resultAmount) &&
+      resultAmount >= 0 &&
+      resultAmount <= 9
+        ? resultAmount
+        : Math.floor(Math.random() * 10);
+
+    console.log(
+      `[${gameName}] Generated result: ${period} -> ${finalResult}`
+    );
+
+    // -------------------------------------------------
+    // 3. ATOMIC CLAIM
+    //
+    // Only ONE caller can change this exact document
+    // from status 0 -> status 1.
+    // -------------------------------------------------
+    const updateResult = await Wingo.updateOne(
+      {
+        _id: winGoNow._id,
+        status: 0,
+        game: gameName,
+      },
+      {
+        $set: {
+          amount: finalResult,
+          status: 1,
+        },
+      }
+    );
+
+    // -------------------------------------------------
+    // 4. Another timer/backup already processed it
+    // -------------------------------------------------
+    if (updateResult.modifiedCount !== 1) {
+      console.log(
+        `[${gameName}] Period ${period} already processed by another caller. SKIP.`
+      );
+      return;
+    }
+
+    console.log(
+      `[${gameName}] LOCKED/PROCESSED: ${period} -> ${finalResult}`
+    );
+
+    // -------------------------------------------------
+    // 5. Create next period
+    // -------------------------------------------------
+    const newPeriod = String(
+      BigInt(period) + BigInt(1)
+    );
+
+    const existingNext = await Wingo.findOne({
+      game: gameName,
+      period: newPeriod,
+    });
+
+    if (!existingNext) {
+      await Wingo.create({
+        period: newPeriod,
+        amount: 0,
+        game: gameName,
+        status: 0,
+        hashvalue: require("crypto")
+          .randomBytes(5)
+          .toString("hex"),
+        blocs: 50,
+        time: new Date().toISOString(),
+      });
+
+      console.log(
+        `[${gameName}] New period created: ${newPeriod}`
+      );
+    } else {
+      console.log(
+        `[${gameName}] Next period ${newPeriod} already exists`
+      );
+    }
+
+    // -------------------------------------------------
+    // 6. Clear admin forced result
+    // -------------------------------------------------
+    await Admin.updateOne(
+      {},
+      {
+        $set: {
+          [gameName]: "-1",
+        },
+      }
+    );
+
+    // -------------------------------------------------
+    // 7. Process winning bets ONLY HERE
+    // -------------------------------------------------
+    await betController.handlingWinGo1P(typeId);
+
+    // -------------------------------------------------
+    // 8. Emit result EXACTLY ONCE
+    // -------------------------------------------------
+    if (emittedPeriods[gameName] === period) {
+      console.log(
+        `[${gameName}] Period ${period} already emitted. SKIP emit.`
+      );
+      return;
+    }
+
+    emittedPeriods[gameName] = period;
+
+    const resultData = {
+      game: gameName,
+      period: period,
+      amount: finalResult,
+    };
+
+    lastResults[gameName] = resultData;
+
+    io.emit("data-server", {
+      data: [resultData],
+    });
+
+    console.log(
+      `[${gameName}] RESULT EMITTED ONCE: ${period} -> ${finalResult}`
+    );
+  } catch (error) {
+    console.error(
+      `[${gameName}] processResultImmediately ERROR:`,
+      error
+    );
+  }
+}
+
 function broadcastTimers() {
   const timers = {
-    // 30 seconds - Wingo 10
     timeUpdate_30: calculateTimer(30),
-    // 1 minute - Wingo 1
     timeUpdate_11: calculateTimer(60),
-    // 3 minutes - Wingo 3
     timeUpdate_3: calculateTimer(180),
-    // 5 minutes - Wingo 5
     timeUpdate_5: calculateTimer(300),
   };
   
-  // Emit each timer event
+  currentTimers = timers;
+  
   io.emit('timeUpdate_30', timers.timeUpdate_30);
   io.emit('timeUpdate_11', timers.timeUpdate_11);
   io.emit('timeUpdate_3', timers.timeUpdate_3);
   io.emit('timeUpdate_5', timers.timeUpdate_5);
+  
+  // =====================================================
+  // RESULT PROCESSING - ONLY AT EXACT TIMER COMPLETION
+  // =====================================================
+  const now = new Date();
+  const totalSeconds =
+    now.getHours() * 3600 +
+    now.getMinutes() * 60 +
+    now.getSeconds();
+
+  const gameConfigs = [
+    { name: "wingo10", interval: 30, type: 10 },
+    { name: "wingo", interval: 60, type: 1 },
+    { name: "wingo3", interval: 180, type: 3 },
+    { name: "wingo5", interval: 300, type: 5 },
+  ];
+
+  for (const config of gameConfigs) {
+    /*
+     * Timer is complete ONLY on an exact interval boundary:
+     * 30s  -> :00, :30
+     * 1m   -> every :00
+     * 3m   -> every 3 minutes
+     * 5m   -> every 5 minutes
+     *
+     * No processing happens at any other second.
+     */
+    if (totalSeconds % config.interval !== 0) {
+      continue;
+    }
+
+    const boundary = Math.floor(totalSeconds / config.interval);
+
+    // Same boundary can be observed more than once by a 1-second interval.
+    if (lastTimerBoundary[config.name] === boundary) {
+      continue;
+    }
+
+    lastTimerBoundary[config.name] = boundary;
+
+    console.log(
+      `[TIMER] ${config.name} completed exactly. Processing result now.`
+    );
+
+    processResultImmediately(config.name, config.type).catch((error) => {
+      console.error(
+        `[TIMER] ${config.name} result processing error:`,
+        error
+      );
+    });
+  }
 }
 
-/**
- * Broadcast period/result updates when game result is declared
- */
-async function broadcastGameResult(game, period, amount) {
-  io.emit('data-server', {
-    data: [
-      { game: game, period: period, amount: amount }
-    ]
+// Send timer and result on new connection
+io.on('connection', (socket) => {
+  // Send current timers
+  socket.emit('timeUpdate_30', currentTimers.timeUpdate_30);
+  socket.emit('timeUpdate_11', currentTimers.timeUpdate_11);
+  socket.emit('timeUpdate_3', currentTimers.timeUpdate_3);
+  socket.emit('timeUpdate_5', currentTimers.timeUpdate_5);
+  
+  // Send last results for all games
+  Object.keys(lastResults).forEach(game => {
+    if (lastResults[game]) {
+      socket.emit('data-server', {
+        data: [lastResults[game]]
+      });
+    }
   });
-}
+
+  // User rooms
+  socket.on("join-user", (userId) => {
+    if (!userId) return;
+    const room = `user-${userId}`;
+    socket.join(room);
+    console.log(`[SOCKET] ${socket.id} joined ${room}`);
+  });
+
+  socket.on("join-admin", (adminId) => {
+    socket.join("admin");
+    console.log(`[SOCKET] ${socket.id} joined admin`);
+  });
+
+  socket.on("join-mines-game", (gameId) => {
+    if (!gameId) return;
+    const room = `mines-${gameId}`;
+    socket.join(room);
+    console.log(`[SOCKET] ${socket.id} joined ${room}`);
+  });
+
+  socket.on("leave-mines-game", (gameId) => {
+    if (!gameId) return;
+    const room = `mines-${gameId}`;
+    socket.leave(room);
+    console.log(`[SOCKET] ${socket.id} left ${room}`);
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.log(`[SOCKET] Disconnected: ${socket.id}`, reason);
+  });
+});
 
 // =====================================================
 // DATABASE + SERVER
@@ -598,89 +762,52 @@ const PORT = Number(process.env.PORT) || 5007;
 
 const startServer = async () => {
   try {
-    // -----------------------------------------------
-    // CONNECT TO MONGODB
-    // -----------------------------------------------
-
     await connectDB();
-
     console.log("[DATABASE] MongoDB connected");
 
-    // -----------------------------------------------
-    // INITIALIZE ADMIN SETTINGS
-    // -----------------------------------------------
-
     const adminExists = await Admin.findOne();
-
     if (!adminExists) {
       await Admin.create({
         wingo: "-1",
         wingo10: "-1",
         trx: "-1",
-
         wingo1_mode: 0,
         wingo30_mode: 0,
         trx_mode: 0,
-
         commition_Bet_Amount: 0,
         user_bet_commition: 0,
       });
-
       console.log("Admin settings initialized");
     }
 
-    // -----------------------------------------------
-    // INITIALIZE LEVELS
-    // -----------------------------------------------
-
     const levelCount = await Level.countDocuments();
-
     if (levelCount === 0) {
       const levels = [];
-
       for (let i = 1; i <= 6; i++) {
         levels.push({
           level: i,
           f1: i * 2,
         });
       }
-
       await Level.insertMany(levels);
-
       console.log("Levels initialized");
     }
 
-    // -----------------------------------------------
-    // INITIAL GAME PERIODS
-    // -----------------------------------------------
-
+    // Initialize game periods
     const games = ["wingo", "wingo10", "trx", "wingo3", "wingo5"];
-
     for (const game of games) {
-      const existing = await Wingo.findOne({
-        game,
-        status: 0,
-      });
-
+      const existing = await Wingo.findOne({ game, status: 0 });
       if (!existing) {
         const initialPeriod = Date.now().toString().slice(-8);
-
         await Wingo.create({
           period: initialPeriod,
-
           amount: 0,
-
           game,
-
           status: 0,
-
           hashvalue: require("crypto").randomBytes(5).toString("hex"),
-
           blocs: 50,
-
           time: new Date().toISOString(),
         });
-
         console.log(`Initial period created for ${game}`);
       }
     }
@@ -695,13 +822,14 @@ const startServer = async () => {
     // START TIMER BROADCAST - EVERY SECOND
     // =================================================
 
-    // Send initial timers immediately
+    // Set the IO instance in betController
+    betController.setIo(io);
+
     setTimeout(() => {
       broadcastTimers();
       console.log("[SOCKET] Initial timers broadcasted");
     }, 1000);
 
-    // Broadcast timers every second
     setInterval(() => {
       broadcastTimers();
     }, 1000);
@@ -714,231 +842,36 @@ const startServer = async () => {
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log("======================================");
-
       console.log(`Server running on port ${PORT}`);
-
       console.log(`User:  http://localhost:${PORT}`);
-
       console.log(`Admin: http://localhost:${PORT}/admin`);
-
       console.log(`API:   http://localhost:${PORT}/api`);
-
       console.log(`Mines: http://localhost:${PORT}/api/mine-games`);
-
       console.log(`Bet:   http://localhost:${PORT}/bet`);
-
       console.log("Socket.IO: enabled");
-
       console.log("Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5");
-
       console.log("Trading Engine: enabled");
-
       console.log("Games: 30s (wingo10), 1m (wingo), 3m (wingo3), 5m (wingo5), TRX (trx)");
-
       console.log("Database: MongoDB");
-
       console.log("======================================");
     });
 
     // =================================================
-    // CRON JOBS - 30s GAME
+    // RESULT PROCESSING
     // =================================================
-
-    let lastRun30 = 0;
-
-    setInterval(async () => {
-      const now = Date.now();
-
-      if (now - lastRun30 >= 30000) {
-        lastRun30 = now;
-
-        try {
-          const period = await Wingo.findOne({
-            status: 0,
-            game: "wingo10",
-          })
-            .sort({
-              _id: -1,
-            })
-            .limit(1);
-
-          await betController.addWinGo_30(period?.period);
-
-          await betController.handlingWinGo1P(10);
-          
-          // Broadcast result after handling
-          const result = await Wingo.findOne({
-            status: 1,
-            game: "wingo10",
-          }).sort({ _id: -1 }).limit(1);
-          
-          if (result) {
-            broadcastGameResult('wingo10', result.period, result.amount);
-          }
-        } catch (error) {
-          console.error("30s cron error:", error);
-        }
-      }
-    }, 1000);
-
+    // Results are processed ONLY by the exact timer boundary
+    // inside broadcastTimers(). No independent backup runner.
     // =================================================
-    // CRON JOBS - 1 MINUTE GAME
-    // =================================================
-
-    let lastRun1 = 0;
-
-    setInterval(async () => {
-      const now = Date.now();
-
-      if (now - lastRun1 >= 60000) {
-        lastRun1 = now;
-
-        try {
-          const period = await Wingo.findOne({
-            status: 0,
-            game: "wingo",
-          })
-            .sort({
-              _id: -1,
-            })
-            .limit(1);
-
-          await betController.addWinGo_1(period?.period);
-
-          await betController.handlingWinGo1P(1);
-          
-          // Broadcast result after handling
-          const result = await Wingo.findOne({
-            status: 1,
-            game: "wingo",
-          }).sort({ _id: -1 }).limit(1);
-          
-          if (result) {
-            broadcastGameResult('wingo', result.period, result.amount);
-          }
-        } catch (error) {
-          console.error("1m cron error:", error);
-        }
-      }
-    }, 1000);
-
-    // =================================================
-    // CRON JOBS - 3 MINUTE GAME
-    // =================================================
-
-    let lastRun3 = 0;
-
-    setInterval(async () => {
-      const now = Date.now();
-
-      if (now - lastRun3 >= 180000) {
-        lastRun3 = now;
-
-        try {
-          await betController.addWinGo_3();
-
-          await betController.handlingWinGo1P(3);
-          
-          // Broadcast result after handling
-          const result = await Wingo.findOne({
-            status: 1,
-            game: "wingo3",
-          }).sort({ _id: -1 }).limit(1);
-          
-          if (result) {
-            broadcastGameResult('wingo3', result.period, result.amount);
-          }
-        } catch (error) {
-          console.error("3m cron error:", error);
-        }
-      }
-    }, 1000);
-
-    // =================================================
-    // CRON JOBS - 5 MINUTE GAME
-    // =================================================
-
-    let lastRun5 = 0;
-
-    setInterval(async () => {
-      const now = Date.now();
-
-      if (now - lastRun5 >= 300000) {
-        lastRun5 = now;
-
-        try {
-          await betController.addWinGo_5();
-
-          await betController.handlingWinGo1P(5);
-          
-          // Broadcast result after handling
-          const result = await Wingo.findOne({
-            status: 1,
-            game: "wingo5",
-          }).sort({ _id: -1 }).limit(1);
-          
-          if (result) {
-            broadcastGameResult('wingo5', result.period, result.amount);
-          }
-        } catch (error) {
-          console.error("5m cron error:", error);
-        }
-      }
-    }, 1000);
-
-    // =================================================
-    // CRON JOBS - TRX
-    // =================================================
-
-    let lastRunTrx = 0;
-
-    setInterval(async () => {
-      const now = Date.now();
-
-      if (now - lastRunTrx >= 60000) {
-        lastRunTrx = now;
-
-        try {
-          const period = await Wingo.findOne({
-            status: 0,
-            game: "trx",
-          })
-            .sort({
-              _id: -1,
-            })
-            .limit(1);
-
-          await betController.addWinGo_11(period?.period);
-
-          await betController.handlingWinGo1P(11);
-          
-          // Broadcast result after handling
-          const result = await Wingo.findOne({
-            status: 1,
-            game: "trx",
-          }).sort({ _id: -1 }).limit(1);
-          
-          if (result) {
-            broadcastGameResult('trx', result.period, result.amount);
-          }
-        } catch (error) {
-          console.error("TRX cron error:", error);
-        }
-      }
-    }, 1000);
 
     // =================================================
     // COMMISSION PROCESSING
     // =================================================
 
     let lastCommission = 0;
-
     setInterval(async () => {
       const now = Date.now();
-
       if (now - lastCommission >= 300000) {
         lastCommission = now;
-
         try {
           await betController.tradeCommission();
         } catch (error) {
@@ -947,14 +880,9 @@ const startServer = async () => {
       }
     }, 1000);
 
-    // =================================================
-    // INITIAL COMMISSION
-    // =================================================
-
     setTimeout(async () => {
       try {
         await betController.tradeCommission();
-
         console.log("Initial commission processed");
       } catch (error) {
         console.error("Initial commission error:", error);
@@ -962,14 +890,9 @@ const startServer = async () => {
     }, 10000);
   } catch (error) {
     console.error("Failed to start server:", error);
-
     process.exit(1);
   }
 };
-
-// =====================================================
-// START
-// =====================================================
 
 startServer();
 
@@ -979,31 +902,21 @@ startServer();
 
 process.on("SIGINT", () => {
   console.log("\n[SERVER] Shutting down...");
-
   stopTradingSocket();
-
   server.close(() => {
     console.log("[SERVER] Server closed");
-
     process.exit(0);
   });
 });
 
 process.on("SIGTERM", () => {
   console.log("\n[SERVER] SIGTERM received...");
-
   stopTradingSocket();
-
   server.close(() => {
     console.log("[SERVER] Server closed");
-
     process.exit(0);
   });
 });
-
-// =====================================================
-// PROCESS ERROR HANDLING
-// =====================================================
 
 process.on("unhandledRejection", (error) => {
   console.error("Unhandled Rejection:", error);
