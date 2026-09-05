@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { auth } = require("../middelWare/authMiddelWare");
 const c = require("../controllers/tradebetController");
-router.post("/placeBet", auth, c.placeBet);
-router.get("/checkwhichUserIsWinner", auth, c.checkwhichUserIsWinner);
+const { protect } = require("../middleware/authMiddleware");
+router.post("/placeBet", protect, c.placeBet);
+router.get("/checkwhichUserIsWinner", protect, c.checkwhichUserIsWinner);
 router.get("/get-periodid", c.getTrade);
-router.get("/bets-history", auth, c.getBetsByUserId);
-router.get("/pending-history", auth, c.getPendingTrades);
-router.get("/get-trades", auth, c.createTrade);
+router.get("/bets-history", protect, c.getBetsByUserId);
+router.get("/pending-history", protect, c.getPendingTrades);
+router.get("/get-trades", protect, c.createTrade);
 module.exports = router;
