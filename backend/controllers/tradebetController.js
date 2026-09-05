@@ -1,19 +1,25 @@
+// controllers/tradeBet.js
 const Bet = require("../models/TradeBet");
 const Trade = require("../models/Trade");
-const User = require("../models/User");
+const User = require("../models/authmodel");
 const Admin = require("../models/TradeAdmin");
 const websocket = require("../config/websocket");
+
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const uid = (req) => Number(req.user?.userId ?? req.user?.id);
+const uid = (req) => Number(req.user?.userId ?? req.id);
+
 const broadcast = () => {
   try {
-    const io = websocket.getWSS();
-
-    if (!io) return;
-
-    io.emit("betDataUpdated", "betRows");
-  } catch (e) { }
+    const wss = websocket.getWSS();
+    wss.clients.forEach((c) => {
+      if (c.readyState === 1)
+        c.send(JSON.stringify({ event: "betDataUpdated", data: "betRows" }));
+    });
+  } catch (e) {
+    console.error("Broadcast error:", e);
+  }
 };
+
 const candle = (open, result) => {
   const delta = 0.00001 * (Math.floor(Math.random() * 13) + 1);
   const close = Number((open + (result > 4 ? delta : -delta)).toFixed(5));
@@ -124,6 +130,7 @@ exports.createTrade = async (req, res = null) => {
     return null;
   }
 };
+
 exports.getTrade = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page) || 1, 1),
@@ -155,32 +162,42 @@ exports.getTrade = async (req, res) => {
       .json({ success: false, message: "Server error", error: e.message });
   }
 };
+
 exports.placeBet = async (req, res) => {
   try {
     const { period, amount, bet, tradeType } = req.body;
-    const a = num(amount),
-      id = uid(req);
-    if (!period || a <= 0 || !bet || !tradeType)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "All fields (period, amount, bet, tradeType) are required",
-        });
+    const a = num(amount);
+    const id = uid(req);  // ← Fixed: pass req, not req.user.id
+
+    if (!period || a <= 0 || !bet || !tradeType) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields (period, amount, bet, tradeType) are required",
+      });
+    }
+
+    // ✅ Updated: use balance instead of money
     const user = await User.findOneAndUpdate(
-      { userId: id, money: { $gte: a } },
-      { $inc: { money: -a } },
+      { userId: id, balance: { $gte: a } },  // ← balance
+      { $inc: { balance: -a } },             // ← balance
       { new: true },
     );
+
     if (!user) {
-      if (!(await User.exists({ userId: id })))
-        return res.status(400).json({ message: "User Not Found" });
-      return res
-        .status(400)
-        .json({ success: false, message: "Insufficient balance" });
+      if (!(await User.exists({ userId: id }))) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "User Not Found" 
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient balance",
+      });
     }
-    const orderId =
-      String(Date.now()) + String(Math.floor(Math.random() * 1000));
+
+    const orderId = String(Date.now()) + String(Math.floor(Math.random() * 1000));
+    
     try {
       const b = await Bet.create({
         orderId,
@@ -191,104 +208,153 @@ exports.placeBet = async (req, res) => {
         tradeType,
       });
       broadcast();
-      return res
-        .status(201)
-        .json({
-          success: true,
-          message: "Trade created successfully",
-          trade: b,
-        });
+      return res.status(201).json({
+        success: true,
+        message: "Trade created successfully",
+        trade: b,
+        newBalance: user.balance,  // ← balance
+      });
     } catch (e) {
-      await User.updateOne({ userId: id }, { $inc: { money: a } });
+      // Rollback: refund the user
+      await User.updateOne(
+        { userId: id }, 
+        { $inc: { balance: a } }  // ← balance
+      );
       throw e;
     }
   } catch (e) {
-    return res
-      .status(500)
-      .json({ success: false, message: "Server error", error: e.message });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: e.message,
+    });
   }
 };
+
 exports.checkwhichUserIsWinner = async (req = null, res = null) => {
   try {
     const t = await Trade.findOne({ status: 1 }).sort({ period: -1 }).lean();
     if (!t) {
-      if (res)
-        return res
-          .status(404)
-          .json({ success: false, message: "No completed trades found" });
+      if (res) {
+        return res.status(404).json({
+          success: false,
+          message: "No completed trades found",
+        });
+      }
       return;
     }
+
     const bets = await Bet.find({ period: t.period, status: 0 }).lean();
+    
     for (const b of bets) {
       if (b.bet === t.result) {
         const getAmount = Number((b.amount + b.amount * 0.93).toFixed(2));
+        
         await Bet.updateOne(
           { _id: b._id, status: 0 },
           { $set: { getAmount, result: t.result, status: 1 } },
         );
+        
+        // ✅ Updated: use balance instead of money
         await User.updateOne(
           { userId: b.userId },
-          { $inc: { money: getAmount } },
+          { $inc: { balance: getAmount } },  // ← balance
         );
-      } else
+      } else {
         await Bet.updateOne(
           { _id: b._id, status: 0 },
           { $set: { result: t.result, status: 2 } },
         );
+      }
     }
+
     broadcast();
-    if (res)
+    
+    if (res) {
       return res.json({
         success: true,
         message: "Bets updated successfully",
         period: t.period,
         result: t.result,
       });
+    }
   } catch (e) {
-    if (res)
-      return res
-        .status(500)
-        .json({ success: false, message: "Server error", error: e.message });
+    if (res) {
+      return res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: e.message,
+      });
+    }
     console.error("winner", e);
   }
 };
+
 exports.getBetsByUserId = async (req, res) => {
   try {
-    const bets = await Bet.find({ userId: uid(req) })
+    const userId = uid(req);  // ← Fixed
+    console.log("getBetsByUserId userId:", userId);
+    
+    if (!Number.isFinite(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid user id",
+      });
+    }
+    
+    const bets = await Bet.find({ userId })
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();
-    if (!bets.length)
-      return res
-        .status(404)
-        .json({ success: false, message: "No bets found for this user" });
-    return res.json({ success: true, data: bets });
+      
+    return res.status(200).json({
+      success: true,
+      data: bets,
+    });
   } catch (e) {
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
+    console.error("❌ getBetsByUserId ERROR:", e);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? e.message : undefined,
+    });
   }
 };
+
 exports.getPendingTrades = async (req, res) => {
   try {
-    const bets = await Bet.find({ userId: uid(req), status: 0 })
+    const userId = uid(req);  // ← Fixed
+    console.log("getPendingTrades userId:", userId);
+    
+    if (!Number.isFinite(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid user id",
+      });
+    }
+    
+    const bets = await Bet.find({ 
+      userId, 
+      status: 0,
+    })
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();
-    if (!bets.length)
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No completed bets found for this user",
-        });
-    return res.json({ success: true, data: bets });
+      
+    return res.status(200).json({
+      success: true,
+      data: bets,
+    });
   } catch (e) {
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
+    console.error("❌ getPendingTrades ERROR:", e);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? e.message : undefined,
+    });
   }
 };
+
 async function deleteOldTrades() {
   try {
     const keep = await Trade.find({ status: 1 })
@@ -297,10 +363,13 @@ async function deleteOldTrades() {
       .select("_id")
       .lean();
     const ids = keep.map((x) => x._id);
-    if (ids.length) await Trade.deleteMany({ status: 1, _id: { $nin: ids } });
+    if (ids.length) {
+      await Trade.deleteMany({ status: 1, _id: { $nin: ids } });
+    }
   } catch (e) {
     console.error("deleteOldTrades", e.message);
   }
 }
+
 setInterval(deleteOldTrades, 3600000);
 deleteOldTrades();

@@ -1,93 +1,124 @@
 // config/websocket.js
-const { Server } = require("socket.io");
+const WebSocket = require("ws");
 
-let io = null;
+let wss = null;
+let heartbeatTimer = null;
 
 const WS_PATH = "/ws";
 
 const init = (server) => {
-  if (io) {
-    console.log("⚠️ Socket.IO server already initialized");
-    return io;
+  if (wss) {
+    console.log("⚠️ WebSocket server already initialized");
+    return wss;
   }
 
-  io = new Server(server, {
+  wss = new WebSocket.Server({
+    server,
     path: WS_PATH,
     clientTracking: true,
   });
 
-  io.on("connection", (socket) => {
-    console.log(
-      `✅ Socket.IO client connected | ${socket.handshake.address}`
-    );
+  wss.on("connection", (ws, req) => {
+    console.log(`✅ WebSocket client connected | ${req.socket.remoteAddress}`);
 
-    socket.on("message", (message) => {
+    ws.isAlive = true;
+
+    ws.on("pong", () => {
+      ws.isAlive = true;
+    });
+
+    ws.on("message", (message) => {
       // Reserved for future client -> server messages.
       console.log("📩 WS message:", message.toString());
     });
 
-    socket.on("error", (error) => {
-      console.error("❌ Socket.IO client error:", error.message);
+    ws.on("error", (error) => {
+      console.error("❌ WebSocket client error:", error.message);
     });
 
-    socket.on("disconnect", (reason) => {
-      console.log(
-        `❌ Client disconnected | reason=${reason}`
-      );
+    ws.on("close", (code, reasonBuffer) => {
+      const reason = reasonBuffer?.toString() || "none";
+      console.log(`❌ Client disconnected | code=${code} | reason=${reason}`);
     });
   });
 
-  io.on("error", (error) => {
-    console.error("❌ Socket.IO server error:", error);
+  wss.on("error", (error) => {
+    console.error("❌ WebSocket server error:", error);
   });
 
-  console.log(`🚀 Socket.IO server initialized on ${WS_PATH}`);
+  heartbeatTimer = setInterval(() => {
+    if (!wss) return;
 
-  return io;
+    wss.clients.forEach((ws) => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+
+      if (ws.isAlive === false) {
+        console.log("⚠️ Terminating dead WebSocket client");
+        return ws.terminate();
+      }
+
+      ws.isAlive = false;
+      try {
+        ws.ping();
+      } catch (error) {
+        console.error("❌ WebSocket ping error:", error.message);
+      }
+    });
+  }, 30000);
+
+  console.log(`🚀 WebSocket server initialized on ${WS_PATH}`);
+  return wss;
 };
 
-const getWSS = () => io;
+const getWSS = () => wss;
 
 const broadcast = (payload) => {
-  if (!io) return 0;
+  if (!wss) return 0;
 
-  try {
-    io.emit("message", payload);
-    return io.engine.clientsCount;
-  } catch (error) {
-    console.error("❌ Socket.IO send error:", error.message);
-    return 0;
-  }
+  const message = JSON.stringify(payload);
+  let sent = 0;
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(message);
+        sent += 1;
+      } catch (error) {
+        console.error("❌ WebSocket send error:", error.message);
+      }
+    }
+  });
+
+  return sent;
 };
 
-const sendToClient = (socket, payload) => {
-  if (!socket) return false;
+const sendToClient = (ws, payload) => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
 
   try {
-    socket.emit("message", payload);
+    ws.send(JSON.stringify(payload));
     return true;
   } catch (error) {
-    console.error(
-      "❌ Socket.IO client send error:",
-      error.message
-    );
+    console.error("❌ WebSocket client send error:", error.message);
     return false;
   }
 };
 
 const close = () => {
-  if (!io) return;
-
-  try {
-    io.close();
-  } catch (error) {
-    console.error(
-      "❌ Socket.IO close error:",
-      error.message
-    );
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
   }
 
-  io = null;
+  if (!wss) return;
+
+  try {
+    wss.close();
+  } catch (error) {
+    console.error("❌ WebSocket close error:", error.message);
+  }
+
+  wss = null;
 };
 
 module.exports = {

@@ -6,6 +6,7 @@ const dns = require("dns");
 const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
+const WebSocket = require("ws");
 
 // =====================================================
 // DNS
@@ -454,6 +455,106 @@ const lastTimerBoundary = {
   wingo5: null,
 };
 
+
+// =====================================================
+// NATIVE WEBSOCKET (WS)
+// =====================================================
+// Socket.IO and native WebSocket run together on the same
+// HTTP server/port. Socket.IO keeps all existing clients,
+// while native WS supports clients using:
+//   new WebSocket("ws://localhost:5007")
+// =====================================================
+
+// IMPORTANT:
+// Do NOT pass `server` here. Socket.IO also listens to the HTTP
+// upgrade event. Using noServer + a dedicated /ws path prevents
+// both protocols from trying to handle the same upgrade request.
+const wss = new WebSocket.Server({
+  noServer: true,
+});
+
+// Native WS is available ONLY at:
+//   ws://localhost:5007/ws
+server.on("upgrade", (request, socket, head) => {
+  try {
+    const { pathname } = new URL(
+      request.url,
+      `http://${request.headers.host || "localhost"}`
+    );
+
+    // Leave Socket.IO's /socket.io upgrade completely untouched.
+    if (pathname !== "/ws") {
+      return;
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit("connection", ws, request);
+    });
+  } catch (error) {
+    console.error("[WS] Upgrade error:", error);
+    socket.destroy();
+  }
+});
+
+wss.on("connection", (ws, req) => {
+  console.log(
+    `[WS] Native WebSocket connected${req?.socket?.remoteAddress ? ` from ${req.socket.remoteAddress}` : ""}`
+  );
+
+  // Immediately send the latest timer to newly connected WS clients.
+  try {
+    ws.send(
+      JSON.stringify({
+        event: "timeUpdate_30",
+        ...currentTimers.timeUpdate_30,
+      })
+    );
+  } catch (error) {
+    console.error("[WS] Initial timer send error:", error);
+  }
+
+  ws.on("message", (message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      console.log("[WS] Message received:", data);
+    } catch (error) {
+      console.error("[WS] Invalid JSON message:", error.message);
+    }
+  });
+
+  ws.on("close", () => {
+    console.log("[WS] Native WebSocket disconnected");
+  });
+
+  ws.on("error", (error) => {
+    console.error("[WS] Native WebSocket error:", error);
+  });
+});
+
+wss.on("error", (error) => {
+  console.error("[WS] Server error:", error);
+});
+
+// Broadcast to native WebSocket clients only.
+const wsBroadcast = (event, data = {}) => {
+  if (!wss) return;
+
+  const message = JSON.stringify({
+    event,
+    ...data,
+  });
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(message);
+      } catch (error) {
+        console.error("[WS] Broadcast send error:", error);
+      }
+    }
+  });
+};
+
 function calculateTimer(intervalSeconds) {
   const now = new Date();
   const totalSeconds =
@@ -603,6 +704,10 @@ async function processResultImmediately(gameName, typeId) {
       data: [resultData],
     });
 
+    wsBroadcast("data-server", {
+      data: [resultData],
+    });
+
     console.log(
       `[${gameName}] RESULT EMITTED ONCE: ${period} -> ${finalResult}`,
     );
@@ -621,10 +726,17 @@ function broadcastTimers() {
 
   currentTimers = timers;
 
+  // Socket.IO clients
   io.emit("timeUpdate_30", timers.timeUpdate_30);
   io.emit("timeUpdate_11", timers.timeUpdate_11);
   io.emit("timeUpdate_3", timers.timeUpdate_3);
   io.emit("timeUpdate_5", timers.timeUpdate_5);
+
+  // Native WebSocket clients
+  wsBroadcast("timeUpdate_30", timers.timeUpdate_30);
+  wsBroadcast("timeUpdate_11", timers.timeUpdate_11);
+  wsBroadcast("timeUpdate_3", timers.timeUpdate_3);
+  wsBroadcast("timeUpdate_5", timers.timeUpdate_5);
 
   // =====================================================
   // RESULT PROCESSING - ONLY AT EXACT TIMER COMPLETION
@@ -817,8 +929,12 @@ const startServer = async () => {
       console.log(`Mines: http://localhost:${PORT}/api/mine-games`);
       console.log(`Bet:   http://localhost:${PORT}/bet`);
       console.log("Socket.IO: enabled");
+      console.log("Native WebSocket (ws): enabled at /ws");
       console.log(
-        "Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5",
+        "Socket.IO Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5",
+      );
+      console.log(
+        "WS Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5",
       );
       console.log("Trading Engine: enabled");
       console.log(
@@ -872,23 +988,37 @@ startServer();
 // GRACEFUL SHUTDOWN
 // =====================================================
 
-process.on("SIGINT", () => {
-  console.log("\n[SERVER] Shutting down...");
-  // stopTradingSocket();
-  server.close(() => {
-    console.log("[SERVER] Server closed");
-    process.exit(0);
-  });
-});
+const gracefulShutdown = (signal) => {
+  console.log(`\n[SERVER] ${signal} received. Shutting down...`);
 
-process.on("SIGTERM", () => {
-  console.log("\n[SERVER] SIGTERM received...");
-  stopTradingSocket();
-  server.close(() => {
-    console.log("[SERVER] Server closed");
-    process.exit(0);
-  });
-});
+  try {
+    wss.clients.forEach((client) => {
+      try {
+        client.close();
+      } catch (error) {
+        console.error("[WS] Client close error:", error);
+      }
+    });
+
+    wss.close(() => {
+      console.log("[WS] Native WebSocket server closed");
+
+      server.close(() => {
+        console.log("[SERVER] Server closed");
+        process.exit(0);
+      });
+    });
+  } catch (error) {
+    console.error("[SERVER] Shutdown error:", error);
+
+    server.close(() => {
+      process.exit(0);
+    });
+  }
+};
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 process.on("unhandledRejection", (error) => {
   console.error("Unhandled Rejection:", error);

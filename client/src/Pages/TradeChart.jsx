@@ -21,7 +21,6 @@ import flag1 from "../assets/universalImage/circle-flag-of-usa-free-png.webp";
 import flag6 from "../assets/universalImage/col.webp";
 import flag7 from "../assets/universalImage/turky.webp";
 import ChartSection from "../components/ChartSection";
-import { io } from "socket.io-client";
 import Sidebar from "../components/Sidebar";
 import { getProfile } from "../redux/slices/authSlice";
 import {
@@ -73,33 +72,34 @@ const TradeChart = () => {
   }, [times.minute, times.secondtime1, times.secondtime2]);
 
   useEffect(() => {
-    const socket = io("http://localhost:5007", {
-      path: "/ws",
-    });
+    const socket = new WebSocket("ws://localhost:5007/ws");
+    // const socket = new WebSocket('wss://bynexx.com');
 
-    socket.on("connect", () => {
-      console.log("✅ Socket.IO Connected");
-    });
-
-    socket.on("timeUpdate_30", (data) => {
-      setTime({
-        minute: data.minute,
-        secondtime1: data.secondtime1,
-        secondtime2: data.secondtime2,
-      });
-    });
-
-    socket.on("connect_error", (error) => {
-      console.error("❌ Socket.IO Error:", error);
-    });
-
-    socket.on("disconnect", (reason) => {
-      console.log("❌ Socket.IO Disconnected:", reason);
-    });
-
-    return () => {
-      socket.disconnect();
+    socket.onopen = () => {
+      console.log("✅ WebSocket Connected");
     };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.event === "timeUpdate_30") {
+        setTime({
+          minute: data.minute,
+          secondtime1: data.secondtime1,
+          secondtime2: data.secondtime2,
+        });
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error("❌ WebSocket Error:", error);
+    };
+
+    socket.onclose = () => {
+      console.log("❌ WebSocket Disconnected");
+    };
+
+    return () => socket.close();
   }, []);
 
   // Call once on mount
@@ -313,8 +313,9 @@ const TradeChart = () => {
 
   return (
     <div
-      className={`flex ${isMobile ? "flex-col " : "h-screen"
-        }  text-white bg-[#1c1f2d] lg:h-[89.5vh] overflow-auto lg:overflow-hidden`}
+      className={`flex ${
+        isMobile ? "flex-col " : "h-screen"
+      }  text-white bg-[#1c1f2d] lg:h-[89.5vh] overflow-auto lg:overflow-hidden`}
     >
       <div className="lg:w-[90px]">
         <Sidebar
@@ -332,8 +333,9 @@ const TradeChart = () => {
 
       {/* Control Panel */}
       <div
-        className={`${isMobile ? "w-full h-[25vh] justify-center" : "w-1/5"
-          } flex flex-col space-y-2 md:space-y-4 p-2 md:p-2`}
+        className={`${
+          isMobile ? "w-full h-[25vh] justify-center" : "w-1/5"
+        } flex flex-col space-y-2 md:space-y-4 p-2 md:p-2`}
       >
         {/* Trading Panel */}
         <div className="md:bg-[#2b3040] rounded p-2 md:p-4 h-full flex flex-col justify-around">
@@ -502,8 +504,9 @@ const TradeChart = () => {
           {/* Tabs */}
           <div className="flex border-b gap-2 border-gray-700">
             <button
-              className={`flex-1 py-2 md:py-3 flex items-center justify-center rounded text-xs md:text-sm ${activeTab === "trades" ? "bg-gray-700" : "hover:bg-gray-700"
-                } transition-colors`}
+              className={`flex-1 py-2 md:py-3 flex items-center justify-center rounded text-xs md:text-sm ${
+                activeTab === "trades" ? "bg-gray-700" : "hover:bg-gray-700"
+              } transition-colors`}
               onClick={() => setActiveTab("trades")}
             >
               <span className="mr-1 md:mr-2">Trades</span>
@@ -512,8 +515,9 @@ const TradeChart = () => {
               </span>
             </button>
             <button
-              className={`flex-1 py-2 md:py-3 flex items-center justify-center text-xs md:text-sm rounded ${activeTab === "orders" ? "bg-gray-700" : "hover:bg-gray-700"
-                } transition-colors`}
+              className={`flex-1 py-2 md:py-3 flex items-center justify-center text-xs md:text-sm rounded ${
+                activeTab === "orders" ? "bg-gray-700" : "hover:bg-gray-700"
+              } transition-colors`}
               onClick={() => setActiveTab("orders")}
             >
               <FaList className="mr-1 md:mr-2 text-xs md:text-sm" />
@@ -525,8 +529,9 @@ const TradeChart = () => {
 
           {/* Content */}
           <div
-            className={`flex-grow p-2 md:p-2 ${isExpanded ? "block" : "hidden"
-              }`}
+            className={`flex-grow p-2 md:p-2 ${
+              isExpanded ? "block" : "hidden"
+            }`}
           >
             {activeTab === "trades" ? (
               <div className="h-full flex flex-col justify-start text-gray-400">
@@ -565,12 +570,13 @@ const TradeChart = () => {
                           </div>
                           <div>
                             <span
-                              className={`text-sm font-semibold ${trade.status === 0
+                              className={`text-sm font-semibold ${
+                                trade.status === 0
                                   ? "text-orange-400"
                                   : trade.getAmount > 0
                                     ? "text-green-500"
                                     : "text-red-500"
-                                }`}
+                              }`}
                             >
                               {trade.status === 0
                                 ? "Pending"
@@ -620,12 +626,13 @@ const TradeChart = () => {
                           </div>
                           <div>
                             <span
-                              className={`text-base font-semibold ${trade.status === 0
+                              className={`text-base font-semibold ${
+                                trade.status === 0
                                   ? "text-orange-400"
                                   : trade.getAmount > 0
                                     ? "text-green-500"
                                     : "text-red-500"
-                                }`}
+                              }`}
                             >
                               {trade.status === 0
                                 ? "Pending"
@@ -647,8 +654,9 @@ const TradeChart = () => {
             onClick={toggleExpand}
           >
             <FaCaretUp
-              className={`transition-transform text-xs md:text-sm ${isExpanded ? "rotate-0" : "rotate-180"
-                }`}
+              className={`transition-transform text-xs md:text-sm ${
+                isExpanded ? "rotate-0" : "rotate-180"
+              }`}
             />
           </button>
         </div>
@@ -666,8 +674,9 @@ const TradeChart = () => {
           {/* Tabs */}
           <div className="flex border-b gap-2 border-gray-700">
             <button
-              className={`flex-1 py-2 md:py-3 flex items-center justify-center rounded text-xs md:text-sm ${activeTab === "trades" ? "bg-gray-700" : "hover:bg-gray-700"
-                } transition-colors`}
+              className={`flex-1 py-2 md:py-3 flex items-center justify-center rounded text-xs md:text-sm ${
+                activeTab === "trades" ? "bg-gray-700" : "hover:bg-gray-700"
+              } transition-colors`}
               onClick={() => setActiveTab("trades")}
             >
               <span className="mr-1 md:mr-2">Trades</span>
@@ -676,8 +685,9 @@ const TradeChart = () => {
               </span>
             </button>
             <button
-              className={`flex-1 py-2 md:py-3 flex items-center justify-center text-xs md:text-sm rounded ${activeTab === "orders" ? "bg-gray-700" : "hover:bg-gray-700"
-                } transition-colors`}
+              className={`flex-1 py-2 md:py-3 flex items-center justify-center text-xs md:text-sm rounded ${
+                activeTab === "orders" ? "bg-gray-700" : "hover:bg-gray-700"
+              } transition-colors`}
               onClick={() => setActiveTab("orders")}
             >
               <FaList className="mr-1 md:mr-2 text-xs md:text-sm" />
@@ -689,8 +699,9 @@ const TradeChart = () => {
 
           {/* Content */}
           <div
-            className={`flex-grow p-2 md:p-2 ${isExpanded ? "block" : "hidden"
-              }`}
+            className={`flex-grow p-2 md:p-2 ${
+              isExpanded ? "block" : "hidden"
+            }`}
           >
             {activeTab === "trades" ? (
               <div className="h-full flex flex-col justify-start text-gray-400">
@@ -729,12 +740,13 @@ const TradeChart = () => {
                           </div>
                           <div>
                             <span
-                              className={`text-sm font-semibold ${trade.status === 0
+                              className={`text-sm font-semibold ${
+                                trade.status === 0
                                   ? "text-orange-400"
                                   : trade.getAmount > 0
                                     ? "text-green-500"
                                     : "text-red-500"
-                                }`}
+                              }`}
                             >
                               {trade.status === 0
                                 ? "Pending"
@@ -784,12 +796,13 @@ const TradeChart = () => {
                           </div>
                           <div>
                             <span
-                              className={`text-sm font-semibold ${trade.status === 0
+                              className={`text-sm font-semibold ${
+                                trade.status === 0
                                   ? "text-orange-400"
                                   : trade.getAmount > 0
                                     ? "text-green-500"
                                     : "text-red-500"
-                                }`}
+                              }`}
                             >
                               {trade.status === 0
                                 ? "Pending"
@@ -811,8 +824,9 @@ const TradeChart = () => {
             onClick={toggleExpand}
           >
             <FaCaretUp
-              className={`transition-transform text-xs md:text-sm ${isExpanded ? "rotate-0" : "rotate-180"
-                }`}
+              className={`transition-transform text-xs md:text-sm ${
+                isExpanded ? "rotate-0" : "rotate-180"
+              }`}
             />
           </button>
         </div>
@@ -839,10 +853,11 @@ const TradeChart = () => {
               {filters.map((filter) => (
                 <button
                   key={filter}
-                  className={`px-1 text-xs font-medium ${activeFilter === filter
+                  className={`px-1 text-xs font-medium ${
+                    activeFilter === filter
                       ? " text-white rounded-sm bg-blue-500"
                       : "text-white hover:text-gray-100"
-                    }`}
+                  }`}
                   onClick={() => setActiveFilter(filter)}
                 >
                   {filter}
@@ -952,10 +967,11 @@ const TradeChart = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                         <div
-                          className={`flex items-center ${asset.change >= 0
+                          className={`flex items-center ${
+                            asset.change >= 0
                               ? "text-green-500"
                               : "text-red-500"
-                            }`}
+                          }`}
                         >
                           {asset.change >= 0 ? (
                             <FaArrowUp className="mr-1" />
