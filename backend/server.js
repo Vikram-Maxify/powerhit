@@ -788,7 +788,7 @@ const startServer = async () => {
     // START TRADING SOCKET ENGINE
     // =================================================
 
-    initTradingSocket(io);
+    // initTradingSocket(io);
 
     // =================================================
     // START TIMER BROADCAST - EVERY SECOND
@@ -878,7 +878,7 @@ startServer();
 
 process.on("SIGINT", () => {
   console.log("\n[SERVER] Shutting down...");
-  stopTradingSocket();
+  // stopTradingSocket();
   server.close(() => {
     console.log("[SERVER] Server closed");
     process.exit(0);
