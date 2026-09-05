@@ -56,7 +56,7 @@ import minesReducer from "./slices/minesSlice";
 import powerballResultReducer from "./slices/powerballResultSlice";
 import publicBidReducer from "./slices/publicBidSlice";
 import resultReducer from "./slices/resultSlice";
-import tradingReducer from "./slices/tradingSlice";
+import tradingReducer from "./slices/tradingReducer";
 
 export const store = configureStore({
   reducer: {
@@ -74,6 +74,7 @@ export const store = configureStore({
     mines: minesReducer,
     bet: betReducer,
     trading: tradingReducer,
+
     // ========================================
     // AUSTRALIA
     // ========================================
