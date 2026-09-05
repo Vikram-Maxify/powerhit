@@ -1,124 +1,93 @@
 // config/websocket.js
-const WebSocket = require("ws");
+const { Server } = require("socket.io");
 
-let wss = null;
-let heartbeatTimer = null;
+let io = null;
 
 const WS_PATH = "/ws";
 
 const init = (server) => {
-  if (wss) {
-    console.log("⚠️ WebSocket server already initialized");
-    return wss;
+  if (io) {
+    console.log("⚠️ Socket.IO server already initialized");
+    return io;
   }
 
-  wss = new WebSocket.Server({
-    server,
+  io = new Server(server, {
     path: WS_PATH,
     clientTracking: true,
   });
 
-  wss.on("connection", (ws, req) => {
-    console.log(`✅ WebSocket client connected | ${req.socket.remoteAddress}`);
+  io.on("connection", (socket) => {
+    console.log(
+      `✅ Socket.IO client connected | ${socket.handshake.address}`
+    );
 
-    ws.isAlive = true;
-
-    ws.on("pong", () => {
-      ws.isAlive = true;
-    });
-
-    ws.on("message", (message) => {
+    socket.on("message", (message) => {
       // Reserved for future client -> server messages.
       console.log("📩 WS message:", message.toString());
     });
 
-    ws.on("error", (error) => {
-      console.error("❌ WebSocket client error:", error.message);
+    socket.on("error", (error) => {
+      console.error("❌ Socket.IO client error:", error.message);
     });
 
-    ws.on("close", (code, reasonBuffer) => {
-      const reason = reasonBuffer?.toString() || "none";
-      console.log(`❌ Client disconnected | code=${code} | reason=${reason}`);
+    socket.on("disconnect", (reason) => {
+      console.log(
+        `❌ Client disconnected | reason=${reason}`
+      );
     });
   });
 
-  wss.on("error", (error) => {
-    console.error("❌ WebSocket server error:", error);
+  io.on("error", (error) => {
+    console.error("❌ Socket.IO server error:", error);
   });
 
-  heartbeatTimer = setInterval(() => {
-    if (!wss) return;
+  console.log(`🚀 Socket.IO server initialized on ${WS_PATH}`);
 
-    wss.clients.forEach((ws) => {
-      if (ws.readyState !== WebSocket.OPEN) return;
-
-      if (ws.isAlive === false) {
-        console.log("⚠️ Terminating dead WebSocket client");
-        return ws.terminate();
-      }
-
-      ws.isAlive = false;
-      try {
-        ws.ping();
-      } catch (error) {
-        console.error("❌ WebSocket ping error:", error.message);
-      }
-    });
-  }, 30000);
-
-  console.log(`🚀 WebSocket server initialized on ${WS_PATH}`);
-  return wss;
+  return io;
 };
 
-const getWSS = () => wss;
+const getWSS = () => io;
 
 const broadcast = (payload) => {
-  if (!wss) return 0;
-
-  const message = JSON.stringify(payload);
-  let sent = 0;
-
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(message);
-        sent += 1;
-      } catch (error) {
-        console.error("❌ WebSocket send error:", error.message);
-      }
-    }
-  });
-
-  return sent;
-};
-
-const sendToClient = (ws, payload) => {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+  if (!io) return 0;
 
   try {
-    ws.send(JSON.stringify(payload));
+    io.emit("message", payload);
+    return io.engine.clientsCount;
+  } catch (error) {
+    console.error("❌ Socket.IO send error:", error.message);
+    return 0;
+  }
+};
+
+const sendToClient = (socket, payload) => {
+  if (!socket) return false;
+
+  try {
+    socket.emit("message", payload);
     return true;
   } catch (error) {
-    console.error("❌ WebSocket client send error:", error.message);
+    console.error(
+      "❌ Socket.IO client send error:",
+      error.message
+    );
     return false;
   }
 };
 
 const close = () => {
-  if (heartbeatTimer) {
-    clearInterval(heartbeatTimer);
-    heartbeatTimer = null;
-  }
-
-  if (!wss) return;
+  if (!io) return;
 
   try {
-    wss.close();
+    io.close();
   } catch (error) {
-    console.error("❌ WebSocket close error:", error.message);
+    console.error(
+      "❌ Socket.IO close error:",
+      error.message
+    );
   }
 
-  wss = null;
+  io = null;
 };
 
 module.exports = {

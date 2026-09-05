@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router";
+import { io } from "socket.io-client";
 import flag3 from "../assets/universalImage/Bangladesh-512.webp";
 import flag4 from "../assets/universalImage/brazil.webp";
 import flag5 from "../assets/universalImage/can.webp";
@@ -72,36 +73,36 @@ function ChartSection({ investment }) {
     }
   });
   // WebSocket connection for time updates
-  useEffect(() => {
-    // const socket = new WebSocket('wss://bynexx.com');
-    const socket = new WebSocket("ws://localhost:4000");
+// Socket.IO connection for time updates
+useEffect(() => {
+  const socket = io("http://localhost:5007", {
+    path: "/ws",
+  });
 
-    socket.onopen = () => {
-      console.log("✅ WebSocket Connected");
-    };
+  socket.on("connect", () => {
+    console.log("✅ Socket.IO Connected");
+  });
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+  socket.on("timeUpdate_30", (data) => {
+    setTime({
+      minute: data.minute,
+      secondtime1: data.secondtime1,
+      secondtime2: data.secondtime2,
+    });
+  });
 
-      if (data.event === "timeUpdate_30") {
-        setTime({
-          minute: data.minute,
-          secondtime1: data.secondtime1,
-          secondtime2: data.secondtime2,
-        });
-      }
-    };
+  socket.on("connect_error", (error) => {
+    console.error("❌ Socket.IO Error:", error);
+  });
 
-    socket.onerror = (error) => {
-      console.error("❌ WebSocket Error:", error);
-    };
+  socket.on("disconnect", (reason) => {
+    console.log("❌ Socket.IO Disconnected:", reason);
+  });
 
-    socket.onclose = () => {
-      console.log("❌ WebSocket Disconnected");
-    };
-
-    return () => socket.close();
-  }, []);
+  return () => {
+    socket.disconnect();
+  };
+}, []);
 
   // Initial data fetch
   useEffect(() => {

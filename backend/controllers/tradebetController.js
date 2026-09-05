@@ -4,15 +4,15 @@ const User = require("../models/User");
 const Admin = require("../models/TradeAdmin");
 const websocket = require("../config/websocket");
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const uid = (req) => Number(req.user?.userId ?? req.id);
+const uid = (req) => Number(req.user?.userId ?? req.user?.id);
 const broadcast = () => {
   try {
-    const wss = websocket.getWSS();
-    wss.clients.forEach((c) => {
-      if (c.readyState === 1)
-        c.send(JSON.stringify({ event: "betDataUpdated", data: "betRows" }));
-    });
-  } catch (e) {}
+    const io = websocket.getWSS();
+
+    if (!io) return;
+
+    io.emit("betDataUpdated", "betRows");
+  } catch (e) { }
 };
 const candle = (open, result) => {
   const delta = 0.00001 * (Math.floor(Math.random() * 13) + 1);
@@ -83,8 +83,8 @@ exports.createTrade = async (req, res = null) => {
       lastPeriod !== null
         ? lastPeriod + 1
         : Number(
-            `${new Date().toISOString().slice(0, 10).replace(/-/g, "")}0001`,
-          );
+          `${new Date().toISOString().slice(0, 10).replace(/-/g, "")}0001`,
+        );
     await Trade.updateOne(
       { period: newPeriod },
       {
