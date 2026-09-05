@@ -55,7 +55,6 @@ const marketRoutes = require("./routes/marketRoutes");
 const bidRoutes = require("./routes/bidRoutes");
 const resultRoutes = require("./routes/resultRoutes");
 const currencyRateRoutes = require("./routes/currencyRateRoutes");
-const tradingRoutes = require("./routes/tradingRoutes");
 
 const userTicketTypeRoutes = require("./routes/user/ticketTypeRoutes");
 
@@ -97,10 +96,6 @@ const adminPowerballDivisionRoutes = require("./routes/admin/powerballDivisionRo
 // TRADING SOCKET ENGINE
 // =====================================================
 
-const {
-  initTradingSocket,
-  stopTradingSocket,
-} = require("./socket/tradingSocket");
 
 // =====================================================
 // APP
@@ -264,7 +259,6 @@ app.use("/api/markets", marketRoutes);
 app.use("/api/bids", bidRoutes);
 app.use("/api/results", resultRoutes);
 app.use("/api/currency", currencyRateRoutes);
-app.use("/api/trading", tradingRoutes);
 
 // =====================================================
 // USER TICKET TYPES
