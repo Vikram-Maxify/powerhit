@@ -775,15 +775,7 @@ const Wingo = () => {
         lastPlayedCountdownRef.current !== totalRemainingSeconds &&
         activeVoice
       ) {
-        try {
-          // Reset audio to start and play
-          audio1Ref.current.currentTime = 0;
-          audio1Ref.current.play().catch(() => {
-            // Silently catch audio play errors (e.g., browser restrictions)
-          });
-        } catch (err) {
-          // Silently handle any audio errors
-        }
+        playAudio(audio1Ref);
         lastPlayedCountdownRef.current = totalRemainingSeconds;
       }
     } else {
@@ -969,6 +961,14 @@ const Wingo = () => {
     <section
       className={`${goldCard} relative mt-3 overflow-hidden bg-[linear-gradient(160deg,#fffdf6,#fdf3d8)] p-3 sm:p-4`}
     >
+      {showCountdownOverlay && countdownNumber > 0 && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border border-[#d9aa3d]/40 bg-[linear-gradient(160deg,#fffdf6,#fdf3d8)]/90 shadow-lg backdrop-blur-[2px]">
+          <span className="rounded-lg border border-[#FFD75A] bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] px-5 py-2 text-5xl font-black leading-none text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] sm:text-6xl">
+            {String(countdownNumber).padStart(2, "0")}
+          </span>
+        </div>
+      )}
+
       {/* ===== Header: "PLACE YOUR BET" + Random ===== */}
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex flex-1 items-center gap-2 text-[#c9941f]">
@@ -1041,24 +1041,26 @@ const Wingo = () => {
               Pick a number
             </span>
           </div>
-          <div className="grid grid-cols-5 gap-2">
-            {ImgData.map((item, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => selectBetHandle(i)}
-                className={`flex items-center justify-center rounded-xl border border-[#e3c67c]/70 bg-white p-2.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#f2c85b] hover:shadow-[0_4px_12px_rgba(220,164,39,.25)] active:scale-95 ${
-                  animate ? "animate-bounce" : ""
-                }`}
-                style={{ animationDelay: `${i * 0.06}s` }}
-              >
-                <img
-                  src={item}
-                  alt={i}
-                  className="h-8 w-8 object-contain sm:h-9 sm:w-9"
-                />
-              </button>
-            ))}
+          <div>
+            <div className="grid grid-cols-5 gap-2">
+              {ImgData.map((item, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => selectBetHandle(i)}
+                  className={`flex items-center justify-center rounded-xl border border-[#e3c67c]/70 bg-white p-2.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#f2c85b] hover:shadow-[0_4px_12px_rgba(220,164,39,.25)] active:scale-95 ${
+                    animate ? "animate-bounce" : ""
+                  }`}
+                  style={{ animationDelay: `${i * 0.06}s` }}
+                >
+                  <img
+                    src={item}
+                    alt={i}
+                    className="h-8 w-8 object-contain sm:h-9 sm:w-9"
+                  />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -1819,23 +1821,6 @@ const Wingo = () => {
                 </p>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ====== FINAL COUNTDOWN OVERLAY ====== */}
-      {showCountdownOverlay && countdownNumber > 0 && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="animate-in fade-in duration-200 flex items-center justify-center">
-            <span
-              className="text-9xl font-black text-[#FFD75A] drop-shadow-lg tracking-wide"
-              style={{
-                textShadow:
-                  "0 0 30px rgba(255, 215, 90, 0.6), 0 8px 20px rgba(0, 0, 0, 0.4)",
-              }}
-            >
-              {countdownNumber}
-            </span>
           </div>
         </div>
       )}
