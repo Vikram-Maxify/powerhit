@@ -1,8 +1,6 @@
-import { ChevronDown, Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactApexChart from "react-apexcharts";
-import { useDispatch, useSelector } from "react-redux";
-import { getBetGrapgResult } from "../../../redux/slices/tradingReducer";
 import {
   FaArrowDown,
   FaArrowUp,
@@ -13,14 +11,16 @@ import {
   FaTimes,
   FaWindowClose,
 } from "react-icons/fa";
-import flag1 from "../assets/universalImage/circle-flag-of-usa-free-png.webp";
-import flag2 from "../assets/universalImage/circle-flag-of-japan-free-png.webp";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router";
+import { getBetGrapgResult } from "../../../redux/slices/tradingReducer";
 import flag3 from "../assets/universalImage/Bangladesh-512.webp";
 import flag4 from "../assets/universalImage/brazil.webp";
 import flag5 from "../assets/universalImage/can.webp";
+import flag2 from "../assets/universalImage/circle-flag-of-japan-free-png.webp";
+import flag1 from "../assets/universalImage/circle-flag-of-usa-free-png.webp";
 import flag6 from "../assets/universalImage/col.webp";
 import flag7 from "../assets/universalImage/turky.webp";
-import { useNavigate } from "react-router";
 import { subscribeSocket } from "../Redux/socket";
 
 function ChartSection({ investment }) {
@@ -37,9 +37,9 @@ function ChartSection({ investment }) {
   });
   const [touchState, setTouchState] = useState({
     startDistance: null,
-    startRange: null
+    startRange: null,
   });
-  
+
   const [zoomOutStep, setZoomOutStep] = useState(2); // values: 0, 1, 2
 
   // const dragState = useRef({ isDragging: false, startX: 0, startRange: null });
@@ -119,13 +119,11 @@ function ChartSection({ investment }) {
         // Redux/API refresh. The server candleUpdate is the source of truth
         // for the currently forming candle.
         setSeries((prev) => {
-          const current = Array.isArray(prev?.[0]?.data)
-            ? prev[0].data
-            : [];
+          const current = Array.isArray(prev?.[0]?.data) ? prev[0].data : [];
 
           const next = [...current];
           const existingIndex = next.findIndex(
-            (item) => new Date(item.x).getTime() === candleTime
+            (item) => new Date(item.x).getTime() === candleTime,
           );
 
           if (existingIndex >= 0) {
@@ -135,13 +133,15 @@ function ChartSection({ investment }) {
             // New candle: add it and keep chronological order.
             next.push(live);
             next.sort(
-              (a, b) => new Date(a.x).getTime() - new Date(b.x).getTime()
+              (a, b) => new Date(a.x).getTime() - new Date(b.x).getTime(),
             );
           }
 
-          return [{
-            data: next.slice(-MAX_CANDLE_HISTORY),
-          }];
+          return [
+            {
+              data: next.slice(-MAX_CANDLE_HISTORY),
+            },
+          ];
         });
 
         // Keep the live candle visible and make the price axis follow it.
@@ -155,10 +155,7 @@ function ChartSection({ investment }) {
               ? currentMax - currentMin
               : DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL + RIGHT_PADDING;
 
-          const right = Math.max(
-            currentMax,
-            candleTime + RIGHT_PADDING
-          );
+          const right = Math.max(currentMax, candleTime + RIGHT_PADDING);
           const left = right - currentRange;
 
           return { min: left, max: right };
@@ -246,8 +243,12 @@ function ChartSection({ investment }) {
     return Number((basePrice + change).toFixed(5));
   };
 
-  const latestClose = Number(transformedData[transformedData.length - 1]?.y?.[3]);
-  const safeLatestClose = Number.isFinite(latestClose) ? latestClose : Number(latestPrice) || 1.44634;
+  const latestClose = Number(
+    transformedData[transformedData.length - 1]?.y?.[3],
+  );
+  const safeLatestClose = Number.isFinite(latestClose)
+    ? latestClose
+    : Number(latestPrice) || 1.44634;
   const offset = 0.0002;
   // console.log(offset, 'latestClose')
 
@@ -294,11 +295,11 @@ function ChartSection({ investment }) {
           type: "xy",
           autoScaleYaxis: true,
           limits: {
-    y: {
-      min: 0.00100, // Minimum y-axis range
-      max: undefined
-    }
-  },
+            y: {
+              min: 0.001, // Minimum y-axis range
+              max: undefined,
+            },
+          },
           zoomedArea: {
             fill: {
               color: "#90CAF9",
@@ -319,7 +320,7 @@ function ChartSection({ investment }) {
             const zoomRange = newMax - newMin;
             const center = (newMin + newMax) / 2;
             const visibleData = transformedData.filter(
-              (d) => d.x >= xaxis.min && d.x <= xaxis.max
+              (d) => d.x >= xaxis.min && d.x <= xaxis.max,
             );
 
             // Calculate min/max of visible prices
@@ -373,18 +374,18 @@ function ChartSection({ investment }) {
           },
 
           beforeZoom: (chartContext, { xaxis, yaxis }) => {
-              // Maintain a minimum zoom level
-              const minRange = 30 * 60 * 1000; // 30 minutes in milliseconds
-              if (xaxis.max - xaxis.min < minRange) {
-                return {
-                  xaxis: {
-                    min: xaxis.min,
-                    max: xaxis.min + minRange,
-                  },
-                };
-              }
-              return { xaxis, yaxis };
-            },
+            // Maintain a minimum zoom level
+            const minRange = 30 * 60 * 1000; // 30 minutes in milliseconds
+            if (xaxis.max - xaxis.min < minRange) {
+              return {
+                xaxis: {
+                  min: xaxis.min,
+                  max: xaxis.min + minRange,
+                },
+              };
+            }
+            return { xaxis, yaxis };
+          },
 
           mouseDown: (event, chartContext, config) => {
             setIsManualPan(true);
@@ -410,7 +411,7 @@ function ChartSection({ investment }) {
               dragState.current.chartWidth;
 
             const transformedDataTimes = transformedData.map((d) =>
-              d.x.getTime()
+              d.x.getTime(),
             );
             const oldestCandle = Math.min(...transformedDataTimes);
             const newestCandle =
@@ -540,34 +541,34 @@ function ChartSection({ investment }) {
         y: { formatter: (val) => val.toFixed(5) },
       },
     }),
-    [xAxisRange, transformedData]
+    [xAxisRange, transformedData],
   );
 
   // Calculate dynamic offset based on zoom level
   const getDynamicOffset = () => {
     // Base minimum offset to ensure at least 0.00100 difference
-    const baseMinOffset = 0.00050; // Half of 0.00100 since we add to both sides
-    
+    const baseMinOffset = 0.0005; // Half of 0.00100 since we add to both sides
+
     // Calculate dynamic offset based on visible price range
     if (transformedData.length === 0) return baseMinOffset;
-  
+
     const visibleData = transformedData.filter(
-      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max
+      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max,
     );
-  
+
     if (visibleData.length === 0) return baseMinOffset;
-  
+
     // Calculate price range of visible candles
     let minPrice = Infinity;
     let maxPrice = -Infinity;
-  
+
     visibleData.forEach((d) => {
       minPrice = Math.min(minPrice, d.y[2]); // Low price
       maxPrice = Math.max(maxPrice, d.y[1]); // High price
     });
-  
+
     const priceRange = maxPrice - minPrice;
-    
+
     // Use whichever is larger - the actual price range or our minimum offset
     return Math.max(baseMinOffset, priceRange * 0.5); // 0.5 because we add to both sides
   };
@@ -577,7 +578,9 @@ function ChartSection({ investment }) {
 
     const dynamicOffset = getDynamicOffset();
     const close = Number(transformedData[transformedData.length - 1]?.y?.[3]);
-    const center = Number.isFinite(close) ? close : Number(latestPrice) || 1.44634;
+    const center = Number.isFinite(close)
+      ? close
+      : Number(latestPrice) || 1.44634;
     const min = Number((center - dynamicOffset).toFixed(5));
     const max = Number((center + dynamicOffset).toFixed(5));
 
@@ -585,57 +588,64 @@ function ChartSection({ investment }) {
       if (prev.min === min && prev.max === max) return prev;
       return { min, max };
     });
-  }, [transformedData, zoomOutStep, latestPrice, xAxisRange.min, xAxisRange.max]);
-// Update the y-axis range calculation useEffect
-useEffect(() => {
-  if (transformedData.length === 0 || !xAxisRange.min || !xAxisRange.max) return;
+  }, [
+    transformedData,
+    zoomOutStep,
+    latestPrice,
+    xAxisRange.min,
+    xAxisRange.max,
+  ]);
+  // Update the y-axis range calculation useEffect
+  useEffect(() => {
+    if (transformedData.length === 0 || !xAxisRange.min || !xAxisRange.max)
+      return;
 
-  const visibleData = transformedData.filter(
-    (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max
-  );
+    const visibleData = transformedData.filter(
+      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max,
+    );
 
-  if (visibleData.length === 0) return;
+    if (visibleData.length === 0) return;
 
-  // Calculate min/max prices from visible candles
-  let minY = Infinity;
-  let maxY = -Infinity;
+    // Calculate min/max prices from visible candles
+    let minY = Infinity;
+    let maxY = -Infinity;
 
-  visibleData.forEach((d) => {
-    minY = Math.min(minY, d.y[2]); // Low price
-    maxY = Math.max(maxY, d.y[1]); // High price
-  });
+    visibleData.forEach((d) => {
+      minY = Math.min(minY, d.y[2]); // Low price
+      maxY = Math.max(maxY, d.y[1]); // High price
+    });
 
-  // Calculate the required padding to ensure at least 0.00100 difference
-  const currentRange = maxY - minY;
-  const minRequiredRange = 0.00100;
-  
-  let padding = 0;
-  if (currentRange < minRequiredRange) {
-    padding = (minRequiredRange - currentRange) / 2;
-  } else {
-    // Add 5% padding if we're already above minimum range
-    padding = currentRange * 0.05;
-  }
+    // Calculate the required padding to ensure at least 0.00100 difference
+    const currentRange = maxY - minY;
+    const minRequiredRange = 0.001;
 
-  // Apply the padding
-  minY -= padding;
-  maxY += padding;
-
-  // Ensure we don't go below 0 for currency pairs
-  minY = Math.max(0, minY);
-
-  const nextRange = {
-    min: Number(minY.toFixed(5)),
-    max: Number(maxY.toFixed(5)),
-  };
-
-  setYAxisRange((prev) => {
-    if (prev.min === nextRange.min && prev.max === nextRange.max) {
-      return prev;
+    let padding = 0;
+    if (currentRange < minRequiredRange) {
+      padding = (minRequiredRange - currentRange) / 2;
+    } else {
+      // Add 5% padding if we're already above minimum range
+      padding = currentRange * 0.05;
     }
-    return nextRange;
-  });
-}, [xAxisRange.min, xAxisRange.max, transformedData]);
+
+    // Apply the padding
+    minY -= padding;
+    maxY += padding;
+
+    // Ensure we don't go below 0 for currency pairs
+    minY = Math.max(0, minY);
+
+    const nextRange = {
+      min: Number(minY.toFixed(5)),
+      max: Number(maxY.toFixed(5)),
+    };
+
+    setYAxisRange((prev) => {
+      if (prev.min === nextRange.min && prev.max === nextRange.max) {
+        return prev;
+      }
+      return nextRange;
+    });
+  }, [xAxisRange.min, xAxisRange.max, transformedData]);
 
   // Remove the existing useEffect that sets yAxisRange based on latestClose
 
@@ -650,9 +660,7 @@ useEffect(() => {
     if (!transformedData?.length) return;
 
     setSeries((prev) => {
-      const previous = Array.isArray(prev?.[0]?.data)
-        ? prev[0].data
-        : [];
+      const previous = Array.isArray(prev?.[0]?.data) ? prev[0].data : [];
 
       const live = liveCandleRef.current;
       const liveTime = live ? new Date(live.x).getTime() : NaN;
@@ -661,11 +669,7 @@ useEffect(() => {
       const merged = transformedData.map((candle) => {
         const time = new Date(candle.x).getTime();
 
-        if (
-          live &&
-          Number.isFinite(liveTime) &&
-          time === liveTime
-        ) {
+        if (live && Number.isFinite(liveTime) && time === liveTime) {
           return live;
         }
 
@@ -677,13 +681,9 @@ useEffect(() => {
       if (
         live &&
         Number.isFinite(liveTime) &&
-        !merged.some(
-          (candle) => new Date(candle.x).getTime() === liveTime
-        )
+        !merged.some((candle) => new Date(candle.x).getTime() === liveTime)
       ) {
-        const lastTime = new Date(
-          merged[merged.length - 1].x
-        ).getTime();
+        const lastTime = new Date(merged[merged.length - 1].x).getTime();
 
         if (liveTime > lastTime) {
           merged.push(live);
@@ -721,8 +721,7 @@ useEffect(() => {
       const lastCandleTime =
         transformedData[transformedData.length - 1].x.getTime();
 
-      const visibleRange =
-        DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL;
+      const visibleRange = DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL;
 
       setXAxisRange((prev) => {
         const min = lastCandleTime - visibleRange;
@@ -735,8 +734,7 @@ useEffect(() => {
         return { min, max };
       });
 
-      newestCandleTimeRef.current =
-        lastCandleTime + RIGHT_PADDING;
+      newestCandleTimeRef.current = lastCandleTime + RIGHT_PADDING;
     }
   }, [transformedData]);
 
@@ -784,32 +782,33 @@ useEffect(() => {
     if (e.touches.length === 2) {
       const distance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
+        e.touches[0].clientY - e.touches[1].clientY,
       );
       setTouchState({
         startDistance: distance,
-        startRange: { ...xAxisRange }
+        startRange: { ...xAxisRange },
       });
     }
   };
-  
+
   const handleTouchMove = (e) => {
     if (e.touches.length === 2 && touchState.startDistance) {
       const currentDistance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
+        e.touches[0].clientY - e.touches[1].clientY,
       );
-      
+
       const scale = currentDistance / touchState.startDistance;
       const range = touchState.startRange.max - touchState.startRange.min;
       const newRange = range / scale;
-      
+
       // Calculate center point
-      const centerX = (touchState.startRange.min + touchState.startRange.max) / 2;
-      
+      const centerX =
+        (touchState.startRange.min + touchState.startRange.max) / 2;
+
       setXAxisRange({
         min: centerX - newRange / 2,
-        max: centerX + newRange / 2
+        max: centerX + newRange / 2,
       });
     }
   };
@@ -820,11 +819,11 @@ useEffect(() => {
         e.preventDefault();
       }
     };
-    
-    document.addEventListener('touchmove', preventDefault, { passive: false });
-    
+
+    document.addEventListener("touchmove", preventDefault, { passive: false });
+
     return () => {
-      document.removeEventListener('touchmove', preventDefault);
+      document.removeEventListener("touchmove", preventDefault);
     };
   }, []);
 
@@ -910,7 +909,7 @@ useEffect(() => {
   const filteredAssets = assets.filter(
     (asset) =>
       asset.pair.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      activeFilter === "CURRENCIES"
+      activeFilter === "CURRENCIES",
   );
 
   const FlagIcon = ({ code }) => (
@@ -1052,7 +1051,7 @@ useEffect(() => {
                                     setFavorites((prev) =>
                                       prev.includes(asset.id)
                                         ? prev.filter((id) => id !== asset.id)
-                                        : [...prev, asset.id]
+                                        : [...prev, asset.id],
                                     );
                                   }}
                                 >
@@ -1161,7 +1160,7 @@ useEffect(() => {
                               e.stopPropagation();
                               setIndex(index - 1);
                               SetNavbarOpen((prev) =>
-                                prev.filter((_, i) => i !== idx)
+                                prev.filter((_, i) => i !== idx),
                               );
                             }}
                             className="p-1 rounded-full absolute top-0 right-0"
