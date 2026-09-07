@@ -26,6 +26,15 @@ import { subscribeSocket } from "../Redux/socket";
 function ChartSection({ investment }) {
   const dispatch = useDispatch();
   const { betResult, allTrade } = useSelector((state) => state.trading);
+  // `fullCandles` holds the ENTIRE candle buffer (up to MAX_CANDLE_HISTORY).
+  // `series` (below) is what actually gets handed to ReactApexChart, and is
+  // always a small, windowed slice of `fullCandles`. This split matters:
+  // ApexCharts computes candlestick width from the TOTAL number of points in
+  // `series`, not from how much of the x-axis is currently zoomed in/out. If
+  // we keep dumping all 350 candles into `series` and only change
+  // xaxis.min/max to "zoom", each candle gets squeezed thinner and thinner as
+  // history grows — which is exactly the "candles won't get wider" bug.
+  const [fullCandles, setFullCandles] = useState([]);
   const [series, setSeries] = useState([{ data: [] }]);
   const [comming, setComming] = useState(false);
   const [latestPrice, setLatestPrice] = useState("1.44634");
@@ -79,6 +88,7 @@ function ChartSection({ investment }) {
   // This component does not create its own socket.
   useEffect(() => {
     const unsubscribe = subscribeSocket((data) => {
+      console.log("Socket event received:", data);
       // Synchronized server clock.
       if (data.event === "timeUpdate_20") {
         setTime({
@@ -119,8 +129,10 @@ function ChartSection({ investment }) {
         // IMPORTANT: update the exact candle by timestamp. Do not wait for
         // Redux/API refresh. The server candleUpdate is the source of truth
         // for the currently forming candle.
-        setSeries((prev) => {
-          const current = Array.isArray(prev?.[0]?.data) ? prev[0].data : [];
+        // NOTE: this updates the full history buffer, not the chart-visible
+        // `series` directly — a separate effect windows it down for display.
+        setFullCandles((prev) => {
+          const current = Array.isArray(prev) ? prev : [];
 
           const next = [...current];
           const existingIndex = next.findIndex(
@@ -138,11 +150,7 @@ function ChartSection({ investment }) {
             );
           }
 
-          return [
-            {
-              data: next.slice(-MAX_CANDLE_HISTORY),
-            },
-          ];
+          return next.slice(-MAX_CANDLE_HISTORY);
         });
 
         // Keep the live candle visible and make the price axis follow it.
@@ -321,8 +329,8 @@ function ChartSection({ investment }) {
             let maxPrice = -Infinity;
 
             visibleData.forEach((d) => {
-              minPrice = Math.min(minPrice, d.y[1]); // low price
-              maxPrice = Math.max(maxPrice, d.y[2]); // high price
+              minPrice = Math.min(minPrice, d.y[2]); // low price
+              maxPrice = Math.max(maxPrice, d.y[1]); // high price
             });
 
             const stepRatio = [1.0, 1.0, 1.0];
@@ -366,21 +374,18 @@ function ChartSection({ investment }) {
             }
           },
 
-          events: {
-            // ... existing events ...
-            beforeZoom: (chartContext, { xaxis, yaxis }) => {
-              // Maintain a minimum zoom level
-              const minRange = 30 * 60 * 1000; // 30 minutes in milliseconds
-              if (xaxis.max - xaxis.min < minRange) {
-                return {
-                  xaxis: {
-                    min: xaxis.min,
-                    max: xaxis.min + minRange,
-                  },
-                };
-              }
-              return { xaxis, yaxis };
-            },
+          beforeZoom: (chartContext, { xaxis, yaxis }) => {
+            // Maintain a minimum zoom level
+            const minRange = 30 * 60 * 1000; // 30 minutes in milliseconds
+            if (xaxis.max - xaxis.min < minRange) {
+              return {
+                xaxis: {
+                  min: xaxis.min,
+                  max: xaxis.min + minRange,
+                },
+              };
+            }
+            return { xaxis, yaxis };
           },
 
           mouseDown: (event, chartContext, config) => {
@@ -492,11 +497,6 @@ function ChartSection({ investment }) {
           groups: [], // Remove any grouping
         },
       },
-      series: [
-        {
-          data: transformedData,
-        },
-      ],
       yaxis: {
         min: yAxisRange.min,
         max: yAxisRange.max,
@@ -530,10 +530,17 @@ function ChartSection({ investment }) {
         },
       },
       plotOptions: {
+        // `bar.columnWidth` is the actual ApexCharts option that controls
+        // candle thickness (candlestick series is rendered via the bar
+        // renderer internally). Raise the % for fatter candles / thinner
+        // gaps, lower it for the opposite. `candlestick.barWidth` (the old
+        // key here) is not a real ApexCharts option and was being ignored.
+        bar: {
+          columnWidth: "90%",
+        },
         candlestick: {
           colors: { upward: "#10a055", downward: "#e85b4e" },
           wick: { useFillColor: true },
-          barWidth: "100%",
         },
       },
       tooltip: {
@@ -660,8 +667,8 @@ function ChartSection({ investment }) {
   useEffect(() => {
     if (!transformedData?.length) return;
 
-    setSeries((prev) => {
-      const previous = Array.isArray(prev?.[0]?.data) ? prev[0].data : [];
+    setFullCandles((prev) => {
+      const previous = Array.isArray(prev) ? prev : [];
 
       const live = liveCandleRef.current;
       const liveTime = live ? new Date(live.x).getTime() : NaN;
@@ -693,7 +700,7 @@ function ChartSection({ investment }) {
 
       const nextData = merged.slice(-MAX_CANDLE_HISTORY);
 
-      // Avoid a React/Apex update when OHLC/timestamps are unchanged.
+      // Avoid a React state update when OHLC/timestamps are unchanged.
       const prevData = previous;
       if (
         prevData.length === nextData.length &&
@@ -713,7 +720,7 @@ function ChartSection({ investment }) {
         return prev;
       }
 
-      return [{ data: nextData }];
+      return nextData;
     });
 
     if (!initialAnimationDone.current) {
@@ -738,6 +745,58 @@ function ChartSection({ investment }) {
       newestCandleTimeRef.current = lastCandleTime + RIGHT_PADDING;
     }
   }, [transformedData]);
+
+  // =====================================================
+  // WINDOW `fullCandles` DOWN TO WHAT'S ACTUALLY VISIBLE
+  // =====================================================
+  // This is what actually fixes candle width. ApexCharts sizes each
+  // candlestick based on the TOTAL number of points in `series`, not on how
+  // far you've zoomed via xaxis.min/max. So we keep the full history in
+  // `fullCandles` (for merging/backfill logic above) but only ever pass a
+  // small windowed slice — current view + one buffer window on each side —
+  // into `series`, which is what actually renders. Fewer points in `series`
+  // means each candle gets proportionally more pixel width.
+  useEffect(() => {
+    if (!fullCandles.length) {
+      setSeries((prev) => (prev?.[0]?.data?.length ? [{ data: [] }] : prev));
+      return;
+    }
+
+    const { min, max } = xAxisRange;
+
+    // Range not established yet (very first render) — show the tail of the
+    // buffer so something renders before xAxisRange is computed.
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      const fallback = fullCandles.slice(-DEFAULT_VISIBLE_CANDLES);
+      setSeries((prev) => {
+        const prevData = prev?.[0]?.data || [];
+        if (prevData === fallback) return prev;
+        return [{ data: fallback }];
+      });
+      return;
+    }
+
+    const visibleRange = max - min;
+    const buffer = visibleRange; // one extra window's worth on each side
+    const lower = min - buffer;
+    const upper = max + buffer;
+
+    const visible = fullCandles.filter((candle) => {
+      const t = new Date(candle.x).getTime();
+      return t >= lower && t <= upper;
+    });
+
+    setSeries((prev) => {
+      const prevData = prev?.[0]?.data || [];
+      if (
+        prevData.length === visible.length &&
+        prevData.every((item, index) => item === visible[index])
+      ) {
+        return prev;
+      }
+      return [{ data: visible }];
+    });
+  }, [fullCandles, xAxisRange.min, xAxisRange.max]);
 
   // Price movement is driven exclusively by the server Socket.IO
   // `candleUpdate` event. Do not generate or animate prices on the client:
