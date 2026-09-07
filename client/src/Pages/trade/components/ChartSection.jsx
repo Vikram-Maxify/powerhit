@@ -64,7 +64,9 @@ function ChartSection({ investment }) {
   const newestCandleTimeRef = useRef(null);
   const liveCandleRef = useRef(null);
   const initialRangeSet = useRef(false);
-  const DEFAULT_VISIBLE_CANDLES = 40;
+  // Lower this to make each candle visually WIDER (fewer candles packed into the
+  // same visible x-axis window). Matches the reference screenshot better.
+  const DEFAULT_VISIBLE_CANDLES = 25;
   const CANDLE_INTERVAL = 10000;
   const candleStartTimeRef = useRef(null);
   const initialAnimationDone = useRef(false);
@@ -320,8 +322,8 @@ function ChartSection({ investment }) {
             let maxPrice = -Infinity;
 
             visibleData.forEach((d) => {
-              minPrice = Math.min(minPrice, d.y[2]); // low price
-              maxPrice = Math.max(maxPrice, d.y[1]); // high price
+              minPrice = Math.min(minPrice, d.y[1]); // low price
+              maxPrice = Math.max(maxPrice, d.y[2]); // high price
             });
 
             const stepRatio = [1.0, 1.0, 1.0];
@@ -365,18 +367,21 @@ function ChartSection({ investment }) {
             }
           },
 
-          beforeZoom: (chartContext, { xaxis, yaxis }) => {
-            // Maintain a minimum zoom level
-            const minRange = 30 * 60 * 1000; // 30 minutes in milliseconds
-            if (xaxis.max - xaxis.min < minRange) {
-              return {
-                xaxis: {
-                  min: xaxis.min,
-                  max: xaxis.min + minRange,
-                },
-              };
-            }
-            return { xaxis, yaxis };
+          events: {
+            // ... existing events ...
+            beforeZoom: (chartContext, { xaxis, yaxis }) => {
+              // Maintain a minimum zoom level
+              const minRange = 30 * 60 * 1000; // 30 minutes in milliseconds
+              if (xaxis.max - xaxis.min < minRange) {
+                return {
+                  xaxis: {
+                    min: xaxis.min,
+                    max: xaxis.min + minRange,
+                  },
+                };
+              }
+              return { xaxis, yaxis };
+            },
           },
 
           mouseDown: (event, chartContext, config) => {
@@ -488,6 +493,11 @@ function ChartSection({ investment }) {
           groups: [], // Remove any grouping
         },
       },
+      series: [
+        {
+          data: transformedData,
+        },
+      ],
       yaxis: {
         min: yAxisRange.min,
         max: yAxisRange.max,
