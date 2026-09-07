@@ -24,9 +24,7 @@ import {
   placebet,
 } from "../../../redux/slices/tradingReducer";
 import { toast } from "react-toastify";
-import { getUser } from "../Redux/Reducer/authReducer";
 import { MdWorkHistory } from "react-icons/md";
-import Sidebar from "../components/Sidebar";
 import flag1 from "../assets/universalImage/circle-flag-of-usa-free-png.webp";
 import flag2 from "../assets/universalImage/circle-flag-of-japan-free-png.webp";
 import flag3 from "../assets/universalImage/Bangladesh-512.webp";
@@ -297,12 +295,7 @@ const TradeChart = () => {
         isMobile ? "flex-col " : "h-screen"
       }  text-white bg-[#1c1f2d] lg:h-[89.5vh] overflow-auto lg:overflow-hidden`}
     >
-      <div className="lg:w-[90px]">
-        <Sidebar
-          topPopupOpen={topPopupOpen}
-          setTopPopupOpen={setTopPopupOpen}
-        />
-      </div>
+
       <div
         className={`
     transition-all duration-500 ease-in-out
