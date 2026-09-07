@@ -201,17 +201,9 @@ function ChartSection({ investment }) {
       isInitialFetchDone.current = true;
     }
   }, [dispatch]);
-  // Periodic data refresh
-  useEffect(() => {
-    if (
-      isInitialFetchDone.current &&
-      times.minute === 0 &&
-      times.secondtime1 === 0 &&
-      times.secondtime2 === 4
-    ) {
-      dispatch(getBetGrapgResult());
-    }
-  }, [times, dispatch]);
+  // No periodic Redux/API refresh.
+  // The Socket.IO `candleUpdate` event is the live source of truth.
+  // Periodic API refresh was causing the chart to jump/reset after several candles.
 
   // Transform trade data for chart
   const transformedData = useMemo(() => {
