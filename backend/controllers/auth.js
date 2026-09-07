@@ -187,21 +187,56 @@ const validateMobile = (mobile, country) => {
 };
 
 // ======================================================
-// GENERATE TOKEN
+// GENERATE JWT TOKEN
+// ======================================================
+//
+// IMPORTANT:
+//
+// id     = MongoDB _id
+// userId = numeric application user ID
+//
+// Existing auth middleware can continue using:
+// User.findById(decoded.id)
+//
+// Trading controller can use:
+// req.user.userId
+//
 // ======================================================
 
-const generateToken = (
-  id,
-  name,
-  email,
-  role
-) => {
+const generateToken = (user) => {
+  if (!user || !user._id) {
+    throw new Error(
+      "Cannot generate token: user _id missing"
+    );
+  }
+
+  if (
+    user.userId === undefined ||
+    user.userId === null
+  ) {
+    throw new Error(
+      "Cannot generate token: userId missing"
+    );
+  }
+
+  if (!process.env.JWT_SECRET) {
+    throw new Error(
+      "JWT_SECRET is not configured"
+    );
+  }
+
   return jwt.sign(
     {
-      id,
-      name,
-      email,
-      role,
+      // MongoDB ID
+      id: user._id.toString(),
+
+      // Numeric user ID
+      userId: Number(user.userId),
+
+      // Basic user information
+      name: user.name,
+      email: user.email,
+      role: user.role,
     },
     process.env.JWT_SECRET,
     {
@@ -211,21 +246,82 @@ const generateToken = (
 };
 
 // ======================================================
-// GENERATE REFERRAL CODE
+// SET AUTH COOKIE
 // ======================================================
 
-const generateReferralCode = (name) => {
-  const cleanName = String(name || "")
-    .replace(/\s+/g, "")
-    .substring(0, 4)
-    .toUpperCase();
+const setAuthCookie = (
+  res,
+  token,
+  role
+) => {
+  const cookieName =
+    role === "admin"
+      ? "adminToken"
+      : "token";
 
-  const random = crypto
-    .randomBytes(3)
-    .toString("hex")
-    .toUpperCase();
+  const isProduction =
+    process.env.NODE_ENV ===
+    "production";
 
-  return cleanName + random;
+  res.cookie(
+    cookieName,
+    token,
+    {
+      httpOnly: true,
+
+      secure: isProduction,
+
+      // Development:
+      // localhost frontend/backend works
+      //
+      // Production:
+      // allows cross-site frontend/backend
+      sameSite: isProduction
+        ? "none"
+        : "lax",
+
+      maxAge:
+        7 *
+        24 *
+        60 *
+        60 *
+        1000,
+
+      path: "/",
+    }
+  );
+};
+
+// ======================================================
+// REMOVE AUTH COOKIES
+// ======================================================
+
+const clearAuthCookies = (res) => {
+  const isProduction =
+    process.env.NODE_ENV ===
+    "production";
+
+  const options = {
+    httpOnly: true,
+
+    secure: isProduction,
+
+    sameSite: isProduction
+      ? "none"
+      : "lax",
+
+    path: "/",
+  };
+
+  res.clearCookie(
+    "token",
+    options
+  );
+
+  res.clearCookie(
+    "adminToken",
+    options
+  );
 };
 
 // ======================================================
@@ -234,14 +330,27 @@ const generateReferralCode = (name) => {
 
 const register = async (req, res) => {
   try {
-    console.log("=================================");
-    console.log("REGISTER REQUEST");
-    console.log("BODY:", req.body);
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "REGISTER REQUEST"
+    );
+
+    console.log(
+      "BODY:",
+      req.body
+    );
+
     console.log(
       "RAW COUNTRY:",
       req.body?.country
     );
-    console.log("=================================");
+
+    console.log(
+      "================================="
+    );
 
     let {
       name,
@@ -273,7 +382,8 @@ const register = async (req, res) => {
     if (!countryCheck.valid) {
       return res.status(400).json({
         success: false,
-        message: countryCheck.message,
+        message:
+          countryCheck.message,
       });
     }
 
@@ -293,6 +403,10 @@ const register = async (req, res) => {
           "Name, email, mobile, password and country are required",
       });
     }
+
+    // ==================================================
+    // NORMALIZE
+    // ==================================================
 
     name = String(name)
       .trim()
@@ -346,7 +460,8 @@ const register = async (req, res) => {
       });
     }
 
-    mobile = mobileCheck.mobile;
+    mobile =
+      mobileCheck.mobile;
 
     // ==================================================
     // CHECK EXISTING USER
@@ -435,13 +550,12 @@ const register = async (req, res) => {
       );
 
     // ==================================================
-    // REFERRAL CODE
+    // GENERATE REFERRAL CODE
     // ==================================================
 
     let newReferralCode =
       generateReferralCode(name);
 
-    // Avoid referral code collision
     let referralExists =
       await User.findOne({
         referralCode:
@@ -460,20 +574,46 @@ const register = async (req, res) => {
     }
 
     // ==================================================
+    // GENERATE USER ID
+    // ==================================================
+
+    const last =
+      await User.findOne({
+        userId: {
+          $exists: true,
+          $ne: null,
+        },
+      })
+        .sort({
+          userId: -1,
+        })
+        .select("userId")
+        .lean();
+
+    const userId =
+      last?.userId
+        ? Number(last.userId) + 1
+        : 100001;
+
+    // ==================================================
     // CREATE USER
     // ==================================================
 
     const user =
       await User.create({
+        userId,
+
         name,
+
         email,
+
         mobile,
-        password: hashedPassword,
+
+        password:
+          hashedPassword,
 
         role: "user",
 
-        // IMPORTANT
-        // Always save normalized country
         country,
 
         referralCode:
@@ -505,41 +645,24 @@ const register = async (req, res) => {
     }
 
     // ==================================================
-    // TOKEN
+    // JWT
     // ==================================================
 
     const token =
-      generateToken(
-        user._id,
-        user.name,
-        user.email,
-        user.role
-      );
+      generateToken(user);
 
     // ==================================================
     // COOKIE
     // ==================================================
 
-    res.cookie(
-      "token",
+    setAuthCookie(
+      res,
       token,
-      {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV ===
-          "production",
-        sameSite: "strict",
-        maxAge:
-          7 *
-          24 *
-          60 *
-          60 *
-          1000,
-      }
+      user.role
     );
 
     // ==================================================
-    // REMOVE PASSWORD
+    // RESPONSE USER
     // ==================================================
 
     const userObj =
@@ -554,9 +677,12 @@ const register = async (req, res) => {
 
     return res.status(201).json({
       success: true,
+
       message:
         "Registration successful",
+
       token,
+
       user: userObj,
     });
   } catch (error) {
@@ -592,6 +718,11 @@ const register = async (req, res) => {
         message =
           "Mobile number already registered";
       } else if (
+        field === "userId"
+      ) {
+        message =
+          "User ID already exists. Please try again.";
+      } else if (
         field === "referralCode"
       ) {
         message =
@@ -614,17 +745,50 @@ const register = async (req, res) => {
 };
 
 // ======================================================
+// GENERATE REFERRAL CODE
+// ======================================================
+
+const generateReferralCode = (name) => {
+  const cleanName = String(
+    name || ""
+  )
+    .replace(/\s+/g, "")
+    .substring(0, 4)
+    .toUpperCase();
+
+  const random = crypto
+    .randomBytes(3)
+    .toString("hex")
+    .toUpperCase();
+
+  return (
+    cleanName +
+    random
+  );
+};
+
+// ======================================================
 // LOGIN
 // ======================================================
 
-const login = async (req, res) => {
+const login = async (
+  req,
+  res
+) => {
   try {
     let {
       mobile,
       password,
     } = req.body;
 
-    if (!mobile || !password) {
+    // ==================================================
+    // VALIDATION
+    // ==================================================
+
+    if (
+      !mobile ||
+      !password
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -632,8 +796,16 @@ const login = async (req, res) => {
       });
     }
 
+    // ==================================================
+    // NORMALIZE MOBILE
+    // ==================================================
+
     mobile = String(mobile)
       .replace(/\D/g, "");
+
+    // ==================================================
+    // FIND USER
+    // ==================================================
 
     const user =
       await User.findOne({
@@ -648,8 +820,13 @@ const login = async (req, res) => {
       });
     }
 
+    // ==================================================
+    // BLOCK CHECK
+    // ==================================================
+
     if (
-      user.status === "blocked"
+      user.status ===
+      "blocked"
     ) {
       return res.status(403).json({
         success: false,
@@ -657,6 +834,10 @@ const login = async (req, res) => {
           "Your account has been blocked",
       });
     }
+
+    // ==================================================
+    // PASSWORD
+    // ==================================================
 
     const isMatch =
       await bcrypt.compare(
@@ -672,36 +853,26 @@ const login = async (req, res) => {
       });
     }
 
+    // ==================================================
+    // JWT
+    // ==================================================
+
     const token =
-      generateToken(
-        user._id,
-        user.name,
-        user.email,
-        user.role
-      );
+      generateToken(user);
 
-    const cookieName =
-      user.role === "admin"
-        ? "adminToken"
-        : "token";
+    // ==================================================
+    // COOKIE
+    // ==================================================
 
-    res.cookie(
-      cookieName,
+    setAuthCookie(
+      res,
       token,
-      {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV ===
-          "production",
-        sameSite: "strict",
-        maxAge:
-          7 *
-          24 *
-          60 *
-          60 *
-          1000,
-      }
+      user.role
     );
+
+    // ==================================================
+    // RESPONSE USER
+    // ==================================================
 
     const userObj =
       user.toObject();
@@ -709,12 +880,20 @@ const login = async (req, res) => {
     delete userObj.password;
     delete userObj.plainPassword;
 
+    // ==================================================
+    // RESPONSE
+    // ==================================================
+
     return res.status(200).json({
       success: true,
+
       message:
         `${user.role} login successful`,
+
       token,
+
       role: user.role,
+
       user: userObj,
     });
   } catch (error) {
@@ -741,9 +920,23 @@ const getProfile = async (
   res
 ) => {
   try {
+    // IMPORTANT:
+    // Authentication uses MongoDB _id.
+    const mongoId =
+      req.user?._id ||
+      req.user?.id;
+
+    if (!mongoId) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "User not authenticated",
+      });
+    }
+
     const user =
       await User.findById(
-        req.user.id
+        mongoId
       )
         .select(
           "-password -plainPassword"
@@ -760,10 +953,13 @@ const getProfile = async (
 
     return res.status(200).json({
       success: true,
+
       user: {
         ...user,
+
         balance:
           user.balance,
+
         country:
           user.country || null,
       },
@@ -792,8 +988,18 @@ const updateProfile = async (
   res
 ) => {
   try {
-    const userId =
-      req.user.id;
+    // MongoDB _id
+    const mongoId =
+      req.user?._id ||
+      req.user?.id;
+
+    if (!mongoId) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "User not authenticated",
+      });
+    }
 
     const {
       fullName,
@@ -850,7 +1056,7 @@ const updateProfile = async (
     ) {
       const currentUser =
         await User.findById(
-          userId
+          mongoId
         ).select("country");
 
       if (!currentUser) {
@@ -912,7 +1118,7 @@ const updateProfile = async (
 
     const updatedUser =
       await User.findByIdAndUpdate(
-        userId,
+        mongoId,
         {
           $set: updateData,
         },
@@ -934,9 +1140,11 @@ const updateProfile = async (
 
     return res.status(200).json({
       success: true,
+
       message: req.file
         ? "Profile and image updated successfully"
         : "Profile updated successfully",
+
       user: updatedUser,
     });
   } catch (error) {
@@ -944,6 +1152,10 @@ const updateProfile = async (
       "UPDATE PROFILE ERROR:",
       error
     );
+
+    // ==================================================
+    // DUPLICATE ERROR
+    // ==================================================
 
     if (error.code === 11000) {
       const field =
@@ -993,33 +1205,7 @@ const logout = async (
   res
 ) => {
   try {
-    res.cookie(
-      "token",
-      "",
-      {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV ===
-          "production",
-        sameSite: "strict",
-        expires:
-          new Date(0),
-      }
-    );
-
-    res.cookie(
-      "adminToken",
-      "",
-      {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV ===
-          "production",
-        sameSite: "strict",
-        expires:
-          new Date(0),
-      }
-    );
+    clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,
@@ -1079,7 +1265,8 @@ const forgotPassword = async (
     }
 
     if (
-      user.status === "blocked"
+      user.status ===
+      "blocked"
     ) {
       return res.status(403).json({
         success: false,
@@ -1088,17 +1275,19 @@ const forgotPassword = async (
       });
     }
 
-    const otp = Math.floor(
-      100000 +
+    const otp =
+      Math.floor(
+        100000 +
         Math.random() * 900000
-    ).toString();
+      ).toString();
 
-    user.reset_otp = otp;
+    user.reset_otp =
+      otp;
 
     user.reset_otp_expiry =
       new Date(
         Date.now() +
-          5 * 60 * 1000
+        5 * 60 * 1000
       );
 
     await user.save();
@@ -1168,7 +1357,9 @@ const verifyOTPAndReset = async (
       .trim()
       .toLowerCase();
 
-    if (newPassword.length < 6) {
+    if (
+      newPassword.length < 6
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -1190,7 +1381,8 @@ const verifyOTPAndReset = async (
     }
 
     if (
-      user.status === "blocked"
+      user.status ===
+      "blocked"
     ) {
       return res.status(403).json({
         success: false,
@@ -1225,6 +1417,10 @@ const verifyOTPAndReset = async (
       });
     }
 
+    // ==================================================
+    // NEW PASSWORD
+    // ==================================================
+
     user.password =
       await bcrypt.hash(
         newPassword,
@@ -1234,11 +1430,20 @@ const verifyOTPAndReset = async (
     user.plainPassword =
       newPassword;
 
-    user.reset_otp = null;
+    user.reset_otp =
+      null;
+
     user.reset_otp_expiry =
       null;
 
     await user.save();
+
+    // ==================================================
+    // SECURITY:
+    // Clear old authentication cookies after password reset
+    // ==================================================
+
+    clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,
@@ -1285,7 +1490,9 @@ const changePassword = async (
       });
     }
 
-    if (newPassword.length < 6) {
+    if (
+      newPassword.length < 6
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -1293,9 +1500,22 @@ const changePassword = async (
       });
     }
 
+    // MongoDB _id
+    const mongoId =
+      req.user?._id ||
+      req.user?.id;
+
+    if (!mongoId) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "User not authenticated",
+      });
+    }
+
     const user =
       await User.findById(
-        req.user.id
+        mongoId
       ).select("+password");
 
     if (!user) {
@@ -1307,7 +1527,8 @@ const changePassword = async (
     }
 
     if (
-      user.status === "blocked"
+      user.status ===
+      "blocked"
     ) {
       return res.status(403).json({
         success: false,
@@ -1336,7 +1557,16 @@ const changePassword = async (
         10
       );
 
+    // Keep plainPassword behavior
+    // compatible with your existing system.
+    user.plainPassword =
+      newPassword;
+
     await user.save();
+
+    // Clear old session.
+    // User must login again with new password.
+    clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,
@@ -1405,11 +1635,13 @@ const updateUserStatus = async (
   res
 ) => {
   try {
-    const { userId } =
-      req.params;
+    const {
+      userId,
+    } = req.params;
 
-    const { status } =
-      req.body;
+    const {
+      status,
+    } = req.body;
 
     if (
       !["active", "blocked"].includes(
@@ -1423,6 +1655,8 @@ const updateUserStatus = async (
       });
     }
 
+    // Keep this endpoint compatible
+    // with existing route that sends Mongo _id.
     const user =
       await User.findById(
         userId
@@ -1436,7 +1670,8 @@ const updateUserStatus = async (
       });
     }
 
-    user.status = status;
+    user.status =
+      status;
 
     await user.save();
 
@@ -1450,7 +1685,8 @@ const updateUserStatus = async (
       success: true,
       message:
         `User ${status} successfully`,
-      user: userResponse,
+      user:
+        userResponse,
     });
   } catch (error) {
     console.error(
@@ -1483,7 +1719,10 @@ module.exports = {
   getAllUsers,
   updateUserStatus,
 
-  // Export helpers if needed elsewhere
+  // Helpers
   normalizeCountry,
   validateMobile,
+
+  // JWT helper
+  generateToken,
 };

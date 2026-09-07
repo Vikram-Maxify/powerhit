@@ -60,7 +60,7 @@ import MatkaResults from "./Pages/user/Results.jsx";
 import MarketDetailedResults from "./Pages/MarketDetailedResults.jsx";
 import MinesGame from "./pages/MinesGame.jsx";
 import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
-import TradeChart from "./Pages/TradeChart.jsx";
+import TradeChart from "./Pages/trade/Pages/TradeChart.jsx";
 import Wingo from "./Pages/wingo/Wingo.jsx";
 import { getProfile, logout } from "./redux/slices/authSlice.js";
 

@@ -105,6 +105,6 @@ api.interceptors.response.use(
 // HOST
 // =====================================================
 
-const host = "http://localhost:5007/";
+const host = "http://localhost:5007/ws";
 
 export { api, host };

@@ -1,7 +1,8 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import ReactApexChart from "react-apexcharts";
-import { io } from "socket.io-client";
+import { useDispatch, useSelector } from "react-redux";
+import { getBetGrapgResult } from "../../../redux/slices/tradingReducer";
 import {
   FaArrowDown,
   FaArrowUp,
@@ -12,19 +13,17 @@ import {
   FaTimes,
   FaWindowClose,
 } from "react-icons/fa";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router";
+import flag1 from "../assets/universalImage/circle-flag-of-usa-free-png.webp";
+import flag2 from "../assets/universalImage/circle-flag-of-japan-free-png.webp";
 import flag3 from "../assets/universalImage/Bangladesh-512.webp";
 import flag4 from "../assets/universalImage/brazil.webp";
 import flag5 from "../assets/universalImage/can.webp";
-import flag2 from "../assets/universalImage/circle-flag-of-japan-free-png.webp";
-import flag1 from "../assets/universalImage/circle-flag-of-usa-free-png.webp";
 import flag6 from "../assets/universalImage/col.webp";
 import flag7 from "../assets/universalImage/turky.webp";
-import { getBetGrapgResult } from "../redux/slices/tradingReducer";
+import { useNavigate } from "react-router";
+import { subscribeSocket } from "../Redux/socket";
 
 function ChartSection({ investment }) {
-
   const dispatch = useDispatch();
   const { betResult, allTrade } = useSelector((state) => state.trading);
   const [series, setSeries] = useState([{ data: [] }]);
@@ -38,9 +37,9 @@ function ChartSection({ investment }) {
   });
   const [touchState, setTouchState] = useState({
     startDistance: null,
-    startRange: null,
+    startRange: null
   });
-
+  
   const [zoomOutStep, setZoomOutStep] = useState(2); // values: 0, 1, 2
 
   // const dragState = useRef({ isDragging: false, startX: 0, startRange: null });
@@ -53,10 +52,6 @@ function ChartSection({ investment }) {
   const navigate = useNavigate();
 
   const [isCandleMoving, setIsCandleMoving] = useState(false);
-
-  useEffect(() => {
-    latestPriceRef.current = latestPrice;
-  }, [latestPrice]);
   const dragState = useRef({
     isDragging: false,
     startX: 0,
@@ -67,8 +62,9 @@ function ChartSection({ investment }) {
   const [isManualPan, setIsManualPan] = useState(false);
   const [ann, setAnn] = useState(70);
   const newestCandleTimeRef = useRef(null);
+  const liveCandleRef = useRef(null);
   const initialRangeSet = useRef(false);
-  const DEFAULT_VISIBLE_CANDLES = 30;
+  const DEFAULT_VISIBLE_CANDLES = 40;
   const CANDLE_INTERVAL = 10000;
   const candleStartTimeRef = useRef(null);
   const initialAnimationDone = useRef(false);
@@ -77,59 +73,129 @@ function ChartSection({ investment }) {
       setAnn(investment);
     }
   }, [investment]);
-  // WebSocket connection for time updates
-useEffect(() => {
-  const socket = io("http://localhost:5007", {
-    path: "/ws",
-    transports: ["polling", "websocket"],
-    withCredentials: true,
-  });
+  // Shared Socket.IO connection for synchronized trading time.
+  // This component does not create its own socket.
+  useEffect(() => {
+    const unsubscribe = subscribeSocket((data) => {
+      console.log("Socket event received:", data);
+      // Synchronized server clock.
+      if (data.event === "timeUpdate_20") {
+        setTime({
+          minute: Number(data.minute) || 0,
+          secondtime1: Number(data.secondtime1) || 0,
+          secondtime2: Number(data.secondtime2) || 0,
+        });
+        return;
+      }
 
-  socket.on("connect", () => {
-    console.log(
-      "✅ Socket.IO Connected:",
-      socket.id,
-      "| transport:",
-      socket.io.engine.transport.name
-    );
-  });
+      // Real-time candle tick from Socket.IO.
+      if (data.event === "candleUpdate" && data.candle) {
+        const incoming = data.candle;
+        const candleTime = new Date(incoming.x).getTime();
+        if (!Number.isFinite(candleTime)) return;
 
-  socket.io.engine.on("upgrade", () => {
-    console.log(
-      "⬆️ Socket.IO upgraded to:",
-      socket.io.engine.transport.name
-    );
-  });
+        const live = {
+          x: new Date(candleTime),
+          y: [
+            Number(incoming.open),
+            Number(incoming.high),
+            Number(incoming.low),
+            Number(incoming.close),
+          ],
+        };
 
-  socket.on("timeUpdate_20", (data) => {
-    console.log("Received timeUpdate_20:", data);
-    setTime({
-      minute: Number(data?.minute) || 0,
-      secondtime1: Number(data?.secondtime1) || 0,
-      secondtime2: Number(data?.secondtime2) || 0,
+        if (live.y.some((value) => !Number.isFinite(value))) return;
+
+        // Keep the server candle outside Redux so a timer tick / Redux refresh
+        // cannot immediately overwrite the live candle with stale OHLC values.
+        liveCandleRef.current = live;
+
+        setLatestPrice(live.y[3].toFixed(5));
+
+        // =====================================================
+        // LIVE CANDLE UPDATE
+        // =====================================================
+        // IMPORTANT: update the exact candle by timestamp. Do not wait for
+        // Redux/API refresh. The server candleUpdate is the source of truth
+        // for the currently forming candle.
+        setSeries((prev) => {
+          const current = Array.isArray(prev?.[0]?.data)
+            ? prev[0].data
+            : [];
+
+          const next = [...current];
+          const existingIndex = next.findIndex(
+            (item) => new Date(item.x).getTime() === candleTime
+          );
+
+          if (existingIndex >= 0) {
+            // Same candle: replace OHLC so it visibly moves up/down.
+            next[existingIndex] = live;
+          } else {
+            // New candle: add it and keep chronological order.
+            next.push(live);
+            next.sort(
+              (a, b) => new Date(a.x).getTime() - new Date(b.x).getTime()
+            );
+          }
+
+          return [{
+            data: next.slice(-MAX_CANDLE_HISTORY),
+          }];
+        });
+
+        // Keep the live candle visible and make the price axis follow it.
+        setXAxisRange((prev) => {
+          const currentMin = Number(prev?.min);
+          const currentMax = Number(prev?.max);
+          const currentRange =
+            Number.isFinite(currentMin) &&
+            Number.isFinite(currentMax) &&
+            currentMax > currentMin
+              ? currentMax - currentMin
+              : DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL + RIGHT_PADDING;
+
+          const right = Math.max(
+            currentMax,
+            candleTime + RIGHT_PADDING
+          );
+          const left = right - currentRange;
+
+          return { min: left, max: right };
+        });
+
+        // Use the current server OHLC to keep the candle fully visible.
+        setYAxisRange((prev) => {
+          const prices = [
+            Number(live.y[0]),
+            Number(live.y[1]),
+            Number(live.y[2]),
+            Number(live.y[3]),
+          ].filter(Number.isFinite);
+
+          if (!prices.length) return prev;
+
+          const candleMin = Math.min(...prices);
+          const candleMax = Math.max(...prices);
+          const center = Number(live.y[3]);
+          const candleRange = Math.max(candleMax - candleMin, 0.001);
+          const padding = Math.max(candleRange * 0.25, 0.00025);
+
+          // Center the visible price range around the live close while still
+          // including the live high/low.
+          const min = Math.min(candleMin, center - padding);
+          const max = Math.max(candleMax, center + padding);
+
+          return {
+            min: Number(Math.max(0, min).toFixed(5)),
+            max: Number(max.toFixed(5)),
+          };
+        });
+      }
     });
-  });
 
-  socket.on("disconnect", (reason) => {
-    console.log(
-      "❌ Socket.IO Disconnected:",
-      reason
-    );
-  });
-
-  socket.on("connect_error", (error) => {
-    console.error(
-      "❌ Socket.IO Connection Error:",
-      error.message
-    );
-  });
-
-  return () => {
-    socket.removeAllListeners();
-    socket.disconnect();
-  };
-}, []);
-
+    return unsubscribe;
+  }, []);
 
   // Initial data fetch
   useEffect(() => {
@@ -138,7 +204,6 @@ useEffect(() => {
       isInitialFetchDone.current = true;
     }
   }, [dispatch]);
-
   // Periodic data refresh
   useEffect(() => {
     if (
@@ -168,10 +233,9 @@ useEffect(() => {
   }, [allTrade]);
 
   const prevPriceRef = useRef("1.44634");
-  const latestPriceRef = useRef(latestPrice);
   const MIN_ZOOM_RANGE = 100 * 1000;
   const MAX_ZOOM_RANGE = 200 * 1000;
-  const DEFAULT_WINDOW_SIZE = 30;
+  const DEFAULT_WINDOW_SIZE = 40;
   const MAX_CANDLE_HISTORY = 350;
   const RIGHT_PADDING = 130000;
   const SHIFT_AMOUNT = 5 * 10000;
@@ -182,13 +246,14 @@ useEffect(() => {
     return Number((basePrice + change).toFixed(5));
   };
 
-  const latestClose = transformedData[transformedData.length - 1]?.y[3];
+  const latestClose = Number(transformedData[transformedData.length - 1]?.y?.[3]);
+  const safeLatestClose = Number.isFinite(latestClose) ? latestClose : Number(latestPrice) || 1.44634;
   const offset = 0.0002;
   // console.log(offset, 'latestClose')
 
   const [yAxisRange, setYAxisRange] = useState({
-    min: latestClose - offset,
-    max: latestClose + offset,
+    min: safeLatestClose - offset,
+    max: safeLatestClose + offset,
   });
 
   // Chart options configuration
@@ -229,11 +294,11 @@ useEffect(() => {
           type: "xy",
           autoScaleYaxis: true,
           limits: {
-            y: {
-              min: 0.001, // Minimum y-axis range
-              max: "malik",
-            },
-          },
+    y: {
+      min: 0.00100, // Minimum y-axis range
+      max: undefined
+    }
+  },
           zoomedArea: {
             fill: {
               color: "#90CAF9",
@@ -254,7 +319,7 @@ useEffect(() => {
             const zoomRange = newMax - newMin;
             const center = (newMin + newMax) / 2;
             const visibleData = transformedData.filter(
-              (d) => d.x >= xaxis.min && d.x <= xaxis.max,
+              (d) => d.x >= xaxis.min && d.x <= xaxis.max
             );
 
             // Calculate min/max of visible prices
@@ -262,8 +327,8 @@ useEffect(() => {
             let maxPrice = -Infinity;
 
             visibleData.forEach((d) => {
-              minPrice = Math.min(minPrice, d.y[1]); // low price
-              maxPrice = Math.max(maxPrice, d.y[2]); // high price
+              minPrice = Math.min(minPrice, d.y[2]); // low price
+              maxPrice = Math.max(maxPrice, d.y[1]); // high price
             });
 
             const stepRatio = [1.0, 1.0, 1.0];
@@ -307,9 +372,7 @@ useEffect(() => {
             }
           },
 
-          events: {
-            // ... existing events ...
-            beforeZoom: (chartContext, { xaxis, yaxis }) => {
+          beforeZoom: (chartContext, { xaxis, yaxis }) => {
               // Maintain a minimum zoom level
               const minRange = 30 * 60 * 1000; // 30 minutes in milliseconds
               if (xaxis.max - xaxis.min < minRange) {
@@ -322,7 +385,6 @@ useEffect(() => {
               }
               return { xaxis, yaxis };
             },
-          },
 
           mouseDown: (event, chartContext, config) => {
             setIsManualPan(true);
@@ -348,7 +410,7 @@ useEffect(() => {
               dragState.current.chartWidth;
 
             const transformedDataTimes = transformedData.map((d) =>
-              d.x.getTime(),
+              d.x.getTime()
             );
             const oldestCandle = Math.min(...transformedDataTimes);
             const newestCandle =
@@ -424,7 +486,7 @@ useEffect(() => {
         axisBorder: { color: "#2d3748" },
         axisTicks: { color: "#2d3748" },
         tickPlacement: "on",
-        range: "stark", // Let chart auto-calculate range
+        range: undefined, // Let chart auto-calculate range
         tickAmount: "dataPoints", // Show tick for each data point
         group: {
           style: {
@@ -433,11 +495,6 @@ useEffect(() => {
           groups: [], // Remove any grouping
         },
       },
-      series: [
-        {
-          data: transformedData,
-        },
-      ],
       yaxis: {
         min: yAxisRange.min,
         max: yAxisRange.max,
@@ -483,34 +540,34 @@ useEffect(() => {
         y: { formatter: (val) => val.toFixed(5) },
       },
     }),
-    [xAxisRange, transformedData],
+    [xAxisRange, transformedData]
   );
 
   // Calculate dynamic offset based on zoom level
   const getDynamicOffset = () => {
     // Base minimum offset to ensure at least 0.00100 difference
-    const baseMinOffset = 0.0005; // Half of 0.00100 since we add to both sides
-
+    const baseMinOffset = 0.00050; // Half of 0.00100 since we add to both sides
+    
     // Calculate dynamic offset based on visible price range
     if (transformedData.length === 0) return baseMinOffset;
-
+  
     const visibleData = transformedData.filter(
-      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max,
+      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max
     );
-
+  
     if (visibleData.length === 0) return baseMinOffset;
-
+  
     // Calculate price range of visible candles
     let minPrice = Infinity;
     let maxPrice = -Infinity;
-
+  
     visibleData.forEach((d) => {
       minPrice = Math.min(minPrice, d.y[2]); // Low price
       maxPrice = Math.max(maxPrice, d.y[1]); // High price
     });
-
+  
     const priceRange = maxPrice - minPrice;
-
+    
     // Use whichever is larger - the actual price range or our minimum offset
     return Math.max(baseMinOffset, priceRange * 0.5); // 0.5 because we add to both sides
   };
@@ -519,249 +576,174 @@ useEffect(() => {
     if (transformedData.length === 0) return;
 
     const dynamicOffset = getDynamicOffset();
-    const latestClose =
-      transformedData[transformedData.length - 1]?.y[3] ||
-      Number.parseFloat(latestPrice) ||
-      1.44634;
-
-    const nextMin = latestClose - dynamicOffset;
-    const nextMax = latestClose + dynamicOffset;
+    const close = Number(transformedData[transformedData.length - 1]?.y?.[3]);
+    const center = Number.isFinite(close) ? close : Number(latestPrice) || 1.44634;
+    const min = Number((center - dynamicOffset).toFixed(5));
+    const max = Number((center + dynamicOffset).toFixed(5));
 
     setYAxisRange((prev) => {
-      if (
-        Math.abs((prev.min ?? 0) - nextMin) < 0.00000001 &&
-        Math.abs((prev.max ?? 0) - nextMax) < 0.00000001
-      ) {
-        return prev;
-      }
-
-      return { min: nextMin, max: nextMax };
+      if (prev.min === min && prev.max === max) return prev;
+      return { min, max };
     });
-  }, [transformedData, zoomOutStep, latestPrice]);
-  // Update the y-axis range calculation useEffect
-  useEffect(() => {
-    if (transformedData.length === 0 || !xAxisRange.min || !xAxisRange.max)
-      return;
+  }, [transformedData, zoomOutStep, latestPrice, xAxisRange.min, xAxisRange.max]);
+// Update the y-axis range calculation useEffect
+useEffect(() => {
+  if (transformedData.length === 0 || !xAxisRange.min || !xAxisRange.max) return;
 
-    const visibleData = transformedData.filter(
-      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max,
-    );
+  const visibleData = transformedData.filter(
+    (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max
+  );
 
-    if (visibleData.length === 0) return;
+  if (visibleData.length === 0) return;
 
-    // Calculate min/max prices from visible candles
-    let minY = Infinity;
-    let maxY = -Infinity;
+  // Calculate min/max prices from visible candles
+  let minY = Infinity;
+  let maxY = -Infinity;
 
-    visibleData.forEach((d) => {
-      minY = Math.min(minY, d.y[2]); // Low price
-      maxY = Math.max(maxY, d.y[1]); // High price
-    });
+  visibleData.forEach((d) => {
+    minY = Math.min(minY, d.y[2]); // Low price
+    maxY = Math.max(maxY, d.y[1]); // High price
+  });
 
-    // Calculate the required padding to ensure at least 0.00100 difference
-    const currentRange = maxY - minY;
-    const minRequiredRange = 0.001;
+  // Calculate the required padding to ensure at least 0.00100 difference
+  const currentRange = maxY - minY;
+  const minRequiredRange = 0.00100;
+  
+  let padding = 0;
+  if (currentRange < minRequiredRange) {
+    padding = (minRequiredRange - currentRange) / 2;
+  } else {
+    // Add 5% padding if we're already above minimum range
+    padding = currentRange * 0.05;
+  }
 
-    let padding = 0;
-    if (currentRange < minRequiredRange) {
-      padding = (minRequiredRange - currentRange) / 2;
-    } else {
-      // Add 5% padding if we're already above minimum range
-      padding = currentRange * 0.05;
+  // Apply the padding
+  minY -= padding;
+  maxY += padding;
+
+  // Ensure we don't go below 0 for currency pairs
+  minY = Math.max(0, minY);
+
+  const nextRange = {
+    min: Number(minY.toFixed(5)),
+    max: Number(maxY.toFixed(5)),
+  };
+
+  setYAxisRange((prev) => {
+    if (prev.min === nextRange.min && prev.max === nextRange.max) {
+      return prev;
     }
-
-    // Apply the padding
-    minY -= padding;
-    maxY += padding;
-
-    // Ensure we don't go below 0 for currency pairs
-    minY = Math.max(0, minY);
-
-    const nextMin = Number(minY.toFixed(5));
-    const nextMax = Number(maxY.toFixed(5));
-
-    setYAxisRange((prev) => {
-      if (prev.min === nextMin && prev.max === nextMax) {
-        return prev;
-      }
-
-      return {
-        min: nextMin,
-        max: nextMax,
-      };
-    });
-  }, [xAxisRange, transformedData]);
+    return nextRange;
+  });
+}, [xAxisRange.min, xAxisRange.max, transformedData]);
 
   // Remove the existing useEffect that sets yAxisRange based on latestClose
 
   // console.log("Zoom Out Step:", zoomOutStep);
   // console.log("Initial X-Axis Range:", xAxisRange);
 
-  // First, update your state to track animation state
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  // Then modify your main useEffect for data handling
+  // Keep the chart data synchronized with Redux only when Redux data changes.
+  // IMPORTANT: do not depend on `times` here. The server sends a candleUpdate
+  // every second, and resetting series on every timer tick was overwriting the
+  // live candle with the older Redux snapshot.
   useEffect(() => {
-    if (transformedData?.length > 0) {
-      if (!initialAnimationDone.current) {
-        initialAnimationDone.current = true;
+    if (!transformedData?.length) return;
 
-        // Set initial range
-        const lastCandleTime =
-          transformedData[transformedData.length - 1].x.getTime();
-        const visibleRange = DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL;
-        setXAxisRange({
-          min: lastCandleTime - visibleRange,
-          max: lastCandleTime + RIGHT_PADDING,
-        });
-      } else {
-        // Check if we have new data that needs animation
-        const shouldAnimate = isInitialFetchDone.current;
+    setSeries((prev) => {
+      const previous = Array.isArray(prev?.[0]?.data)
+        ? prev[0].data
+        : [];
+
+      const live = liveCandleRef.current;
+      const liveTime = live ? new Date(live.x).getTime() : NaN;
+
+      // Start from Redux history, then restore the latest server candle.
+      const merged = transformedData.map((candle) => {
+        const time = new Date(candle.x).getTime();
 
         if (
-          shouldAnimate &&
-          !isAnimating &&
-          times.minute === 0 &&
-          times.secondtime1 === 0 &&
-          times.secondtime2 <= 3
+          live &&
+          Number.isFinite(liveTime) &&
+          time === liveTime
         ) {
-          // Animate the newest candle (leftmost)
-          animateCandle(transformedData[0], 0);
-          initialAnimationDone.current = true;
-          animateCandle(
-            transformedData[transformedData.length - 1],
-            transformedData.length - 1,
+          return live;
+        }
+
+        return candle;
+      });
+
+      // If the server has already moved to a new candle that Redux has not
+      // received yet, append that candle so the chart visibly advances.
+      if (
+        live &&
+        Number.isFinite(liveTime) &&
+        !merged.some(
+          (candle) => new Date(candle.x).getTime() === liveTime
+        )
+      ) {
+        const lastTime = new Date(
+          merged[merged.length - 1].x
+        ).getTime();
+
+        if (liveTime > lastTime) {
+          merged.push(live);
+        }
+      }
+
+      const nextData = merged.slice(-MAX_CANDLE_HISTORY);
+
+      // Avoid a React/Apex update when OHLC/timestamps are unchanged.
+      const prevData = previous;
+      if (
+        prevData.length === nextData.length &&
+        prevData.every((item, index) => {
+          const a = item;
+          const b = nextData[index];
+
+          return (
+            new Date(a.x).getTime() === new Date(b.x).getTime() &&
+            a.y?.[0] === b.y?.[0] &&
+            a.y?.[1] === b.y?.[1] &&
+            a.y?.[2] === b.y?.[2] &&
+            a.y?.[3] === b.y?.[3]
           );
-
-          console.log("animation callled");
-        } else if (!isAnimating) {
-          // Regular update without animation
-          setSeries([{ data: transformedData }]);
-        }
-
-        // Always adjust view to show newest data on right
-        if (transformedData?.length > 0) {
-          const newestCandle = transformedData[transformedData.length - 1];
-          const newCandleTime = newestCandle.x.getTime() + RIGHT_PADDING;
-
-          const maxZoomRange = 1744393458000 - 1744393888000;
-
-          // Only auto-update range if:
-          // 1. Not in manual pan mode
-          // 2. We have new candles
-          if (xAxisRange.min - xAxisRange.max > maxZoomRange) {
-            setXAxisRange({
-              min: xAxisRange.min + maxZoomRange,
-              max: xAxisRange.max,
-            });
-          }
-          if (!isManualPan && newCandleTime !== newestCandleTimeRef.current) {
-            const visibleRange = xAxisRange.max - xAxisRange.min;
-
-            setXAxisRange({
-              min: newCandleTime - visibleRange,
-              max: newCandleTime,
-            });
-          }
-
-          newestCandleTimeRef.current = newCandleTime;
-        }
+        })
+      ) {
+        return prev;
       }
+
+      return [{ data: nextData }];
+    });
+
+    if (!initialAnimationDone.current) {
+      initialAnimationDone.current = true;
+
+      const lastCandleTime =
+        transformedData[transformedData.length - 1].x.getTime();
+
+      const visibleRange =
+        DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL;
+
+      setXAxisRange((prev) => {
+        const min = lastCandleTime - visibleRange;
+        const max = lastCandleTime + RIGHT_PADDING;
+
+        if (prev.min === min && prev.max === max) {
+          return prev;
+        }
+
+        return { min, max };
+      });
+
+      newestCandleTimeRef.current =
+        lastCandleTime + RIGHT_PADDING;
     }
-  }, [transformedData, times]);
+  }, [transformedData]);
 
-  // Extract animation logic into a separate function
-  const animateCandle = (candle, candleIndex) => {
-    setIsAnimating(true);
-
-    // Create initial data with the target candle as a flat line
-    const initialData = transformedData.map((c, idx) =>
-      idx === candleIndex
-        ? { ...c, y: [c.y[0], c.y[0], c.y[0], c.y[0]] }
-        : { ...c },
-    );
-
-    setSeries([{ data: initialData }]);
-
-    const startTime = Date.now();
-    const duration = 3000; // Shorter duration for smoother animation
-    const targetClose = candle.y[3];
-
-    const animate = () => {
-      const now = Date.now();
-      const progress = Math.min((now - startTime) / duration, 1);
-      const currentClose = candle.y[0] + (targetClose - candle.y[0]) * progress;
-
-      setSeries((prev) => {
-        const newData = prev[0].data.map((c, idx) => {
-          if (idx !== candleIndex) return c; // Skip other candles
-          return {
-            ...c,
-            y: [
-              c.y[0],
-              Math.max(c.y[0], currentClose),
-              Math.min(c.y[0], currentClose),
-              currentClose,
-            ],
-          };
-        });
-
-        return [{ data: newData }];
-      });
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        setIsAnimating(false);
-      }
-    };
-
-    requestAnimationFrame(animate);
-  };
-
-  // Price movement animation - stable interval.
-  // latestPrice is read from a ref so the interval is not recreated every tick.
-  useEffect(() => {
-    if (!isCandleMoving) return;
-
-    const priceInterval = setInterval(() => {
-      const parsedPrice = Number.parseFloat(latestPriceRef.current);
-      const currentPrice = Number.isFinite(parsedPrice) ? parsedPrice : 1.44634;
-
-      const newPrice = generatePriceMovement(currentPrice);
-      const nextPrice = newPrice.toFixed(5);
-
-      latestPriceRef.current = nextPrice;
-      setLatestPrice(nextPrice);
-
-      setSeries((prev) => {
-        if (!prev?.[0]?.data?.length) return prev;
-
-        const existingData = prev[0].data;
-        const lastIndex = existingData.length - 1;
-        const lastCandle = existingData[lastIndex];
-
-        if (!lastCandle?.y?.length) return prev;
-
-        const updatedCandle = {
-          ...lastCandle,
-          y: [
-            lastCandle.y[0],
-            Math.max(lastCandle.y[1], newPrice),
-            Math.min(lastCandle.y[2], newPrice),
-            newPrice,
-          ],
-        };
-
-        const newData = [...existingData];
-        newData[lastIndex] = updatedCandle;
-
-        return [{ data: newData }];
-      });
-    }, 1000);
-
-    return () => clearInterval(priceInterval);
-  }, [isCandleMoving, betResult]);
+  // Price movement is driven exclusively by the server Socket.IO
+  // `candleUpdate` event. Do not generate or animate prices on the client:
+  // doing so would fight the server OHLC values and make the candle appear stuck
+  // or jump backwards.
 
   // Navigation handlers
   // Updated navigation handlers
@@ -802,33 +784,32 @@ useEffect(() => {
     if (e.touches.length === 2) {
       const distance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY,
+        e.touches[0].clientY - e.touches[1].clientY
       );
       setTouchState({
         startDistance: distance,
-        startRange: { ...xAxisRange },
+        startRange: { ...xAxisRange }
       });
     }
   };
-
+  
   const handleTouchMove = (e) => {
     if (e.touches.length === 2 && touchState.startDistance) {
       const currentDistance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY,
+        e.touches[0].clientY - e.touches[1].clientY
       );
-
+      
       const scale = currentDistance / touchState.startDistance;
       const range = touchState.startRange.max - touchState.startRange.min;
       const newRange = range / scale;
-
+      
       // Calculate center point
-      const centerX =
-        (touchState.startRange.min + touchState.startRange.max) / 2;
-
+      const centerX = (touchState.startRange.min + touchState.startRange.max) / 2;
+      
       setXAxisRange({
         min: centerX - newRange / 2,
-        max: centerX + newRange / 2,
+        max: centerX + newRange / 2
       });
     }
   };
@@ -839,11 +820,11 @@ useEffect(() => {
         e.preventDefault();
       }
     };
-
-    document.addEventListener("touchmove", preventDefault, { passive: false });
-
+    
+    document.addEventListener('touchmove', preventDefault, { passive: false });
+    
     return () => {
-      document.removeEventListener("touchmove", preventDefault);
+      document.removeEventListener('touchmove', preventDefault);
     };
   }, []);
 
@@ -929,7 +910,7 @@ useEffect(() => {
   const filteredAssets = assets.filter(
     (asset) =>
       asset.pair.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      activeFilter === "CURRENCIES",
+      activeFilter === "CURRENCIES"
   );
 
   const FlagIcon = ({ code }) => (
@@ -976,10 +957,11 @@ useEffect(() => {
                     {filters.map((filter) => (
                       <button
                         key={filter}
-                        className={`px-1 text-xs font-medium ${activeFilter === filter
+                        className={`px-1 text-xs font-medium ${
+                          activeFilter === filter
                             ? " text-white rounded-sm bg-[#026fd3]"
                             : "text-white hover:text-gray-100"
-                          }`}
+                        }`}
                         onClick={() => setActiveFilter(filter)}
                       >
                         {filter}
@@ -1070,7 +1052,7 @@ useEffect(() => {
                                     setFavorites((prev) =>
                                       prev.includes(asset.id)
                                         ? prev.filter((id) => id !== asset.id)
-                                        : [...prev, asset.id],
+                                        : [...prev, asset.id]
                                     );
                                   }}
                                 >
@@ -1101,10 +1083,11 @@ useEffect(() => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                               <div
-                                className={`flex items-center ${asset.change >= 0
+                                className={`flex items-center ${
+                                  asset.change >= 0
                                     ? "text-green-500"
                                     : "text-red-500"
-                                  }`}
+                                }`}
                               >
                                 {asset.change >= 0 ? (
                                   <FaArrowUp className="mr-1" />
@@ -1176,9 +1159,9 @@ useEffect(() => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setIndex((prev) => Math.max(0, prev - 1));
+                              setIndex(index - 1);
                               SetNavbarOpen((prev) =>
-                                prev.filter((_, i) => i !== idx),
+                                prev.filter((_, i) => i !== idx)
                               );
                             }}
                             className="p-1 rounded-full absolute top-0 right-0"

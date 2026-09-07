@@ -1,29 +1,25 @@
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const dns = require("dns");
 const path = require("path");
 const http = require("http");
-const { Server } = require("socket.io");
-const WebSocket = require("ws");
 
 // =====================================================
 // DNS
 // =====================================================
-
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 // =====================================================
-// DATABASE - MongoDB
+// DATABASE
 // =====================================================
-
 const connectDB = require("./config/connectdb");
 
 // =====================================================
 // MODELS
 // =====================================================
-
 const User = require("./models/authmodel");
 const Wingo = require("./models/Wingo");
 const Bet = require("./models/Bet");
@@ -37,83 +33,58 @@ const Recharge = require("./models/Recharge");
 // =====================================================
 // BET CONTROLLER
 // =====================================================
-
 const betController = require("./controllers/betController");
 const betRoutes = require("./routes/betRoutes");
 
 // =====================================================
 // USER ROUTES
 // =====================================================
-
 const authRoutes = require("./routes/authRoutes");
 const dailyClaimRoutes = require("./routes/dailyClaimRoutes");
 const withdrawalRoutes = require("./routes/withdrawalRoutes");
 const depositRoutes = require("./routes/depositRoutes");
 const bannerRoutes = require("./routes/bannerRoutes");
 const publicBidRoutes = require("./routes/publicBidRoutes");
-
 const marketRoutes = require("./routes/marketRoutes");
 const bidRoutes = require("./routes/bidRoutes");
 const resultRoutes = require("./routes/resultRoutes");
 const currencyRateRoutes = require("./routes/currencyRateRoutes");
-
 const userTicketTypeRoutes = require("./routes/user/ticketTypeRoutes");
-
 const bettingBonusRoutes = require("./routes/bettingBonusRoutes");
-
-// =====================================================
-// GENERIC COUNTRY USER GAME ROUTES
-// =====================================================
-
 const userGameEntryRoutes = require("./routes/user/gameEntryRoutes");
 const userGameCountRoutes = require("./routes/user/gameCountRoutes");
-
-// =====================================================
-// MINES GAME
-// =====================================================
-
 const mineGameRoutes = require("./routes/minesRoutes");
-
-// =====================================================
-// ADMIN ROUTES
-// =====================================================
-
 const adminWithdrawalRoutes = require("./routes/admin/withdrawalRoutes");
 const depositSettingsRoutes = require("./routes/depositSettingsRoutes");
 const withdrawalSettingsRoutes = require("./routes/withdrawalSettingsRoutes");
 const adminTicketTypeRoutes = require("./routes/admin/ticketTypeRoutes");
 const winMultiplierRoutes = require("./routes/winMultiplierRoutes");
-
-// =====================================================
-// GENERIC COUNTRY ADMIN ROUTES
-// =====================================================
-
 const adminGameCountRoutes = require("./routes/admin/gameCountRoutes");
 const adminGameEntryRoutes = require("./routes/admin/gameEntryRoutes");
 const adminPowerballResultRoutes = require("./routes/admin/powerballResultRoutes");
 const adminPowerballDivisionRoutes = require("./routes/admin/powerballDivisionRoutes");
 
 // =====================================================
-// TRADING SOCKET ENGINE
+// SOCKET.IO
 // =====================================================
-
+const socket = require("./config/socket");
 
 // =====================================================
 // APP
 // =====================================================
-
 const app = express();
-
-// =====================================================
-// HTTP SERVER
-// =====================================================
-
 const server = http.createServer(app);
 
 // =====================================================
-// SOCKET.IO
+// INITIALIZE SOCKET.IO
 // =====================================================
+const io = socket.init(server);
+app.set("io", io);
+global.io = io;
 
+// =====================================================
+// CORS
+// =====================================================
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -125,110 +96,39 @@ const allowedOrigins = [
   "http://127.0.0.1:5175",
   "http://127.0.0.1:5176",
   "http://127.0.0.1:5177",
+  "https://control.codemax.shop",
 ];
 
-const io = new Server(server, {
-  cors: {
-    origin: (origin, callback) => {
-      if (!origin) {
-        return callback(null, true);
-      }
+const corsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if (allowedOrigins.includes(origin) || isLocalhost) {
+    return callback(null, true);
+  }
+  console.warn("❌ CORS blocked:", origin);
+  return callback(new Error("CORS origin not allowed"));
+};
 
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(
-        origin,
-      );
-
-      if (allowedOrigins.includes(origin) || isLocalhost) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Socket.IO CORS origin not allowed"));
-    },
-
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-
-    credentials: true,
-  },
-});
-
-// =====================================================
-// MAKE SOCKET.IO AVAILABLE TO APP
-// =====================================================
-
-app.set("io", io);
-global.io = io;
-
-// =====================================================
-// CORS
-// =====================================================
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(
-        origin,
-      );
-
-      if (allowedOrigins.includes(origin) || isLocalhost) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("CORS origin not allowed"));
-    },
-
-    credentials: true,
-
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "Cache-Control",
-      "Pragma",
-      "Expires",
-    ],
-
-    optionsSuccessStatus: 204,
-  }),
-);
-
-// =====================================================
-// PREFLIGHT
-// =====================================================
+app.use(cors({
+  origin: corsOrigin,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires"],
+  optionsSuccessStatus: 204
+}));
 
 app.options("*path", cors());
 
 // =====================================================
 // BODY PARSER
 // =====================================================
-
-app.use(
-  express.json({
-    limit: "10mb",
-  }),
-);
-
-app.use(
-  express.urlencoded({
-    extended: true,
-    limit: "10mb",
-  }),
-);
-
-// =====================================================
-// COOKIE
-// =====================================================
-
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
 // =====================================================
 // NO CACHE FOR API
 // =====================================================
-
 app.use("/api", (req, res, next) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
   res.set("Pragma", "no-cache");
@@ -237,418 +137,179 @@ app.use("/api", (req, res, next) => {
 });
 
 // =====================================================
-// BET ROUTES
+// ROUTES
 // =====================================================
 app.use("/api", betRoutes);
-
-// =====================================================
-// USER ROUTES
-// =====================================================
-
 app.use("/api/auth", authRoutes);
 app.use("/api/daily-claim", dailyClaimRoutes);
 app.use("/api/withdrawals", withdrawalRoutes);
 app.use("/api/deposit", depositRoutes);
 app.use("/api/banner", bannerRoutes);
 app.use("/api/public-bids", publicBidRoutes);
-
-// =====================================================
-// MARKET / BID / RESULT
-// =====================================================
-
 app.use("/api/markets", marketRoutes);
 app.use("/api/bids", bidRoutes);
 app.use("/api/results", resultRoutes);
 app.use("/api/currency", currencyRateRoutes);
-
-// =====================================================
-// USER TICKET TYPES
-// =====================================================
-
 app.use("/api/user/ticket-types", userTicketTypeRoutes);
-
-// =====================================================
-// WIN MULTIPLIERS
-// =====================================================
-
 app.use("/api/win-multipliers", winMultiplierRoutes);
-
-// =====================================================
-// BETTING BONUS
-// =====================================================
-
 app.use("/api/betting-bonus", bettingBonusRoutes);
-
-// =====================================================
-// GENERIC COUNTRY USER GAME ROUTES
-// =====================================================
-
 app.use("/api/:country/game-entry", userGameEntryRoutes);
 app.use("/api/:country/game-counts", userGameCountRoutes);
-
-// =====================================================
-// MINES GAME
-// =====================================================
-
 app.use("/api/mine-games", mineGameRoutes);
-
-// =====================================================
-// ADMIN ROUTES
-// =====================================================
-
 app.use("/api/admin/withdrawals", adminWithdrawalRoutes);
 app.use("/api", depositSettingsRoutes);
 app.use("/api/withdrawal-settings", withdrawalSettingsRoutes);
 app.use("/api/admin/ticket-types", adminTicketTypeRoutes);
-
-// =====================================================
-// COUNTRY ADMIN GAME ROUTES
-// =====================================================
-
 app.use("/api/admin/:country/game-count", adminGameCountRoutes);
 app.use("/api/admin/:country/game-entries", adminGameEntryRoutes);
 app.use("/api/admin/:country/powerball-results", adminPowerballResultRoutes);
-app.use(
-  "/api/admin/:country/powerball/divisions",
-  adminPowerballDivisionRoutes,
-);
-
-// =====================================================
-// PUBLIC POWERBALL RESULTS
-// =====================================================
-
-app.use(
-  "/api/public/:country/powerball-results",
-  require("./routes/user/powerballpublicresult"),
-);
-
-// =====================================================
-// REFERRAL LEVELS
-// =====================================================
-
+app.use("/api/admin/:country/powerball/divisions", adminPowerballDivisionRoutes);
+app.use("/api/public/:country/powerball-results", require("./routes/user/powerballpublicresult"));
 app.use("/api/admin/referral-levels", require("./routes/referralLevelRoutes"));
-
-app.use('/api',require('./routes/TradebetRoute'));
+app.use("/api", require("./routes/TradebetRoute"));
 
 // =====================================================
 // HEALTH CHECK
 // =====================================================
-
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     success: true,
     message: "API is running with MongoDB",
     port: PORT,
     timestamp: new Date(),
+    socket: {
+      enabled: true,
+      type: "Socket.IO",
+      nativeWebSocket: false,
+      path: socket.SOCKET_PATH,
+    },
     games: {
       "30s": "wingo10",
       "1m": "wingo",
+      "3m": "wingo3",
+      "5m": "wingo5",
       trx: "trx",
     },
   });
 });
 
 // =====================================================
-// USER FRONTEND
+// FRONTEND
 // =====================================================
-
 const userDistPath = path.join(__dirname, "../client/dist");
 app.use(express.static(userDistPath));
 
-// =====================================================
-// ADMIN FRONTEND
-// =====================================================
-
 const adminDistPath = path.join(__dirname, "../admin/dist");
 app.use("/admin", express.static(adminDistPath));
-
-// =====================================================
-// ADMIN SPA FALLBACK
-// =====================================================
-
 app.get("/admin/{*path}", (req, res) => {
   res.sendFile(path.join(adminDistPath, "index.html"));
 });
-
-// =====================================================
-// USER SPA FALLBACK
-// =====================================================
-
 app.get("/{*path}", (req, res) => {
   res.sendFile(path.join(userDistPath, "index.html"));
 });
 
 // =====================================================
-// 404 API HANDLER
+// 404 & ERROR HANDLER
 // =====================================================
-
 app.use("/api", (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "API route not found",
-    path: req.originalUrl,
-  });
+  res.status(404).json({ success: false, message: "API route not found", path: req.originalUrl });
 });
-
-// =====================================================
-// GLOBAL ERROR HANDLER
-// =====================================================
 
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err);
-  if (res.headersSent) {
-    return next(err);
-  }
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal server error",
-  });
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ success: false, message: err.message || "Internal server error" });
 });
 
 // =====================================================
-// SOCKET TIMER FUNCTIONS - FIXED
+// SOCKET TIMER STATE
 // =====================================================
-
-// Store current timer values to emit on new connections
 let currentTimers = {
   timeUpdate_30: { minute: 0, secondtime1: 0, secondtime2: 0 },
+  timeUpdate_20: { minute: 0, secondtime1: 0, secondtime2: 0, countdown: 0, cycleSecond: 0, timestamp: 0, nextRoundAt: 0 },
   timeUpdate_11: { minute: 0, secondtime1: 0, secondtime2: 0 },
   timeUpdate_3: { minute: 0, secondtime1: 0, secondtime2: 0 },
   timeUpdate_5: { minute: 0, secondtime1: 0, secondtime2: 0 },
 };
 
-// Store last game results
-let lastResults = {
-  wingo10: null,
-  wingo: null,
-  wingo3: null,
-  wingo5: null,
-  trx: null,
-};
-
-// Track processed periods to prevent duplicate processing
-const processedPeriods = {
-  wingo10: null,
-  wingo: null,
-  wingo3: null,
-  wingo5: null,
-  trx: null,
-};
-
-// Track if result has been emitted for a period (to prevent duplicate emits)
-const emittedPeriods = {
-  wingo10: null,
-  wingo: null,
-  wingo3: null,
-  wingo5: null,
-  trx: null,
-};
-
-/*
- * Exact timer boundary guard.
- * A game is allowed to process only once for each completed interval.
- */
-const lastTimerBoundary = {
-  wingo10: null,
-  wingo: null,
-  wingo3: null,
-  wingo5: null,
-};
-
+let lastResults = { wingo10: null, wingo: null, wingo3: null, wingo5: null, trx: null };
+const processedPeriods = { wingo10: null, wingo: null, wingo3: null, wingo5: null, trx: null };
+const emittedPeriods = { wingo10: null, wingo: null, wingo3: null, wingo5: null, trx: null };
+const lastTimerBoundary = { wingo10: null, wingo: null, wingo3: null, wingo5: null };
 
 // =====================================================
-// NATIVE WEBSOCKET (WS)
+// TIMER CALCULATOR
 // =====================================================
-// Socket.IO and native WebSocket run together on the same
-// HTTP server/port. Socket.IO keeps all existing clients,
-// while native WS supports clients using:
-//   new WebSocket("ws://localhost:5007")
-// =====================================================
-
-// IMPORTANT:
-// Do NOT pass `server` here. Socket.IO also listens to the HTTP
-// upgrade event. Using noServer + a dedicated /ws path prevents
-// both protocols from trying to handle the same upgrade request.
-const wss = new WebSocket.Server({
-  noServer: true,
-});
-
-// Native WS is available ONLY at:
-//   ws://localhost:5007/ws
-server.on("upgrade", (request, socket, head) => {
-  try {
-    const { pathname } = new URL(
-      request.url,
-      `http://${request.headers.host || "localhost"}`
-    );
-
-    // Leave Socket.IO's /socket.io upgrade completely untouched.
-    if (pathname !== "/ws") {
-      return;
-    }
-
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit("connection", ws, request);
-    });
-  } catch (error) {
-    console.error("[WS] Upgrade error:", error);
-    socket.destroy();
-  }
-});
-
-wss.on("connection", (ws, req) => {
-  console.log(
-    `[WS] Native WebSocket connected${req?.socket?.remoteAddress ? ` from ${req.socket.remoteAddress}` : ""}`
-  );
-
-  // Immediately send the latest timer to newly connected WS clients.
-  try {
-    ws.send(
-      JSON.stringify({
-        event: "timeUpdate_30",
-        ...currentTimers.timeUpdate_30,
-      })
-    );
-  } catch (error) {
-    console.error("[WS] Initial timer send error:", error);
-  }
-
-  ws.on("message", (message) => {
-    try {
-      const data = JSON.parse(message.toString());
-      console.log("[WS] Message received:", data);
-    } catch (error) {
-      console.error("[WS] Invalid JSON message:", error.message);
-    }
-  });
-
-  ws.on("close", () => {
-    console.log("[WS] Native WebSocket disconnected");
-  });
-
-  ws.on("error", (error) => {
-    console.error("[WS] Native WebSocket error:", error);
-  });
-});
-
-wss.on("error", (error) => {
-  console.error("[WS] Server error:", error);
-});
-
-// Broadcast to native WebSocket clients only.
-const wsBroadcast = (event, data = {}) => {
-  if (!wss) return;
-
-  const message = JSON.stringify({
-    event,
-    ...data,
-  });
-
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(message);
-      } catch (error) {
-        console.error("[WS] Broadcast send error:", error);
-      }
-    }
-  });
-};
-
 function calculateTimer(intervalSeconds) {
   const now = new Date();
-  const totalSeconds =
-    now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-
+  const totalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   let remaining = intervalSeconds - (totalSeconds % intervalSeconds);
   if (remaining === 0) remaining = intervalSeconds;
-
   const minute = Math.floor(remaining / 60);
   const seconds = remaining % 60;
-  const secondtime1 = Math.floor(seconds / 10);
-  const secondtime2 = seconds % 10;
-
-  return { minute, secondtime1, secondtime2 };
+  return {
+    minute,
+    secondtime1: Math.floor(seconds / 10),
+    secondtime2: seconds % 10,
+  };
 }
 
-// ============================================
-// PROCESS RESULT - ATOMIC / NO DUPLICATE
-// ============================================
+// =====================================================
+// TRADING 30 SECOND CLOCK
+// =====================================================
+const TRADING_ROUND_SECONDS = 30;
+
+function getTradingClock() {
+  const nowMs = Date.now();
+  const unixSeconds = Math.floor(nowMs / 1000);
+  const cycleSecond = unixSeconds % TRADING_ROUND_SECONDS;
+  const countdown = TRADING_ROUND_SECONDS - cycleSecond;
+  return {
+    minute: Math.floor(countdown / 60),
+    secondtime1: Math.floor((countdown % 60) / 10),
+    secondtime2: countdown % 10,
+    countdown,
+    cycleSecond,
+    timestamp: nowMs,
+    nextRoundAt: nowMs + countdown * 1000,
+  };
+}
+
+// =====================================================
+// PROCESS RESULT
+// =====================================================
 async function processResultImmediately(gameName, typeId) {
   try {
-    // -------------------------------------------------
-    // 1. Find latest pending period
-    // -------------------------------------------------
-    const winGoNow = await Wingo.findOne({
-      status: 0,
-      game: gameName,
-    })
-      .sort({ _id: -1 })
-      .limit(1);
-
+    const winGoNow = await Wingo.findOne({ status: 0, game: gameName }).sort({ _id: -1 }).limit(1);
     if (!winGoNow) {
       console.log(`[${gameName}] No pending period found`);
       return;
     }
 
     const period = String(winGoNow.period);
-
     console.log(`[${gameName}] Attempting atomic processing: ${period}`);
 
-    // -------------------------------------------------
-    // 2. Generate result
-    // -------------------------------------------------
     const resultAmount = Number(betController.generateRandomResult());
-
-    const finalResult =
-      Number.isInteger(resultAmount) && resultAmount >= 0 && resultAmount <= 9
-        ? resultAmount
-        : Math.floor(Math.random() * 10);
+    const finalResult = Number.isInteger(resultAmount) && resultAmount >= 0 && resultAmount <= 9
+      ? resultAmount
+      : Math.floor(Math.random() * 10);
 
     console.log(`[${gameName}] Generated result: ${period} -> ${finalResult}`);
 
-    // -------------------------------------------------
-    // 3. ATOMIC CLAIM
-    //
-    // Only ONE caller can change this exact document
-    // from status 0 -> status 1.
-    // -------------------------------------------------
     const updateResult = await Wingo.updateOne(
-      {
-        _id: winGoNow._id,
-        status: 0,
-        game: gameName,
-      },
-      {
-        $set: {
-          amount: finalResult,
-          status: 1,
-        },
-      },
+      { _id: winGoNow._id, status: 0, game: gameName },
+      { $set: { amount: finalResult, status: 1 } }
     );
 
-    // -------------------------------------------------
-    // 4. Another timer/backup already processed it
-    // -------------------------------------------------
     if (updateResult.modifiedCount !== 1) {
-      console.log(
-        `[${gameName}] Period ${period} already processed by another caller. SKIP.`,
-      );
+      console.log(`[${gameName}] Period ${period} already processed. SKIP.`);
       return;
     }
 
     console.log(`[${gameName}] LOCKED/PROCESSED: ${period} -> ${finalResult}`);
 
-    // -------------------------------------------------
-    // 5. Create next period
-    // -------------------------------------------------
     const newPeriod = String(BigInt(period) + BigInt(1));
-
-    const existingNext = await Wingo.findOne({
-      game: gameName,
-      period: newPeriod,
-    });
-
+    const existingNext = await Wingo.findOne({ game: gameName, period: newPeriod });
     if (!existingNext) {
       await Wingo.create({
         period: newPeriod,
@@ -659,66 +320,85 @@ async function processResultImmediately(gameName, typeId) {
         blocs: 50,
         time: new Date().toISOString(),
       });
-
       console.log(`[${gameName}] New period created: ${newPeriod}`);
-    } else {
-      console.log(`[${gameName}] Next period ${newPeriod} already exists`);
     }
 
-    // -------------------------------------------------
-    // 6. Clear admin forced result
-    // -------------------------------------------------
-    await Admin.updateOne(
-      {},
-      {
-        $set: {
-          [gameName]: "-1",
-        },
-      },
-    );
-
-    // -------------------------------------------------
-    // 7. Process winning bets ONLY HERE
-    // -------------------------------------------------
+    await Admin.updateOne({}, { $set: { [gameName]: "-1" } });
     await betController.handlingWinGo1P(typeId);
 
-    // -------------------------------------------------
-    // 8. Emit result EXACTLY ONCE
-    // -------------------------------------------------
     if (emittedPeriods[gameName] === period) {
       console.log(`[${gameName}] Period ${period} already emitted. SKIP emit.`);
       return;
     }
 
     emittedPeriods[gameName] = period;
-
-    const resultData = {
-      game: gameName,
-      period: period,
-      amount: finalResult,
-    };
-
+    const resultData = { game: gameName, period: period, amount: finalResult };
     lastResults[gameName] = resultData;
 
-    io.emit("data-server", {
-      data: [resultData],
-    });
-
-    wsBroadcast("data-server", {
-      data: [resultData],
-    });
-
-    console.log(
-      `[${gameName}] RESULT EMITTED ONCE: ${period} -> ${finalResult}`,
-    );
+    io.emit("data-server", { data: [resultData] });
+    console.log(`[${gameName}] RESULT EMITTED: ${period} -> ${finalResult}`);
   } catch (error) {
     console.error(`[${gameName}] processResultImmediately ERROR:`, error);
   }
 }
 
+// =====================================================
+// REAL-TIME TRADING CANDLE STREAM
+// =====================================================
+const CANDLE_INTERVAL_MS = 10 * 1000;
+let liveCandle = null;
+let liveCandleStart = 0;
+let livePrice = 1.44634;
+let candleHistory = [];
+
+function createLiveCandle(now = Date.now()) {
+  const start = Math.floor(now / CANDLE_INTERVAL_MS) * CANDLE_INTERVAL_MS;
+  liveCandleStart = start;
+  livePrice = Number(livePrice.toFixed(5));
+
+  liveCandle = {
+    x: new Date(start).toISOString(),
+    open: livePrice,
+    high: livePrice,
+    low: livePrice,
+    close: livePrice,
+  };
+}
+
+function broadcastCandle() {
+  const now = Date.now();
+
+  if (!liveCandle || now >= liveCandleStart + CANDLE_INTERVAL_MS) {
+    if (liveCandle) {
+      candleHistory.push({ ...liveCandle });
+      if (candleHistory.length > 500) candleHistory.shift();
+      livePrice = liveCandle.close;
+    }
+    createLiveCandle(now);
+  }
+
+  const delta = (Math.random() - 0.5) * 0.00020;
+  livePrice = Number(Math.max(0.00001, livePrice + delta).toFixed(5));
+
+  liveCandle.close = livePrice;
+  liveCandle.high = Number(Math.max(liveCandle.high, livePrice).toFixed(5));
+  liveCandle.low = Number(Math.min(liveCandle.low, livePrice).toFixed(5));
+
+  io.emit("candleUpdate", {
+    history: candleHistory.slice(-100),
+    candle: { ...liveCandle },
+    timestamp: now,
+    interval: CANDLE_INTERVAL_MS,
+  });
+}
+
+// =====================================================
+// BROADCAST TIMERS
+// =====================================================
 function broadcastTimers() {
   const timers = {
     timeUpdate_30: calculateTimer(30),
+    timeUpdate_20: getTradingClock(),
     timeUpdate_11: calculateTimer(60),
     timeUpdate_3: calculateTimer(180),
     timeUpdate_5: calculateTimer(300),
@@ -726,24 +406,14 @@ function broadcastTimers() {
 
   currentTimers = timers;
 
-  // Socket.IO clients
   io.emit("timeUpdate_30", timers.timeUpdate_30);
+  io.emit("timeUpdate_20", timers.timeUpdate_20);
   io.emit("timeUpdate_11", timers.timeUpdate_11);
   io.emit("timeUpdate_3", timers.timeUpdate_3);
   io.emit("timeUpdate_5", timers.timeUpdate_5);
 
-  // Native WebSocket clients
-  wsBroadcast("timeUpdate_30", timers.timeUpdate_30);
-  wsBroadcast("timeUpdate_11", timers.timeUpdate_11);
-  wsBroadcast("timeUpdate_3", timers.timeUpdate_3);
-  wsBroadcast("timeUpdate_5", timers.timeUpdate_5);
-
-  // =====================================================
-  // RESULT PROCESSING - ONLY AT EXACT TIMER COMPLETION
-  // =====================================================
   const now = new Date();
-  const totalSeconds =
-    now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const totalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
   const gameConfigs = [
     { name: "wingo10", interval: 30, type: 10 },
@@ -753,91 +423,21 @@ function broadcastTimers() {
   ];
 
   for (const config of gameConfigs) {
-    /*
-     * Timer is complete ONLY on an exact interval boundary:
-     * 30s  -> :00, :30
-     * 1m   -> every :00
-     * 3m   -> every 3 minutes
-     * 5m   -> every 5 minutes
-     *
-     * No processing happens at any other second.
-     */
-    if (totalSeconds % config.interval !== 0) {
-      continue;
-    }
-
+    if (totalSeconds % config.interval !== 0) continue;
     const boundary = Math.floor(totalSeconds / config.interval);
-
-    // Same boundary can be observed more than once by a 1-second interval.
-    if (lastTimerBoundary[config.name] === boundary) {
-      continue;
-    }
-
+    if (lastTimerBoundary[config.name] === boundary) continue;
     lastTimerBoundary[config.name] = boundary;
 
-    console.log(
-      `[TIMER] ${config.name} completed exactly. Processing result now.`,
-    );
-
+    console.log(`[TIMER] ${config.name} completed exactly. Processing result now.`);
     processResultImmediately(config.name, config.type).catch((error) => {
       console.error(`[TIMER] ${config.name} result processing error:`, error);
     });
   }
 }
 
-// Send timer and result on new connection
-io.on("connection", (socket) => {
-  // Send current timers
-  socket.emit("timeUpdate_30", currentTimers.timeUpdate_30);
-  socket.emit("timeUpdate_11", currentTimers.timeUpdate_11);
-  socket.emit("timeUpdate_3", currentTimers.timeUpdate_3);
-  socket.emit("timeUpdate_5", currentTimers.timeUpdate_5);
-
-  // Send last results for all games
-  Object.keys(lastResults).forEach((game) => {
-    if (lastResults[game]) {
-      socket.emit("data-server", {
-        data: [lastResults[game]],
-      });
-    }
-  });
-
-  // User rooms
-  socket.on("join-user", (userId) => {
-    if (!userId) return;
-    const room = `user-${userId}`;
-    socket.join(room);
-    console.log(`[SOCKET] ${socket.id} joined ${room}`);
-  });
-
-  socket.on("join-admin", (adminId) => {
-    socket.join("admin");
-    console.log(`[SOCKET] ${socket.id} joined admin`);
-  });
-
-  socket.on("join-mines-game", (gameId) => {
-    if (!gameId) return;
-    const room = `mines-${gameId}`;
-    socket.join(room);
-    console.log(`[SOCKET] ${socket.id} joined ${room}`);
-  });
-
-  socket.on("leave-mines-game", (gameId) => {
-    if (!gameId) return;
-    const room = `mines-${gameId}`;
-    socket.leave(room);
-    console.log(`[SOCKET] ${socket.id} left ${room}`);
-  });
-
-  socket.on("disconnect", (reason) => {
-    console.log(`[SOCKET] Disconnected: ${socket.id}`, reason);
-  });
-});
-
 // =====================================================
 // DATABASE + SERVER
 // =====================================================
-
 const PORT = Number(process.env.PORT) || 5007;
 
 const startServer = async () => {
@@ -864,16 +464,12 @@ const startServer = async () => {
     if (levelCount === 0) {
       const levels = [];
       for (let i = 1; i <= 6; i++) {
-        levels.push({
-          level: i,
-          f1: i * 2,
-        });
+        levels.push({ level: i, f1: i * 2 });
       }
       await Level.insertMany(levels);
       console.log("Levels initialized");
     }
 
-    // Initialize game periods
     const games = ["wingo", "wingo10", "trx", "wingo3", "wingo5"];
     for (const game of games) {
       const existing = await Wingo.findOne({ game, status: 0 });
@@ -882,7 +478,7 @@ const startServer = async () => {
         await Wingo.create({
           period: initialPeriod,
           amount: 0,
-          game,
+          game: game,
           status: 0,
           hashvalue: require("crypto").randomBytes(5).toString("hex"),
           blocs: 50,
@@ -892,33 +488,22 @@ const startServer = async () => {
       }
     }
 
-    // =================================================
-    // START TRADING SOCKET ENGINE
-    // =================================================
-
-    // initTradingSocket(io);
-
-    // =================================================
-    // START TIMER BROADCAST - EVERY SECOND
-    // =================================================
-
-    // Set the IO instance in betController
-    betController.setIo(io);
+    if (typeof betController.setIo === "function") {
+      betController.setIo(io);
+    }
 
     setTimeout(() => {
       broadcastTimers();
-      console.log("[SOCKET] Initial timers broadcasted");
+      broadcastCandle();
+      console.log("[SOCKET.IO] Initial timers + candle broadcasted");
     }, 1000);
 
     setInterval(() => {
       broadcastTimers();
+      broadcastCandle();
     }, 1000);
 
-    console.log("[SOCKET] Timer broadcast started (every 1s)");
-
-    // =================================================
-    // START SERVER
-    // =================================================
+    console.log("[SOCKET.IO] Timer broadcast started - every 1 second");
 
     server.listen(PORT, "0.0.0.0", () => {
       console.log("======================================");
@@ -928,32 +513,13 @@ const startServer = async () => {
       console.log(`API:   http://localhost:${PORT}/api`);
       console.log(`Mines: http://localhost:${PORT}/api/mine-games`);
       console.log(`Bet:   http://localhost:${PORT}/bet`);
-      console.log("Socket.IO: enabled");
-      console.log("Native WebSocket (ws): enabled at /ws");
-      console.log(
-        "Socket.IO Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5",
-      );
-      console.log(
-        "WS Timer Events: timeUpdate_30, timeUpdate_11, timeUpdate_3, timeUpdate_5",
-      );
+      console.log("Socket.IO: ENABLED");
+      console.log(`Socket.IO path: ${socket.SOCKET_PATH}`);
       console.log("Trading Engine: enabled");
-      console.log(
-        "Games: 30s (wingo10), 1m (wingo), 3m (wingo3), 5m (wingo5), TRX (trx)",
-      );
+      console.log("Games: 30s (wingo10), 1m (wingo), 3m (wingo3), 5m (wingo5), TRX (trx)");
       console.log("Database: MongoDB");
       console.log("======================================");
     });
-
-    // =================================================
-    // RESULT PROCESSING
-    // =================================================
-    // Results are processed ONLY by the exact timer boundary
-    // inside broadcastTimers(). No independent backup runner.
-    // =================================================
-
-    // =================================================
-    // COMMISSION PROCESSING
-    // =================================================
 
     let lastCommission = 0;
     setInterval(async () => {
@@ -987,43 +553,27 @@ startServer();
 // =====================================================
 // GRACEFUL SHUTDOWN
 // =====================================================
-
-const gracefulShutdown = (signal) => {
+const gracefulShutdown = async (signal) => {
   console.log(`\n[SERVER] ${signal} received. Shutting down...`);
-
   try {
-    wss.clients.forEach((client) => {
-      try {
-        client.close();
-      } catch (error) {
-        console.error("[WS] Client close error:", error);
-      }
-    });
-
-    wss.close(() => {
-      console.log("[WS] Native WebSocket server closed");
-
-      server.close(() => {
-        console.log("[SERVER] Server closed");
-        process.exit(0);
-      });
+    server.close(async () => {
+      console.log("[SERVER] HTTP server closed");
+      await socket.close();
+      console.log("[SERVER] Socket.IO closed");
+      console.log("[SERVER] Shutdown complete");
+      process.exit(0);
     });
   } catch (error) {
     console.error("[SERVER] Shutdown error:", error);
-
-    server.close(() => {
-      process.exit(0);
-    });
+    process.exit(1);
   }
 };
 
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-
 process.on("unhandledRejection", (error) => {
   console.error("Unhandled Rejection:", error);
 });
-
 process.on("uncaughtException", (error) => {
   console.error("Uncaught Exception:", error);
 });

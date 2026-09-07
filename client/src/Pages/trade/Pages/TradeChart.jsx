@@ -1,39 +1,47 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-  FaArrowDown,
   FaArrowUp,
-  FaCaretUp,
+  FaArrowDown,
+  FaClock,
   FaList,
-  FaSearch,
   FaTimes,
+  FaRegStar,
+  FaSearch,
+  FaStar,
+  FaWindowClose,
+  FaHistory,
+  FaCaretUp,
 } from "react-icons/fa";
-import { FaCaretDown } from "react-icons/fa6";
-import { FiDollarSign } from "react-icons/fi";
-import { MdWorkHistory } from "react-icons/md";
-import { useDispatch, useSelector } from "react-redux";
-import { io } from "socket.io-client";
-import { useNavigate } from "react-router";
-import { toast } from "react-toastify";
-import flag3 from "../assets/universalImage/Bangladesh-512.webp";
-import flag4 from "../assets/universalImage/brazil.webp";
-import flag5 from "../assets/universalImage/can.webp";
-import flag2 from "../assets/universalImage/circle-flag-of-japan-free-png.webp";
-import flag1 from "../assets/universalImage/circle-flag-of-usa-free-png.webp";
-import flag6 from "../assets/universalImage/col.webp";
-import flag7 from "../assets/universalImage/turky.webp";
 import ChartSection from "../components/ChartSection";
-import Sidebar from "../components/Sidebar";
-import { getProfile } from "../redux/slices/authSlice";
+import { FaCaretDown } from "react-icons/fa6";
+import { useNavigate } from "react-router";
+import { IoMdClose } from "react-icons/io";
+import { useDispatch, useSelector } from "react-redux";
 import {
   betHistory,
   getPeriod,
   pendingHistory,
   placebet,
-} from "../redux/slices/tradingReducer";
+} from "../../../redux/slices/tradingReducer";
+import { toast } from "react-toastify";
+import { getUser } from "../Redux/Reducer/authReducer";
+import { MdWorkHistory } from "react-icons/md";
+import Sidebar from "../components/Sidebar";
+import flag1 from "../assets/universalImage/circle-flag-of-usa-free-png.webp";
+import flag2 from "../assets/universalImage/circle-flag-of-japan-free-png.webp";
+import flag3 from "../assets/universalImage/Bangladesh-512.webp";
+import flag4 from "../assets/universalImage/brazil.webp";
+import flag5 from "../assets/universalImage/can.webp";
+import flag6 from "../assets/universalImage/col.webp";
+import flag7 from "../assets/universalImage/turky.webp";
+import Top from "../components/top";
+import { FiDollarSign } from "react-icons/fi";
+import { subscribeSocket } from "../Redux/socket";
+import { getProfile } from "../../../redux/slices/authSlice";
 
 const TradeChart = () => {
   const { period, bet, traderhistory, pendingResult } = useSelector(
-    (state) => state.trading,
+    (state) => state.trading
   );
   const [investment, setInvestment] = useState(70);
   const [activeTab, setActiveTab] = useState("trades");
@@ -49,7 +57,6 @@ const TradeChart = () => {
   const isInitialFetchDone = useRef(false);
 
   //30 sec
-  const [seconds, setSeconds] = useState(30);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -72,58 +79,20 @@ const TradeChart = () => {
     }
   }, [times.minute, times.secondtime1, times.secondtime2]);
 
-useEffect(() => {
-  const socket = io("http://localhost:5007", {
-    path: "/ws",
-    transports: ["polling", "websocket"],
-    withCredentials: true,
-  });
-
-  socket.on("connect", () => {
-    console.log(
-      "✅ Socket.IO Connected:",
-      socket.id,
-      "| transport:",
-      socket.io.engine.transport.name
-    );
-  });
-
-  socket.io.engine.on("upgrade", () => {
-    console.log(
-      "⬆️ Socket.IO upgraded to:",
-      socket.io.engine.transport.name
-    );
-  });
-
-  socket.on("timeUpdate_20", (data) => {
-    console.log("Received timeUpdate_20:", data);
-    setTime({
-      minute: Number(data?.minute) || 0,
-      secondtime1: Number(data?.secondtime1) || 0,
-      secondtime2: Number(data?.secondtime2) || 0,
+  // Shared Socket.IO connection for the synchronized trading clock.
+  useEffect(() => {
+    const unsubscribe = subscribeSocket((data) => {
+      if (data.event === "timeUpdate_20") {
+        setTime({
+          minute: data.minute,
+          secondtime1: data.secondtime1,
+          secondtime2: data.secondtime2,
+        });
+      }
     });
-  });
 
-  socket.on("disconnect", (reason) => {
-    console.log(
-      "❌ Socket.IO Disconnected:",
-      reason
-    );
-  });
-
-  socket.on("connect_error", (error) => {
-    console.error(
-      "❌ Socket.IO Connection Error:",
-      error.message
-    );
-  });
-
-  return () => {
-    socket.removeAllListeners();
-    socket.disconnect();
-  };
-}, []);
-
+    return unsubscribe;
+  }, []);
 
   // Call once on mount
   useEffect(() => {
@@ -164,23 +133,6 @@ useEffect(() => {
   }, [times, dispatch]);
 
   useEffect(() => {
-    if (seconds === 0) return;
-    const intervalId = setInterval(() => {
-      setSeconds((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(intervalId);
-  }, [seconds]);
-
-  useEffect(() => {
-    if (seconds === 0) {
-      const timeoutId = setTimeout(() => {
-        setSeconds(30);
-      }, 1000);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [seconds]);
-
-  useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 1024);
     };
@@ -200,6 +152,11 @@ useEffect(() => {
   //popup
   const [popup, setPopup] = useState(false);
 
+  // NOTE: This assumes your `placebet` thunk now returns `response.data`
+  // from the API call (not the full Axios response object). That's the
+  // actual fix — see betReducer.js. Because of that, `res.payload` here
+  // IS the API's JSON body directly, so we read `res.payload.success`
+  // and `res.payload.message` instead of `res.payload.data.success`.
   const handleUp = () => {
     dispatch(
       placebet({
@@ -207,14 +164,14 @@ useEffect(() => {
         amount: investment,
         period: period,
         bet: "up",
-      }),
+      })
     ).then((res) => {
-      if (res.payload.data.success) {
-        toast.success(res.payload.data.message);
+      if (res.payload?.success) {
+        toast.success(res.payload.message);
         dispatch(getProfile());
         dispatch(betHistory());
       } else {
-        toast.error("Insufficient balance");
+        toast.error(res.payload?.message || "Insufficient balance");
       }
     });
   };
@@ -226,14 +183,14 @@ useEffect(() => {
         amount: investment,
         period: period,
         bet: "down",
-      }),
+      })
     ).then((res) => {
-      if (res.payload.data.success) {
-        toast.success(res.payload.data.message);
+      if (res.payload?.success) {
+        toast.success(res.payload.message);
         dispatch(getProfile());
         dispatch(betHistory());
       } else {
-        toast.error(res.payload.message);
+        toast.error(res.payload?.message || "Insufficient balance");
       }
     });
   };
@@ -331,19 +288,30 @@ useEffect(() => {
   const filteredAssets = assets.filter(
     (asset) =>
       asset.pair.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      activeFilter === "CURRENCIES",
+      activeFilter === "CURRENCIES"
   );
 
   return (
     <div
-      className={`flex ${isMobile ? "flex-col " : "h-screen"
-        }  text-white bg-[#1c1f2d] lg:h-[89.5vh] overflow-auto lg:overflow-hidden`}
+      className={`flex ${
+        isMobile ? "flex-col " : "h-screen"
+      }  text-white bg-[#1c1f2d] lg:h-[89.5vh] overflow-auto lg:overflow-hidden`}
     >
       <div className="lg:w-[90px]">
         <Sidebar
           topPopupOpen={topPopupOpen}
           setTopPopupOpen={setTopPopupOpen}
         />
+      </div>
+      <div
+        className={`
+    transition-all duration-500 ease-in-out
+    overflow-hidden
+    lg:block hidden
+    ${topPopupOpen ? "w-[550px] opacity-100" : "w-0 opacity-0"}
+  `}
+      >
+        <Top topPopupOpen={topPopupOpen} setTopPopupOpen={setTopPopupOpen} />
       </div>
 
       {/* Chart Section */}
@@ -355,8 +323,9 @@ useEffect(() => {
 
       {/* Control Panel */}
       <div
-        className={`${isMobile ? "w-full h-[25vh] justify-center" : "w-1/5"
-          } flex flex-col space-y-2 md:space-y-4 p-2 md:p-2`}
+        className={`${
+          isMobile ? "w-full h-[25vh] justify-center" : "w-1/5"
+        } flex flex-col space-y-2 md:space-y-4 p-2 md:p-2`}
       >
         {/* Trading Panel */}
         <div className="md:bg-[#2b3040] rounded p-2 md:p-4 h-full flex flex-col justify-around">
@@ -390,23 +359,11 @@ useEffect(() => {
               <div className="flex gap-2">
                 <span className="font-semibold text-xs">USD/JPY (OTC)</span>
                 <div className="text-[#ffa723] font-semibold text-xs">93%</div>
-                <span>
-                  {" "}
-                  <FaCaretDown className="text-white text-xl" />
-                </span>
+                <span> <FaCaretDown className="text-white text-xl" /></span>
               </div>
             </span>
           </span>
 
-          {/* Time Selection */}
-          {/* <div className="mb-3 md:mb-4">
-            <label className="block text-xs md:text-sm font-medium mb-1 md:mb-2">
-              period
-            </label>
-            <div className="text-sm font-semibold w-full bg-gray-700 rounded p-1 md:p-2 text-center">
-              {period}
-            </div>
-          </div> */}
           <div className="flex md:flex-col gap-1">
             {/* Time Selection */}
             <div className="mb-3 md:mb-2 w-full">
@@ -432,9 +389,7 @@ useEffect(() => {
                   -
                 </button>
                 <div className="flex items-center space-x-1 text-center text-xs md:text-sm">
-                  <p className="text-sm font-semibold size-fit mt-[2px]">
-                    <FiDollarSign />
-                  </p>
+                  <p className="text-sm font-semibold size-fit mt-[2px]"><FiDollarSign /></p>
                   <input
                     type="number"
                     value={investment}
@@ -464,14 +419,7 @@ useEffect(() => {
                 <span>Up</span>
                 <FaArrowUp className="text-xs md:text-sm bg-[#ffffff3b] size-5 p-1 rounded-full" />
               </button>
-              <p className="text-center text-sm hidden md:flex items-center justify-center">
-                Your payout:{" "}
-                <span className="font-semibold flex items-center">
-                  {" "}
-                  <FiDollarSign className="mt-1" />
-                  {(investment + investment * 0.93).toFixed(2)}
-                </span>
-              </p>
+              <p className="text-center text-sm hidden md:flex items-center justify-center">Your payout: <span className="font-semibold flex items-center"> <FiDollarSign className="mt-1" />{(investment + investment * 0.93).toFixed(2)}</span></p>
               <button
                 disabled={isDisabled}
                 onClick={handleDown} // Show the popup when clicked
@@ -525,8 +473,9 @@ useEffect(() => {
           {/* Tabs */}
           <div className="flex border-b gap-2 border-gray-700">
             <button
-              className={`flex-1 py-2 md:py-3 flex items-center justify-center rounded text-xs md:text-sm ${activeTab === "trades" ? "bg-gray-700" : "hover:bg-gray-700"
-                } transition-colors`}
+              className={`flex-1 py-2 md:py-3 flex items-center justify-center rounded text-xs md:text-sm ${
+                activeTab === "trades" ? "bg-gray-700" : "hover:bg-gray-700"
+              } transition-colors`}
               onClick={() => setActiveTab("trades")}
             >
               <span className="mr-1 md:mr-2">Trades</span>
@@ -535,8 +484,9 @@ useEffect(() => {
               </span>
             </button>
             <button
-              className={`flex-1 py-2 md:py-3 flex items-center justify-center text-xs md:text-sm rounded ${activeTab === "orders" ? "bg-gray-700" : "hover:bg-gray-700"
-                } transition-colors`}
+              className={`flex-1 py-2 md:py-3 flex items-center justify-center text-xs md:text-sm rounded ${
+                activeTab === "orders" ? "bg-gray-700" : "hover:bg-gray-700"
+              } transition-colors`}
               onClick={() => setActiveTab("orders")}
             >
               <FaList className="mr-1 md:mr-2 text-xs md:text-sm" />
@@ -548,15 +498,16 @@ useEffect(() => {
 
           {/* Content */}
           <div
-            className={`flex-grow p-2 md:p-2 ${isExpanded ? "block" : "hidden"
-              }`}
+            className={`flex-grow p-2 md:p-2 ${
+              isExpanded ? "block" : "hidden"
+            }`}
           >
             {activeTab === "trades" ? (
               <div className="h-full flex flex-col justify-start text-gray-400">
                 <div className="overflow-x-hidden w-full text-center">
                   <div className="w-full text-sm text-gray-300 space-y-3 overflow-auto h-[40vh]">
-                    {traderhistory?.map((trade) => (
-                      <div className="border-b border-gray-600">
+                    {traderhistory?.map((trade, index) => (
+                      <div key={trade?._id || trade?.id || trade?.period || `trade-${index}`} className="border-b border-gray-600">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center relative w-8">
                             <img
@@ -588,12 +539,13 @@ useEffect(() => {
                           </div>
                           <div>
                             <span
-                              className={`text-sm font-semibold ${trade.status === 0
+                              className={`text-sm font-semibold ${
+                                trade.status === 0
                                   ? "text-orange-400"
                                   : trade.getAmount > 0
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }`}
+                                  ? "text-green-500"
+                                  : "text-red-500"
+                              }`}
                             >
                               {trade.status === 0
                                 ? "Pending"
@@ -610,8 +562,8 @@ useEffect(() => {
               <div className="h-full flex flex-col justify-start text-gray-400">
                 <div className="overflow-x-hidden w-full text-center">
                   <div className="w-full text-sm text-gray-300 space-y-3 overflow-auto h-[40vh]">
-                    {pendingResult?.map((trade) => (
-                      <div className="border-b border-gray-600">
+                    {pendingResult?.map((trade, index) => (
+                      <div key={trade?._id || trade?.id || trade?.period || `pending-${index}`} className="border-b border-gray-600">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center relative w-8">
                             <img
@@ -643,12 +595,13 @@ useEffect(() => {
                           </div>
                           <div>
                             <span
-                              className={`text-base font-semibold ${trade.status === 0
+                              className={`text-base font-semibold ${
+                                trade.status === 0
                                   ? "text-orange-400"
                                   : trade.getAmount > 0
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }`}
+                                  ? "text-green-500"
+                                  : "text-red-500"
+                              }`}
                             >
                               {trade.status === 0
                                 ? "Pending"
@@ -670,8 +623,9 @@ useEffect(() => {
             onClick={toggleExpand}
           >
             <FaCaretUp
-              className={`transition-transform text-xs md:text-sm ${isExpanded ? "rotate-0" : "rotate-180"
-                }`}
+              className={`transition-transform text-xs md:text-sm ${
+                isExpanded ? "rotate-0" : "rotate-180"
+              }`}
             />
           </button>
         </div>
@@ -689,8 +643,9 @@ useEffect(() => {
           {/* Tabs */}
           <div className="flex border-b gap-2 border-gray-700">
             <button
-              className={`flex-1 py-2 md:py-3 flex items-center justify-center rounded text-xs md:text-sm ${activeTab === "trades" ? "bg-gray-700" : "hover:bg-gray-700"
-                } transition-colors`}
+              className={`flex-1 py-2 md:py-3 flex items-center justify-center rounded text-xs md:text-sm ${
+                activeTab === "trades" ? "bg-gray-700" : "hover:bg-gray-700"
+              } transition-colors`}
               onClick={() => setActiveTab("trades")}
             >
               <span className="mr-1 md:mr-2">Trades</span>
@@ -699,8 +654,9 @@ useEffect(() => {
               </span>
             </button>
             <button
-              className={`flex-1 py-2 md:py-3 flex items-center justify-center text-xs md:text-sm rounded ${activeTab === "orders" ? "bg-gray-700" : "hover:bg-gray-700"
-                } transition-colors`}
+              className={`flex-1 py-2 md:py-3 flex items-center justify-center text-xs md:text-sm rounded ${
+                activeTab === "orders" ? "bg-gray-700" : "hover:bg-gray-700"
+              } transition-colors`}
               onClick={() => setActiveTab("orders")}
             >
               <FaList className="mr-1 md:mr-2 text-xs md:text-sm" />
@@ -712,15 +668,16 @@ useEffect(() => {
 
           {/* Content */}
           <div
-            className={`flex-grow p-2 md:p-2 ${isExpanded ? "block" : "hidden"
-              }`}
+            className={`flex-grow p-2 md:p-2 ${
+              isExpanded ? "block" : "hidden"
+            }`}
           >
             {activeTab === "trades" ? (
               <div className="h-full flex flex-col justify-start text-gray-400">
                 <div className="overflow-x-hidden w-full text-center">
                   <div className="w-full text-sm text-gray-300 space-y-3 overflow-auto h-[30vh]">
-                    {traderhistory?.map((trade) => (
-                      <div className="border-b border-gray-600">
+                    {traderhistory?.map((trade, index) => (
+                      <div key={trade?._id || trade?.id || trade?.period || `trade-${index}`} className="border-b border-gray-600">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center relative w-8">
                             <img
@@ -752,12 +709,13 @@ useEffect(() => {
                           </div>
                           <div>
                             <span
-                              className={`text-sm font-semibold ${trade.status === 0
+                              className={`text-sm font-semibold ${
+                                trade.status === 0
                                   ? "text-orange-400"
                                   : trade.getAmount > 0
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }`}
+                                  ? "text-green-500"
+                                  : "text-red-500"
+                              }`}
                             >
                               {trade.status === 0
                                 ? "Pending"
@@ -774,8 +732,8 @@ useEffect(() => {
               <div className="h-full flex flex-col justify-start text-gray-400">
                 <div className="overflow-x-hidden w-full text-center">
                   <div className="w-full text-sm text-gray-300 space-y-3 overflow-auto h-[40vh]">
-                    {pendingResult?.map((trade) => (
-                      <div className="border-b border-gray-600">
+                    {pendingResult?.map((trade, index) => (
+                      <div key={trade?._id || trade?.id || trade?.period || `pending-${index}`} className="border-b border-gray-600">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center relative w-8">
                             <img
@@ -807,12 +765,13 @@ useEffect(() => {
                           </div>
                           <div>
                             <span
-                              className={`text-sm font-semibold ${trade.status === 0
+                              className={`text-sm font-semibold ${
+                                trade.status === 0
                                   ? "text-orange-400"
                                   : trade.getAmount > 0
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }`}
+                                  ? "text-green-500"
+                                  : "text-red-500"
+                              }`}
                             >
                               {trade.status === 0
                                 ? "Pending"
@@ -834,8 +793,9 @@ useEffect(() => {
             onClick={toggleExpand}
           >
             <FaCaretUp
-              className={`transition-transform text-xs md:text-sm ${isExpanded ? "rotate-0" : "rotate-180"
-                }`}
+              className={`transition-transform text-xs md:text-sm ${
+                isExpanded ? "rotate-0" : "rotate-180"
+              }`}
             />
           </button>
         </div>
@@ -862,10 +822,11 @@ useEffect(() => {
               {filters.map((filter) => (
                 <button
                   key={filter}
-                  className={`px-1 text-xs font-medium ${activeFilter === filter
+                  className={`px-1 text-xs font-medium ${
+                    activeFilter === filter
                       ? " text-white rounded-sm bg-blue-500"
                       : "text-white hover:text-gray-100"
-                    }`}
+                  }`}
                   onClick={() => setActiveFilter(filter)}
                 >
                   {filter}
@@ -931,7 +892,7 @@ useEffect(() => {
                           SetShowButton(false);
                         } else {
                           setComming(true);
-                          SetShowButton(false);
+                        SetShowButton(false);
                         }
                       }}
                     >
@@ -944,7 +905,7 @@ useEffect(() => {
                               setFavorites((prev) =>
                                 prev.includes(asset.id)
                                   ? prev.filter((id) => id !== asset.id)
-                                  : [...prev, asset.id],
+                                  : [...prev, asset.id]
                               );
                             }}
                           >
@@ -975,10 +936,11 @@ useEffect(() => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                         <div
-                          className={`flex items-center ${asset.change >= 0
+                          className={`flex items-center ${
+                            asset.change >= 0
                               ? "text-green-500"
                               : "text-red-500"
-                            }`}
+                          }`}
                         >
                           {asset.change >= 0 ? (
                             <FaArrowUp className="mr-1" />
