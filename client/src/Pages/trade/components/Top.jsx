@@ -5,14 +5,14 @@ import { GoInfinity } from "react-icons/go";
 import { IoMdTrophy } from "react-icons/io";
 import { RxCross1 } from "react-icons/rx";
 
-const Top = ({topPopupOpen, setTopPopupOpen}) => {
+const Top = ({ topPopupOpen, setTopPopupOpen }) => {
   const { userInfo } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const [leaderboardData, setLeaderboardData] = useState([]);
 
   // Generate random user data
   const generateRandomUsers = (count) => {
-    const countries = ["us", "gb", "ca", "au", "de", "fr", "jp", "br", "in", "cn"];
+    const countries = ["in", "np", "bd", "pk", "au", "ae"];
     const medals = ["gold", "silver", "bronze"];
     const users = [];
 
@@ -20,7 +20,7 @@ const Top = ({topPopupOpen, setTopPopupOpen}) => {
       const randomCountry = countries[Math.floor(Math.random() * countries.length)];
       const randomAmount = (Math.random() * 50000).toFixed(2);
       const medal = i <= 3 ? medals[i - 1] : null;
-      
+
       users.push({
         id: i,
         place: i,
@@ -50,20 +50,20 @@ const Top = ({topPopupOpen, setTopPopupOpen}) => {
     // Generate between 15-20 users
     const userCount = 15 + Math.floor(Math.random() * 6);
     let newUsers = generateRandomUsers(userCount);
-    
+
     // Shuffle positions (except top 3)
     if (newUsers.length > 3) {
       const top3 = newUsers.slice(0, 3);
       const rest = shuffleArray(newUsers.slice(3));
       newUsers = [...top3, ...rest];
     }
-    
+
     // Reassign places
     newUsers = newUsers.map((user, index) => ({
       ...user,
       place: index + 1
     }));
-    
+
     setLeaderboardData(newUsers);
   };
 
@@ -71,11 +71,11 @@ const Top = ({topPopupOpen, setTopPopupOpen}) => {
   useEffect(() => {
     dispatch(getUser());
     updateLeaderboard(); // Initial load
-    
+
     const interval = setInterval(() => {
       updateLeaderboard();
     }, 60000); // Update every minute
-    
+
     return () => clearInterval(interval);
   }, [dispatch]);
 
@@ -134,11 +134,10 @@ const Top = ({topPopupOpen, setTopPopupOpen}) => {
                 {/* Medal or Place */}
                 {item.medal ? (
                   <div className="relative mr-3">
-                    <span className={`${
-                      item.medal === "gold" ? "bg-yellow-500" :
-                      item.medal === "silver" ? "bg-gray-400" :
-                      "bg-amber-600"
-                    } w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold`}>
+                    <span className={`${item.medal === "gold" ? "bg-yellow-500" :
+                        item.medal === "silver" ? "bg-gray-400" :
+                          "bg-amber-600"
+                      } w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold`}>
                       {item.place}
                     </span>
                   </div>
