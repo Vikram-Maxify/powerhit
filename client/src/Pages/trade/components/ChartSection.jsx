@@ -79,7 +79,6 @@ function ChartSection({ investment }) {
   // This component does not create its own socket.
   useEffect(() => {
     const unsubscribe = subscribeSocket((data) => {
-      console.log("Socket event received:", data);
       // Synchronized server clock.
       if (data.event === "timeUpdate_20") {
         setTime({
