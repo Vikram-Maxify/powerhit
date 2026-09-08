@@ -66,7 +66,7 @@ function ChartSection({ investment }) {
   const initialRangeSet = useRef(false);
   // Lower this to make each candle visually WIDER (fewer candles packed into the
   // same visible x-axis window). Matches the reference screenshot better.
-  const DEFAULT_VISIBLE_CANDLES = 30;
+  const DEFAULT_VISIBLE_CANDLES = 20;
   const CANDLE_INTERVAL = 10000;
   const candleStartTimeRef = useRef(null);
   const initialAnimationDone = useRef(false);
