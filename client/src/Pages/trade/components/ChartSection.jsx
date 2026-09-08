@@ -257,24 +257,35 @@ function ChartSection({ investment }) {
     initialDummyDataRef.current = dummy;
   }
 
-  // Align real candles to the END of the mock data without changing the
-  // mock candles themselves. The first real candle OPEN is placed at the
-  // last mock candle CLOSE. One constant offset is then used for all real
-  // OHLC values so the candle shape is preserved.
-  const alignRealCandle = (candle) => {
+  // ================================================================
+  // REAL -> MOCK PRICE ALIGNMENT
+  // ================================================================
+  // The mock candles are the permanent visual anchor. Real API/socket
+  // candles are translated by ONE fixed offset so their first OPEN is
+  // exactly equal to the last mock CLOSE. The offset never changes while
+  // this component is mounted. Therefore real candles can never jump to a
+  // different price level when Redux/socket updates arrive.
+  const getRealPriceOffset = (firstRealOpen) => {
     const mockCandles = initialDummyDataRef.current || [];
-    const mockLastClose = Number(mockCandles[mockCandles.length - 1]?.y?.[3]);
-    const realOpen = Number(candle?.y?.[0]);
+    const mockLastClose = Number(
+      mockCandles[mockCandles.length - 1]?.y?.[3]
+    );
 
-    if (!Number.isFinite(mockLastClose) || !Number.isFinite(realOpen)) {
-      return candle;
+    if (!Number.isFinite(mockLastClose) || !Number.isFinite(firstRealOpen)) {
+      return 0;
     }
 
     if (!Number.isFinite(realPriceOffsetRef.current)) {
-      realPriceOffsetRef.current = mockLastClose - realOpen;
+      realPriceOffsetRef.current = mockLastClose - firstRealOpen;
     }
 
-    const offset = realPriceOffsetRef.current;
+    return realPriceOffsetRef.current;
+  };
+
+  const alignRealCandle = (candle, firstRealOpen = candle?.y?.[0]) => {
+    if (!candle?.y?.length) return candle;
+
+    const offset = getRealPriceOffset(Number(firstRealOpen));
 
     return {
       ...candle,
@@ -313,22 +324,17 @@ function ChartSection({ investment }) {
         .sort((a, b) => a.x - b.x)
       : [];
 
-    // Prefer the API history as the anchor when it is available.
-    if (
-      rawRealHistory.length > 0 &&
-      !Number.isFinite(realPriceOffsetRef.current)
-    ) {
-      const mockLastClose = Number(
-        mockCandles[mockCandles.length - 1]?.y?.[3]
-      );
-      const firstRealOpen = Number(rawRealHistory[0]?.y?.[0]);
-
-      if (Number.isFinite(mockLastClose) && Number.isFinite(firstRealOpen)) {
-        realPriceOffsetRef.current = mockLastClose - firstRealOpen;
-      }
+    // Establish the offset from the FIRST real candle only. Every later
+    // API candle uses exactly the same offset, so the complete real history
+    // remains on one continuous level with the mock history.
+    const firstRealOpen = Number(rawRealHistory[0]?.y?.[0]);
+    if (rawRealHistory.length && Number.isFinite(firstRealOpen)) {
+      getRealPriceOffset(firstRealOpen);
     }
 
-    const realHistory = rawRealHistory.map(alignRealCandle);
+    const realHistory = rawRealHistory.map((candle) =>
+      alignRealCandle(candle, firstRealOpen)
+    );
 
     return [...mockCandles, ...realHistory];
   }, [allTrade]);
@@ -753,33 +759,29 @@ function ChartSection({ investment }) {
       max: Number((maxY + padding).toFixed(5)),
     };
 
-    // Keep the current price properly centered in the visible area.
-    // If the live close is drifting too close to the top/bottom edge
-    // (e.g. during a strong trend), re-center the same-size window around
-    // it instead of letting the candle run off-screen. All existing wicks
-    // (minY/maxY) still stay fully inside the window.
-    const liveCloseForCentering = Number.isFinite(live?.y?.[3])
-      ? Number(live.y[3])
-      : Number(latestPrice);
+    // Keep the candle cluster visually centered. The center is based on the
+    // visible HIGH/LOW range rather than allowing the latest real candle to
+    // pull the whole chart up or down. This keeps mock + real candles in the
+    // same centered band while still leaving enough room for every wick.
+    const dataMid = (minY + maxY) / 2;
+    const dataRange = Math.max(maxY - minY, 0.00001);
+    const centeredHalfRange = Math.max(dataRange * 0.75, 0.00075);
 
-    if (Number.isFinite(liveCloseForCentering)) {
-      const rangeSize = nextRange.max - nextRange.min;
-      const rangeMid = (nextRange.max + nextRange.min) / 2;
-      const maxAllowedDrift = rangeSize * 0.35;
+    let centeredMin = dataMid - centeredHalfRange;
+    let centeredMax = dataMid + centeredHalfRange;
 
-      if (Math.abs(liveCloseForCentering - rangeMid) > maxAllowedDrift) {
-        let recenteredMin = liveCloseForCentering - rangeSize / 2;
-        let recenteredMax = liveCloseForCentering + rangeSize / 2;
-
-        // Never re-clip a wick that was already accounted for.
-        if (recenteredMax < maxY + padding) recenteredMax = maxY + padding;
-        if (recenteredMin > minY - padding)
-          recenteredMin = Math.max(0, minY - padding);
-
-        nextRange.min = Number(recenteredMin.toFixed(5));
-        nextRange.max = Number(recenteredMax.toFixed(5));
-      }
+    // Always include the complete visible wick range.
+    if (centeredMin > minY - padding) {
+      centeredMin = minY - padding;
     }
+    if (centeredMax < maxY + padding) {
+      centeredMax = maxY + padding;
+    }
+
+    const centeredRange = centeredMax - centeredMin;
+    const center = (centeredMin + centeredMax) / 2;
+    centeredMin = center - centeredRange / 2;
+    centeredMax = center + centeredRange / 2;
 
     setYAxisRange((prev) => {
       if (prev.min === nextRange.min && prev.max === nextRange.max) {
