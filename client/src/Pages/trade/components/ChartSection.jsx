@@ -75,6 +75,9 @@ function ChartSection({ investment }) {
   // replaced/regenerated, so the chart never "swaps" data sets and never
   // visually resets.
   const initialDummyDataRef = useRef(null);
+  // Keeps all real API/socket prices on the same level as the mock candles.
+  // The mock candles are the fixed visual anchor and are never moved.
+  const realPriceOffsetRef = useRef(null);
   useEffect(() => {
     if (investment > 0) {
       setAnn(investment);
@@ -100,7 +103,7 @@ function ChartSection({ investment }) {
         const candleTime = new Date(incoming.x).getTime();
         if (!Number.isFinite(candleTime)) return;
 
-        const live = {
+        const rawLive = {
           x: new Date(candleTime),
           y: [
             Number(incoming.open),
@@ -110,7 +113,11 @@ function ChartSection({ investment }) {
           ],
         };
 
-        if (live.y.some((value) => !Number.isFinite(value))) return;
+        if (rawLive.y.some((value) => !Number.isFinite(value))) return;
+
+        // Apply the SAME offset to the live socket candle. This prevents
+        // the real candle from jumping above/below the mock candles.
+        const live = alignRealCandle(rawLive);
 
         // Keep the server candle outside Redux so a timer tick / Redux refresh
         // cannot immediately overwrite the live candle with stale OHLC values.
@@ -242,17 +249,43 @@ function ChartSection({ investment }) {
     initialDummyDataRef.current = dummy;
   }
 
+  // Align real candles to the END of the mock data without changing the
+  // mock candles themselves. The first real candle OPEN is placed at the
+  // last mock candle CLOSE. One constant offset is then used for all real
+  // OHLC values so the candle shape is preserved.
+  const alignRealCandle = (candle) => {
+    const mockCandles = initialDummyDataRef.current || [];
+    const mockLastClose = Number(mockCandles[mockCandles.length - 1]?.y?.[3]);
+    const realOpen = Number(candle?.y?.[0]);
+
+    if (!Number.isFinite(mockLastClose) || !Number.isFinite(realOpen)) {
+      return candle;
+    }
+
+    if (!Number.isFinite(realPriceOffsetRef.current)) {
+      realPriceOffsetRef.current = mockLastClose - realOpen;
+    }
+
+    const offset = realPriceOffsetRef.current;
+
+    return {
+      ...candle,
+      y: candle.y.map((value) =>
+        Number((Number(value) + offset).toFixed(5))
+      ),
+    };
+  };
+
   // Transform trade data for chart.
-  // The mock candles (frozen above) always stay as the base/history. Real
-  // API/socket candles are appended AFTER them as they arrive — the data set
-  // only ever GROWS, it never gets swapped out, so the chart never resets.
+  // Mock candles stay fixed. Real API candles are translated so their first
+  // candle starts exactly from the mock candle's last price level.
   const transformedData = useMemo(() => {
     const mockCandles = initialDummyDataRef.current || [];
     const lastMockTime = mockCandles.length
       ? mockCandles[mockCandles.length - 1].x.getTime()
       : -Infinity;
 
-    const realHistory = Array.isArray(allTrade)
+    const rawRealHistory = Array.isArray(allTrade)
       ? allTrade
           .map((trade) => ({
             y: [
@@ -267,13 +300,27 @@ function ChartSection({ investment }) {
             (candle) =>
               Number.isFinite(candle.x.getTime()) &&
               candle.y.every((value) => Number.isFinite(value)) &&
-              // Only candles that continue forward in time from the mock
-              // data. This keeps the mock candles intact and avoids
-              // duplicate/overlapping timestamps at the boundary.
-              candle.x.getTime() > lastMockTime,
+              candle.x.getTime() > lastMockTime
           )
           .sort((a, b) => a.x - b.x)
       : [];
+
+    // Prefer the API history as the anchor when it is available.
+    if (
+      rawRealHistory.length > 0 &&
+      !Number.isFinite(realPriceOffsetRef.current)
+    ) {
+      const mockLastClose = Number(
+        mockCandles[mockCandles.length - 1]?.y?.[3]
+      );
+      const firstRealOpen = Number(rawRealHistory[0]?.y?.[0]);
+
+      if (Number.isFinite(mockLastClose) && Number.isFinite(firstRealOpen)) {
+        realPriceOffsetRef.current = mockLastClose - firstRealOpen;
+      }
+    }
+
+    const realHistory = rawRealHistory.map(alignRealCandle);
 
     return [...mockCandles, ...realHistory];
   }, [allTrade]);
@@ -310,8 +357,8 @@ function ChartSection({ investment }) {
     : safeLatestClose;
 
   const [yAxisRange, setYAxisRange] = useState({
-    min: latestClose - offset,
-    max: latestClose + offset,
+    min: safeLatestClose - offset,
+    max: safeLatestClose + offset,
   });
 
   // Chart options configuration
