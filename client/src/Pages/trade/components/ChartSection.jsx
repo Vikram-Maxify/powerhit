@@ -69,6 +69,10 @@ function ChartSection({ investment }) {
     chartWidth: 0,
   });
   const [isManualPan, setIsManualPan] = useState(false);
+  // Mirrors `isManualPan` for the socket-subscribe effect below, whose
+  // dependency array is `[]` — reading the state directly there would only
+  // ever see its initial value (stale closure).
+  const isManualPanRef = useRef(false);
   const [ann, setAnn] = useState(70);
   const newestCandleTimeRef = useRef(null);
   const liveCandleRef = useRef(null);
@@ -79,6 +83,9 @@ function ChartSection({ investment }) {
   const CANDLE_INTERVAL = 10000;
   const candleStartTimeRef = useRef(null);
   const initialAnimationDone = useRef(false);
+  // Fixed half-height of the y-axis price window (calibrated once from real
+  // data, then held constant) — see the stable price-band effect below.
+  const yHalfSpanRef = useRef(0);
   useEffect(() => {
     if (investment > 0) {
       setAnn(investment);
@@ -153,8 +160,13 @@ function ChartSection({ investment }) {
           return next.slice(-MAX_CANDLE_HISTORY);
         });
 
-        // Keep the live candle visible and make the price axis follow it.
+        // Keep the latest candle centred in the viewport. We only auto-follow
+        // when the user hasn't manually panned/zoomed — respects their view
+        // otherwise, but the default experience always keeps the live candle
+        // in the middle of the screen instead of pinned to the right edge.
         setXAxisRange((prev) => {
+          if (isManualPanRef.current) return prev;
+
           const currentMin = Number(prev?.min);
           const currentMax = Number(prev?.max);
           const currentRange =
@@ -162,41 +174,18 @@ function ChartSection({ investment }) {
             Number.isFinite(currentMax) &&
             currentMax > currentMin
               ? currentMax - currentMin
-              : DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL + RIGHT_PADDING;
+              : DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL;
 
-          const right = Math.max(currentMax, candleTime + RIGHT_PADDING);
-          const left = right - currentRange;
-
-          return { min: left, max: right };
+          const half = currentRange / 2;
+          return { min: candleTime - half, max: candleTime + half };
         });
 
-        // Use the current server OHLC to keep the candle fully visible.
-        setYAxisRange((prev) => {
-          const prices = [
-            Number(live.y[0]),
-            Number(live.y[1]),
-            Number(live.y[2]),
-            Number(live.y[3]),
-          ].filter(Number.isFinite);
-
-          if (!prices.length) return prev;
-
-          const candleMin = Math.min(...prices);
-          const candleMax = Math.max(...prices);
-          const center = Number(live.y[3]);
-          const candleRange = Math.max(candleMax - candleMin, 0.001);
-          const padding = Math.max(candleRange * 0.25, 0.00025);
-
-          // Center the visible price range around the live close while still
-          // including the live high/low.
-          const min = Math.min(candleMin, center - padding);
-          const max = Math.max(candleMax, center + padding);
-
-          return {
-            min: Number(Math.max(0, min).toFixed(5)),
-            max: Number(max.toFixed(5)),
-          };
-        });
+        // NOTE: the y-axis is intentionally NOT rescaled here on every tick.
+        // Continuously refitting min/max to the live OHLC is what made the
+        // whole chart visibly jump up/down on every price move. Instead a
+        // separate effect keeps a fixed-size price window and only slides it
+        // when the price nears the edge — the dotted price line (see the
+        // chart's yaxis annotation below) is what visibly tracks direction.
       }
     });
 
@@ -390,6 +379,7 @@ function ChartSection({ investment }) {
 
           mouseDown: (event, chartContext, config) => {
             setIsManualPan(true);
+            isManualPanRef.current = true;
             const xAxis = chartContext.w.globals.minX;
             const xAxisMax = chartContext.w.globals.maxX;
             const chartWidth = chartContext.w.globals.gridWidth;
@@ -450,11 +440,14 @@ function ChartSection({ investment }) {
       annotations: {
         yaxis: [
           {
-            y: latestClose,
+            // Track the live server price, not the (possibly stale) Redux
+            // `latestClose` — this is the dotted line the chart should show
+            // in place of physically moving the whole chart up/down.
+            y: Number(latestPrice),
             borderColor: "#fff",
             strokeDashArray: 4,
             label: {
-              text: `(${latestClose})`,
+              text: `(${latestPrice})`,
               style: {
                 color: "#fff",
                 background: "#026fd3",
@@ -549,7 +542,7 @@ function ChartSection({ investment }) {
         y: { formatter: (val) => val.toFixed(5) },
       },
     }),
-    [xAxisRange, transformedData],
+    [xAxisRange, transformedData, latestPrice, yAxisRange],
   );
 
   // Calculate dynamic offset based on zoom level
@@ -589,73 +582,65 @@ function ChartSection({ investment }) {
     const center = Number.isFinite(close)
       ? close
       : Number(latestPrice) || 1.44634;
-    const min = Number((center - dynamicOffset).toFixed(5));
-    const max = Number((center + dynamicOffset).toFixed(5));
 
-    setYAxisRange((prev) => {
-      if (prev.min === min && prev.max === max) return prev;
-      return { min, max };
-    });
-  }, [
-    transformedData,
-    zoomOutStep,
-    latestPrice,
-    xAxisRange.min,
-    xAxisRange.max,
-  ]);
-  // Update the y-axis range calculation useEffect
-  useEffect(() => {
-    if (transformedData.length === 0 || !xAxisRange.min || !xAxisRange.max)
-      return;
-
-    const visibleData = transformedData.filter(
-      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max,
-    );
-
-    if (visibleData.length === 0) return;
-
-    // Calculate min/max prices from visible candles
-    let minY = Infinity;
-    let maxY = -Infinity;
-
-    visibleData.forEach((d) => {
-      minY = Math.min(minY, d.y[2]); // Low price
-      maxY = Math.max(maxY, d.y[1]); // High price
-    });
-
-    // Calculate the required padding to ensure at least 0.00100 difference
-    const currentRange = maxY - minY;
-    const minRequiredRange = 0.001;
-
-    let padding = 0;
-    if (currentRange < minRequiredRange) {
-      padding = (minRequiredRange - currentRange) / 2;
-    } else {
-      // Add 5% padding if we're already above minimum range
-      padding = currentRange * 0.05;
+    // Calibrate the fixed price-window half-span from real data once, so the
+    // stable band below is sized sensibly for whatever pair/scale is loaded
+    // (only runs meaningfully once — after that yHalfSpanRef stays fixed so
+    // the chart doesn't keep resizing itself).
+    if (!yHalfSpanRef.current) {
+      yHalfSpanRef.current = dynamicOffset;
     }
 
-    // Apply the padding
-    minY -= padding;
-    maxY += padding;
+    setYAxisRange((prev) => {
+      if (Number.isFinite(prev.min) && Number.isFinite(prev.max)) return prev;
+      const min = Number((center - dynamicOffset).toFixed(5));
+      const max = Number((center + dynamicOffset).toFixed(5));
+      return { min, max };
+    });
+  }, [transformedData]);
 
-    // Ensure we don't go below 0 for currency pairs
-    minY = Math.max(0, minY);
+  // =====================================================
+  // STABLE PRICE BAND (replaces the old continuous rescale)
+  // =====================================================
+  // Previously the y-axis min/max were recalculated from the visible
+  // candles' high/low on almost every render, which made the whole chart
+  // visibly jump up/down as price moved. Instead we keep a FIXED-size price
+  // window (yHalfSpanRef, calibrated once above) and only slide it — without
+  // resizing it — when the live price gets close to the top/bottom edge.
+  // Day-to-day price movement inside the band is communicated purely by the
+  // dotted current-price line (chart annotation below), not by the chart
+  // itself rescaling.
+  const Y_BAND_REBASE_THRESHOLD = 0.2; // re-centre once price is within 20% of an edge
+  useEffect(() => {
+    const price = Number(latestPrice);
+    if (!Number.isFinite(price)) return;
 
-    const nextRange = {
-      min: Number(minY.toFixed(5)),
-      max: Number(maxY.toFixed(5)),
-    };
+    const half = yHalfSpanRef.current || 0.0008;
 
     setYAxisRange((prev) => {
-      if (prev.min === nextRange.min && prev.max === nextRange.max) {
-        return prev;
+      if (!Number.isFinite(prev.min) || !Number.isFinite(prev.max)) {
+        return {
+          min: Number((price - half).toFixed(5)),
+          max: Number((price + half).toFixed(5)),
+        };
       }
-      return nextRange;
-    });
-  }, [xAxisRange.min, xAxisRange.max, transformedData]);
 
-  // Remove the existing useEffect that sets yAxisRange based on latestClose
+      const span = prev.max - prev.min;
+      const topEdge = prev.max - span * Y_BAND_REBASE_THRESHOLD;
+      const bottomEdge = prev.min + span * Y_BAND_REBASE_THRESHOLD;
+
+      if (price > topEdge || price < bottomEdge) {
+        return {
+          min: Number(Math.max(0, price - half).toFixed(5)),
+          max: Number((price + half).toFixed(5)),
+        };
+      }
+
+      // Price is comfortably inside the band — leave the chart exactly
+      // where it is. Only the dotted price line moves.
+      return prev;
+    });
+  }, [latestPrice]);
 
   // console.log("Zoom Out Step:", zoomOutStep);
   // console.log("Initial X-Axis Range:", xAxisRange);
@@ -730,10 +715,14 @@ function ChartSection({ investment }) {
         transformedData[transformedData.length - 1].x.getTime();
 
       const visibleRange = DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL;
+      const half = visibleRange / 2;
 
+      // Centre the latest candle in the viewport (instead of pinning it to
+      // the right edge via RIGHT_PADDING) so the chart stays centred from
+      // the very first render.
       setXAxisRange((prev) => {
-        const min = lastCandleTime - visibleRange;
-        const max = lastCandleTime + RIGHT_PADDING;
+        const min = lastCandleTime - half;
+        const max = lastCandleTime + half;
 
         if (prev.min === min && prev.max === max) {
           return prev;
@@ -742,7 +731,7 @@ function ChartSection({ investment }) {
         return { min, max };
       });
 
-      newestCandleTimeRef.current = lastCandleTime + RIGHT_PADDING;
+      newestCandleTimeRef.current = lastCandleTime + half;
     }
   }, [transformedData]);
 
@@ -807,6 +796,7 @@ function ChartSection({ investment }) {
   // Updated navigation handlers
   const handleMoveLeft = () => {
     setIsManualPan(true);
+    isManualPanRef.current = true;
     if (transformedData.length === 0) return;
 
     const oldestCandleTime = transformedData[0].x.getTime();
@@ -823,6 +813,7 @@ function ChartSection({ investment }) {
 
   const handleMoveRight = () => {
     setIsManualPan(true);
+    isManualPanRef.current = true;
     if (transformedData.length === 0) return;
 
     const newestCandleTime =
