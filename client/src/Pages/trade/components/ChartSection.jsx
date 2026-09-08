@@ -70,6 +70,11 @@ function ChartSection({ investment }) {
   const CANDLE_INTERVAL = 10000;
   const candleStartTimeRef = useRef(null);
   const initialAnimationDone = useRef(false);
+  // The 60 local mock candles are generated ONCE and frozen here. Real
+  // API/socket candles are appended AFTER these — the mock candles are never
+  // replaced/regenerated, so the chart never "swaps" data sets and never
+  // visually resets.
+  const initialDummyDataRef = useRef(null);
   useEffect(() => {
     if (investment > 0) {
       setAnn(investment);
@@ -204,11 +209,50 @@ function ChartSection({ investment }) {
   // The Socket.IO `candleUpdate` event is the live source of truth.
   // Periodic API refresh was causing the chart to jump/reset after several candles.
 
-  // Transform trade data for chart
-  // Build the initial chart with exactly 60 local dummy candles.
-  // Candle #61 onward is supplied by Socket.IO.
+  // Generate the 60 local mock candles exactly ONCE (lazy ref init). This is
+  // the "good" starting layout the user wants to always see first. It must
+  // never be regenerated or replaced later — only added to.
+  if (initialDummyDataRef.current === null) {
+    const basePrice = Number(latestPrice) || 1.44634;
+    const now = Date.now();
+    const startTime = now - 60 * CANDLE_INTERVAL;
+    const dummy = [];
+    let price = basePrice;
+
+    for (let i = 0; i < 60; i += 1) {
+      const x = startTime + i * CANDLE_INTERVAL;
+      const open = Number(price.toFixed(5));
+      const movement = (Math.random() - 0.5) * 0.0003;
+      const close = Number((open + movement).toFixed(5));
+      const high = Number(
+        (Math.max(open, close) + Math.random() * 0.0001).toFixed(5),
+      );
+      const low = Number(
+        (Math.min(open, close) - Math.random() * 0.0001).toFixed(5),
+      );
+
+      dummy.push({
+        x: new Date(x),
+        y: [open, high, low, close],
+      });
+
+      price = close;
+    }
+
+    initialDummyDataRef.current = dummy;
+  }
+
+  // Transform trade data for chart.
+  // The mock candles (frozen above) always stay as the base/history. Real
+  // API/socket candles are appended AFTER them as they arrive — the data set
+  // only ever GROWS, it never gets swapped out, so the chart never resets.
   const transformedData = useMemo(() => {
-    const socketHistory = Array.isArray(allTrade)
+    const mockCandles = initialDummyDataRef.current || [];
+    const lastMockTime = mockCandles.length
+      ? mockCandles[mockCandles.length - 1].x.getTime()
+      : -Infinity;
+
+    const realHistory = Array.isArray(allTrade)
       ? allTrade
           .map((trade) => ({
             y: [
@@ -222,42 +266,16 @@ function ChartSection({ investment }) {
           .filter(
             (candle) =>
               Number.isFinite(candle.x.getTime()) &&
-              candle.y.every((value) => Number.isFinite(value))
+              candle.y.every((value) => Number.isFinite(value)) &&
+              // Only candles that continue forward in time from the mock
+              // data. This keeps the mock candles intact and avoids
+              // duplicate/overlapping timestamps at the boundary.
+              candle.x.getTime() > lastMockTime,
           )
           .sort((a, b) => a.x - b.x)
       : [];
 
-    // Once real history is available, keep it as the source of truth.
-    if (socketHistory.length > 0) return socketHistory;
-
-    const basePrice = Number(latestPrice) || 1.44634;
-    const now = Date.now();
-    const startTime = now - 60 * CANDLE_INTERVAL;
-    const dummy = [];
-    let price = basePrice;
-
-    for (let i = 0; i < 60; i += 1) {
-      const x = startTime + i * CANDLE_INTERVAL;
-      const open = Number(price.toFixed(5));
-      const movement =
-        (Math.random() - 0.5) * 0.0003;
-      const close = Number((open + movement).toFixed(5));
-      const high = Number(
-        (Math.max(open, close) + Math.random() * 0.0001).toFixed(5)
-      );
-      const low = Number(
-        (Math.min(open, close) - Math.random() * 0.0001).toFixed(5)
-      );
-
-      dummy.push({
-        x: new Date(x),
-        y: [open, high, low, close],
-      });
-
-      price = close;
-    }
-
-    return dummy;
+    return [...mockCandles, ...realHistory];
   }, [allTrade]);
 
   const prevPriceRef = useRef("1.44634");
@@ -283,9 +301,17 @@ function ChartSection({ investment }) {
   const offset = 0.0002;
   // console.log(offset, 'latestClose')
 
+  // The price the current-price dotted line tracks. `latestPrice` updates on
+  // every live Socket.IO tick (unlike `latestClose`, which only updates when
+  // Redux/transformedData refreshes), so this is what actually needs to move
+  // continuously with the forming candle.
+  const currentLinePrice = Number.isFinite(Number(latestPrice))
+    ? Number(latestPrice)
+    : safeLatestClose;
+
   const [yAxisRange, setYAxisRange] = useState({
-    min: safeLatestClose - offset,
-    max: safeLatestClose + offset,
+    min: latestClose - offset,
+    max: latestClose + offset,
   });
 
   // Chart options configuration
@@ -293,7 +319,7 @@ function ChartSection({ investment }) {
     () => ({
       chart: {
         type: "candlestick",
-        height: 500,
+        height: 1000,
         background: "#1c1f2d",
         animations: {
           enabled: true,
@@ -509,6 +535,7 @@ function ChartSection({ investment }) {
           },
         ],
       },
+
       title: { text: "", align: "left", style: { color: "#e2e8f0" } },
       xaxis: {
         type: "datetime",
@@ -522,7 +549,7 @@ function ChartSection({ investment }) {
         axisTicks: { color: "#2d3748" },
         tickPlacement: "on",
         range: undefined, // Let chart auto-calculate range
-        tickAmount: 8, // Keep the x-axis clean like the reference chart
+        tickAmount: "dataPoints", // Show tick for each data point
         group: {
           style: {
             colors: [], // Remove grouping colors
@@ -543,9 +570,9 @@ function ChartSection({ investment }) {
           style: { colors: "#a0aec0" },
           formatter: (val) => val.toFixed(5),
         },
-        forceNiceScale: true,
+        forceNiceScale: false,
         yxisBorder: { color: "#2d3748" },
-        tickAmount: 8,
+        tickAmount: 30,
         stepSize: 4,
         opposite: true,
       },
@@ -571,8 +598,7 @@ function ChartSection({ investment }) {
         candlestick: {
           colors: { upward: "#10a055", downward: "#e85b4e" },
           wick: { useFillColor: true },
-          borderRadius: 2,
-          barWidth: "72%",
+          barWidth: "100%",
         },
       },
       tooltip: {
@@ -662,15 +688,43 @@ function ChartSection({ investment }) {
     const minRequiredRange = 0.001;
 
     const padding = Math.max(
-      currentRange * 0.50,
+      currentRange * 0.5,
       (minRequiredRange - currentRange) / 2,
-      0.0005
+      0.0005,
     );
 
     const nextRange = {
       min: Number(Math.max(0, minY - padding).toFixed(5)),
       max: Number((maxY + padding).toFixed(5)),
     };
+
+    // Keep the current price properly centered in the visible area.
+    // If the live close is drifting too close to the top/bottom edge
+    // (e.g. during a strong trend), re-center the same-size window around
+    // it instead of letting the candle run off-screen. All existing wicks
+    // (minY/maxY) still stay fully inside the window.
+    const liveCloseForCentering = Number.isFinite(live?.y?.[3])
+      ? Number(live.y[3])
+      : Number(latestPrice);
+
+    if (Number.isFinite(liveCloseForCentering)) {
+      const rangeSize = nextRange.max - nextRange.min;
+      const rangeMid = (nextRange.max + nextRange.min) / 2;
+      const maxAllowedDrift = rangeSize * 0.35;
+
+      if (Math.abs(liveCloseForCentering - rangeMid) > maxAllowedDrift) {
+        let recenteredMin = liveCloseForCentering - rangeSize / 2;
+        let recenteredMax = liveCloseForCentering + rangeSize / 2;
+
+        // Never re-clip a wick that was already accounted for.
+        if (recenteredMax < maxY + padding) recenteredMax = maxY + padding;
+        if (recenteredMin > minY - padding)
+          recenteredMin = Math.max(0, minY - padding);
+
+        nextRange.min = Number(recenteredMin.toFixed(5));
+        nextRange.max = Number(recenteredMax.toFixed(5));
+      }
+    }
 
     setYAxisRange((prev) => {
       if (prev.min === nextRange.min && prev.max === nextRange.max) {
@@ -752,6 +806,10 @@ function ChartSection({ investment }) {
       return [{ data: nextData }];
     });
 
+    // Mock data is frozen and real data is only ever appended after it (see
+    // transformedData above), so this initial-window calculation only ever
+    // needs to run ONCE, on the very first render — the data set never gets
+    // swapped out from under it, so there's nothing to "re-trigger" later.
     if (!initialAnimationDone.current) {
       initialAnimationDone.current = true;
 
