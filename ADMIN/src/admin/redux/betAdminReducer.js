@@ -86,7 +86,7 @@ export const getUserBet = createAsyncThunk(
   async ({ userId, ...params }, { rejectWithValue }) => {
     try {
       const res = await api.post(
-        "/admin/bet-admin/userBet",
+        "/admin/bet-admin/admin/userBet",
         { userId },
         {
           params,

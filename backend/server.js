@@ -68,6 +68,7 @@ const adminPowerballDivisionRoutes = require("./routes/admin/powerballDivisionRo
 // SOCKET.IO
 // =====================================================
 const socket = require("./config/socket");
+const { startBetCron } = require("./controllers/tradeadminController");
 
 // =====================================================
 // APP
@@ -254,6 +255,8 @@ function calculateTimer(intervalSeconds) {
     secondtime2: seconds % 10,
   };
 }
+
+startBetCron();
 
 // =====================================================
 // TRADING 30 SECOND CLOCK

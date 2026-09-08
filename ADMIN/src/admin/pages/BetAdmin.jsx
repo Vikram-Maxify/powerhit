@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   getAllBet,
@@ -35,10 +35,34 @@ const BetAdmin = () => {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
 
-  useEffect(() => {
-    loadData();
-  }, [tab, page, status, betType]);
+  // Load the raw list for the current tab — no status/direction params sent
+  // to the API. Status/direction filtering happens client-side below, on
+  // whatever data is already in the store.
+  const loadData = useCallback(() => {
+    const params = {
+      pageno: page,
+      pageto: page + pageSize - 1,
+    };
 
+    if (tab === "all") {
+      dispatch(getAllBet(params));
+    } else if (tab === "completed") {
+      dispatch(getBetList(params));
+    } else if (tab === "pending") {
+      dispatch(getPendingBetList(params));
+    } else if (tab === "user" && userId) {
+      dispatch(getUserBet({ userId, ...params }));
+    }
+  }, [tab, page, pageSize, userId, dispatch]);
+
+  // Refetch only when tab/page/userId change — NOT on status/betType,
+  // since those no longer touch the API at all.
+  useEffect(() => {
+    if (tab === "user" && !userId) return; // nothing to search yet
+    loadData();
+  }, [tab, page, userId, loadData]);
+
+  // Error auto-clear
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => dispatch(clearBetError()), 4000);
@@ -46,64 +70,48 @@ const BetAdmin = () => {
     }
   }, [error, dispatch]);
 
-  const params = useMemo(
-    () => ({
-      pageno: page,
-      pageto: page + pageSize - 1,
-      ...(status !== "" ? { status } : {}),
-      ...(betType ? { bet: betType } : {}),
-    }),
-    [page, pageSize, status, betType]
-  );
-
-  const loadData = () => {
-    if (tab === "all") {
-      dispatch(getAllBet(params));
-    } else if (tab === "completed") {
-      dispatch(getBetList(params));
-    } else if (tab === "pending") {
-      dispatch(getPendingBetList(params));
-    }
-  };
-
+  // Search user — works no matter which tab you're currently on
   const searchUser = (e) => {
     e.preventDefault();
-    if (!searchUserId.trim()) return;
+    const trimmedUserId = searchUserId.trim();
+    if (!trimmedUserId) return;
 
-    setUserId(searchUserId.trim());
+    setUserId(trimmedUserId);
     setPage(1);
-    dispatch(
-      getUserBet({
-        userId: searchUserId.trim(),
-        pageno: 1,
-        pageto: pageSize,
-      })
-    );
     setTab("user");
+    // fetch is triggered by the effect above once state settles
   };
 
+  // Change tab
   const changeTab = (value) => {
     setTab(value);
     setPage(1);
-    setStatus("");
-    setBetType("");
+    // Reset userId when leaving user tab
+    if (value !== "user") {
+      setUserId("");
+      setSearchUserId("");
+    }
   };
 
+  // Refresh button handler
   const refresh = () => {
-    if (tab === "user" && userId) {
-      dispatch(
-        getUserBet({
-          userId,
-          pageno: page,
-          pageto: page + pageSize - 1,
-        })
-      );
-      return;
-    }
     loadData();
   };
 
-  const rows =
+  // Handle status filter change
+  const handleStatusChange = (e) => {
+    setPage(1);
+    setStatus(e.target.value);
+  };
+
+  // Handle bet type filter change
+  const handleBetTypeChange = (e) => {
+    setPage(1);
+    setBetType(e.target.value);
+  };
+
+  // Whatever data is already loaded for the current tab
+  const rawRows =
     tab === "all"
       ? allBet
       : tab === "completed"
@@ -112,7 +120,8 @@ const BetAdmin = () => {
       ? pendingBetList
       : userBet;
 
-  const total =
+  // Server-reported total for the current (unfiltered) tab
+  const serverTotal =
     tab === "all"
       ? allBetLength
       : tab === "completed"
@@ -121,8 +130,27 @@ const BetAdmin = () => {
       ? pendingBetLength
       : userBetLength;
 
+  // Apply status + direction filters locally on the rows already fetched —
+  // no extra API call for filtering.
+  const rows = useMemo(() => {
+    return rawRows.filter((item) => {
+      if (status !== "" && Number(item.status) !== Number(status)) {
+        return false;
+      }
+      if (betType && String(item.bet || "").toLowerCase() !== betType) {
+        return false;
+      }
+      return true;
+    });
+  }, [rawRows, status, betType]);
+
+  // When a filter is active, count/paginate against the filtered set;
+  // otherwise use the server's total for the tab.
+  const isFiltered = status !== "" || betType !== "";
+  const total = isFiltered ? rows.length : serverTotal;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  // Helper functions
   const formatValue = (value) => {
     if (value === null || value === undefined || value === "") return "-";
     if (typeof value === "object") return JSON.stringify(value);
@@ -140,214 +168,450 @@ const BetAdmin = () => {
   return (
     <>
       <style>{`
+        /* --- CSS Variables --- */
+        :root {
+          --bg-primary: #f0f4ff;
+          --bg-card: rgba(255, 255, 255, 0.75);
+          --bg-card-hover: rgba(255, 255, 255, 0.95);
+          --text-primary: #0b1a33;
+          --text-secondary: #4a5b7a;
+          --text-muted: #7a8aa8;
+          --border-color: rgba(255, 255, 255, 0.3);
+          --shadow: 0 8px 32px rgba(0, 20, 50, 0.08);
+          --shadow-hover: 0 12px 48px rgba(0, 20, 50, 0.15);
+          --radius: 16px;
+          --radius-sm: 10px;
+          --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          --gradient-primary: linear-gradient(135deg, #1a2a6c, #2d4373);
+          --gradient-accent: linear-gradient(135deg, #667eea, #764ba2);
+          --gradient-success: linear-gradient(135deg, #11998e, #38ef7d);
+          --gradient-danger: linear-gradient(135deg, #eb3349, #f45c43);
+          --glass-bg: rgba(255, 255, 255, 0.6);
+          --glass-border: rgba(255, 255, 255, 0.25);
+          --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+        }
+
+        /* --- Scrollbar --- */
+        ::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.03);
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          border-radius: 10px;
+        }
+
+        /* --- Page Container --- */
         .bet-admin-page {
           width: 100%;
           min-height: 100vh;
-          padding: 22px;
-          background: #f6f7fb;
+          padding: 28px 32px;
+          background: var(--bg-primary);
+          background-image: 
+            radial-gradient(ellipse at 10% 20%, rgba(102, 126, 234, 0.08) 0%, transparent 50%),
+            radial-gradient(ellipse at 90% 80%, rgba(118, 75, 162, 0.08) 0%, transparent 50%);
           box-sizing: border-box;
-          color: #17191c;
-          font-family: Inter, Arial, sans-serif;
+          color: var(--text-primary);
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
+        /* --- Header --- */
         .bet-admin-head {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 15px;
-          margin-bottom: 18px;
+          gap: 20px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
         }
 
         .bet-admin-title h2 {
           margin: 0;
-          font-size: 24px;
+          font-size: 28px;
           font-weight: 700;
+          background: var(--gradient-primary);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          letter-spacing: -0.5px;
         }
 
         .bet-admin-title p {
-          margin: 5px 0 0;
-          color: #777;
-          font-size: 13px;
+          margin: 6px 0 0;
+          color: var(--text-secondary);
+          font-size: 14px;
+          font-weight: 400;
+          -webkit-text-fill-color: var(--text-secondary);
         }
 
         .bet-refresh {
-          border: 0;
-          border-radius: 8px;
-          padding: 10px 16px;
+          border: none;
+          border-radius: var(--radius-sm);
+          padding: 12px 24px;
           cursor: pointer;
-          background: #111827;
+          background: var(--gradient-primary);
           color: #fff;
           font-weight: 600;
+          font-size: 14px;
+          transition: var(--transition);
+          box-shadow: 0 4px 15px rgba(26, 42, 108, 0.25);
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
+        .bet-refresh:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(26, 42, 108, 0.35);
+        }
+
+        .bet-refresh:active {
+          transform: scale(0.96);
+        }
+
+        /* --- Stats Cards --- */
         .bet-cards {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 14px;
-          margin-bottom: 18px;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 18px;
+          margin-bottom: 24px;
         }
 
         .bet-card {
-          background: #fff;
-          border: 1px solid #e8e8ec;
-          border-radius: 12px;
-          padding: 17px;
-          box-shadow: 0 2px 8px rgba(0,0,0,.03);
+          background: var(--glass-bg);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid var(--glass-border);
+          border-radius: var(--radius);
+          padding: 20px 24px;
+          box-shadow: var(--glass-shadow);
+          transition: var(--transition);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .bet-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: var(--gradient-accent);
+          opacity: 0;
+          transition: var(--transition);
+        }
+
+        .bet-card:hover {
+          transform: translateY(-4px);
+          box-shadow: var(--shadow-hover);
+          background: var(--bg-card-hover);
+        }
+
+        .bet-card:hover::before {
+          opacity: 1;
         }
 
         .bet-card span {
           display: block;
-          color: #777;
-          font-size: 12px;
-          margin-bottom: 7px;
+          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 8px;
         }
 
         .bet-card strong {
-          font-size: 23px;
+          font-size: 28px;
+          font-weight: 700;
+          background: var(--gradient-primary);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
+        .bet-card .card-icon {
+          position: absolute;
+          right: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 32px;
+          opacity: 0.1;
+        }
+
+        /* --- Tabs --- */
         .bet-tabs {
           display: flex;
-          gap: 8px;
-          background: #fff;
-          padding: 8px;
-          border: 1px solid #e8e8ec;
-          border-radius: 10px;
-          margin-bottom: 14px;
+          gap: 6px;
+          background: var(--glass-bg);
+          backdrop-filter: blur(12px);
+          padding: 6px;
+          border: 1px solid var(--glass-border);
+          border-radius: var(--radius);
+          margin-bottom: 20px;
           overflow-x: auto;
+          box-shadow: var(--glass-shadow);
         }
 
         .bet-tab {
-          border: 0;
+          border: none;
           background: transparent;
-          padding: 9px 15px;
-          border-radius: 7px;
+          padding: 10px 22px;
+          border-radius: var(--radius-sm);
           cursor: pointer;
           white-space: nowrap;
           font-weight: 600;
-          color: #666;
+          font-size: 14px;
+          color: var(--text-secondary);
+          transition: var(--transition);
+          position: relative;
+        }
+
+        .bet-tab:hover {
+          color: var(--text-primary);
+          background: rgba(102, 126, 234, 0.08);
         }
 
         .bet-tab.active {
-          background: #111827;
+          background: var(--gradient-primary);
           color: #fff;
+          box-shadow: 0 4px 15px rgba(26, 42, 108, 0.25);
         }
 
+        /* --- Tools Bar --- */
         .bet-tools {
           display: flex;
           flex-wrap: wrap;
-          gap: 9px;
+          gap: 12px;
           align-items: center;
-          background: #fff;
-          padding: 13px;
-          border: 1px solid #e8e8ec;
-          border-radius: 10px;
-          margin-bottom: 14px;
+          background: var(--glass-bg);
+          backdrop-filter: blur(12px);
+          padding: 16px 20px;
+          border: 1px solid var(--glass-border);
+          border-radius: var(--radius);
+          margin-bottom: 20px;
+          box-shadow: var(--glass-shadow);
         }
 
-        .bet-input, .bet-select {
-          height: 38px;
-          border: 1px solid #dddfe5;
-          border-radius: 7px;
-          padding: 0 11px;
+        .bet-input,
+        .bet-select {
+          height: 44px;
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          border-radius: var(--radius-sm);
+          padding: 0 14px;
           outline: none;
+          background: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(4px);
+          font-size: 14px;
+          color: var(--text-primary);
+          transition: var(--transition);
+          min-width: 160px;
+        }
+
+        .bet-input:focus,
+        .bet-select:focus {
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
           background: #fff;
-          min-width: 150px;
+        }
+
+        .bet-input::placeholder {
+          color: var(--text-muted);
         }
 
         .bet-search {
           display: flex;
-          gap: 7px;
+          gap: 8px;
+          flex: 1;
+          min-width: 200px;
         }
 
         .bet-btn {
-          height: 38px;
-          border: 0;
-          border-radius: 7px;
-          padding: 0 14px;
-          background: #111827;
+          height: 44px;
+          border: none;
+          border-radius: var(--radius-sm);
+          padding: 0 22px;
+          background: var(--gradient-accent);
           color: #fff;
           cursor: pointer;
           font-weight: 600;
+          font-size: 14px;
+          transition: var(--transition);
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+          white-space: nowrap;
         }
 
+        .bet-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .bet-btn:active {
+          transform: scale(0.96);
+        }
+
+        /* --- Table --- */
         .bet-table-wrap {
-          background: #fff;
-          border: 1px solid #e8e8ec;
-          border-radius: 10px;
+          background: var(--glass-bg);
+          backdrop-filter: blur(12px);
+          border: 1px solid var(--glass-border);
+          border-radius: var(--radius);
           overflow: auto;
+          box-shadow: var(--glass-shadow);
         }
 
         .bet-table {
           width: 100%;
-          min-width: 900px;
+          min-width: 1000px;
           border-collapse: collapse;
         }
 
         .bet-table th {
-          background: #f8f8fa;
+          background: rgba(0, 0, 0, 0.02);
           text-align: left;
           font-size: 12px;
-          color: #666;
-          padding: 13px 12px;
-          border-bottom: 1px solid #e8e8ec;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--text-secondary);
+          padding: 16px 14px;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
           white-space: nowrap;
         }
 
         .bet-table td {
-          padding: 12px;
-          border-bottom: 1px solid #f0f0f2;
-          font-size: 13px;
+          padding: 14px;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+          font-size: 14px;
           white-space: nowrap;
+          color: var(--text-primary);
+          transition: var(--transition);
         }
 
-        .bet-table tr:last-child td {
+        .bet-table tbody tr {
+          transition: var(--transition);
+        }
+
+        .bet-table tbody tr:hover {
+          background: rgba(102, 126, 234, 0.04);
+        }
+
+        .bet-table tbody tr:last-child td {
           border-bottom: 0;
         }
 
+        /* --- Status Badges --- */
         .status {
           display: inline-flex;
-          padding: 4px 8px;
-          border-radius: 20px;
-          font-size: 11px;
+          padding: 5px 14px;
+          border-radius: 50px;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.3px;
+          text-transform: uppercase;
+        }
+
+        .status.pending {
+          background: rgba(255, 193, 7, 0.15);
+          color: #b8860b;
+          border: 1px solid rgba(255, 193, 7, 0.2);
+        }
+
+        .status.win {
+          background: rgba(46, 213, 115, 0.15);
+          color: #0d7a3b;
+          border: 1px solid rgba(46, 213, 115, 0.2);
+        }
+
+        .status.loss {
+          background: rgba(255, 71, 87, 0.12);
+          color: #c0392b;
+          border: 1px solid rgba(255, 71, 87, 0.2);
+        }
+
+        /* --- Direction Colors --- */
+        .direction-up {
+          color: #0d7a3b;
           font-weight: 700;
         }
 
-        .status.pending { background: #fff3cd; color: #856404; }
-        .status.win { background: #e8f7ee; color: #187a43; }
-        .status.loss { background: #fdeaea; color: #c53030; }
+        .direction-down {
+          color: #c0392b;
+          font-weight: 700;
+        }
 
-        .direction-up { color: #17834b; font-weight: 700; }
-        .direction-down { color: #c0392b; font-weight: 700; }
-
+        /* --- Empty & Loader --- */
         .empty {
           text-align: center;
-          padding: 45px 20px;
-          color: #888;
+          padding: 60px 20px;
+          color: var(--text-muted);
+          font-size: 16px;
         }
 
         .loader {
           text-align: center;
-          padding: 40px;
-          color: #666;
+          padding: 50px 20px;
+          color: var(--text-secondary);
+          font-size: 15px;
         }
 
+        .loader::after {
+          content: '';
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          margin-left: 12px;
+          border: 3px solid rgba(102, 126, 234, 0.2);
+          border-top: 3px solid #667eea;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          vertical-align: middle;
+        }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        /* --- Error --- */
         .error {
-          margin-bottom: 12px;
-          padding: 11px 13px;
-          border-radius: 8px;
-          background: #fff0f0;
-          color: #c53030;
-          border: 1px solid #ffd5d5;
-          font-size: 13px;
+          margin-bottom: 16px;
+          padding: 14px 18px;
+          border-radius: var(--radius-sm);
+          background: rgba(255, 71, 87, 0.08);
+          color: #c0392b;
+          border: 1px solid rgba(255, 71, 87, 0.15);
+          font-size: 14px;
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
 
+        .error::before {
+          content: '⚠';
+          font-size: 18px;
+        }
+
+        /* --- Footer --- */
         .bet-footer {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
-          padding: 13px 0;
+          gap: 16px;
+          padding: 18px 0 4px;
+          flex-wrap: wrap;
+        }
+
+        .bet-footer > div:first-child {
+          color: var(--text-secondary);
+          font-size: 14px;
         }
 
         .pagination {
@@ -357,154 +621,234 @@ const BetAdmin = () => {
         }
 
         .page-btn {
-          min-width: 36px;
-          height: 34px;
-          border: 1px solid #dddfe5;
-          background: #fff;
-          border-radius: 6px;
+          min-width: 40px;
+          height: 40px;
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(4px);
+          border-radius: var(--radius-sm);
           cursor: pointer;
+          font-weight: 600;
+          font-size: 14px;
+          color: var(--text-primary);
+          transition: var(--transition);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .page-btn:hover:not(:disabled) {
+          background: var(--gradient-primary);
+          color: #fff;
+          border-color: transparent;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 15px rgba(26, 42, 108, 0.2);
         }
 
         .page-btn:disabled {
-          opacity: .45;
+          opacity: 0.4;
           cursor: not-allowed;
+          transform: none;
         }
 
-        @media (max-width: 900px) {
+        .pagination span {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          padding: 0 8px;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 1024px) {
           .bet-cards {
             grid-template-columns: repeat(2, 1fr);
           }
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
           .bet-admin-page {
-            padding: 12px;
+            padding: 16px;
           }
+
+          .bet-admin-head {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
           .bet-cards {
             grid-template-columns: 1fr 1fr;
+            gap: 12px;
           }
-          .bet-admin-head {
-            align-items: flex-start;
+
+          .bet-card {
+            padding: 16px;
+          }
+
+          .bet-card strong {
+            font-size: 22px;
+          }
+
+          .bet-tools {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .bet-search {
+            flex-direction: column;
+          }
+
+          .bet-input,
+          .bet-select,
+          .bet-btn {
+            width: 100%;
+            min-width: unset;
+          }
+
+          .bet-footer {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .bet-cards {
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+
+          .bet-card {
+            padding: 14px;
+          }
+
+          .bet-card strong {
+            font-size: 18px;
+          }
+
+          .bet-card span {
+            font-size: 11px;
+          }
+
+          .bet-table th,
+          .bet-table td {
+            padding: 10px 8px;
+            font-size: 12px;
           }
         }
       `}</style>
 
       <div className="bet-admin-page">
+        {/* Header */}
         <div className="bet-admin-head">
           <div className="bet-admin-title">
-            <h2>Bet Management</h2>
-            <p>View all, pending, completed and user-wise bets</p>
+            <h2>🎯 Bet Management</h2>
+            <p>Monitor all bets, filter by status, and search user history</p>
           </div>
           <button className="bet-refresh" onClick={refresh}>
-            Refresh
+            🔄 Refresh
           </button>
         </div>
 
+        {/* Stats Cards */}
         <div className="bet-cards">
           <div className="bet-card">
-            <span>Total Bets</span>
+            <span>📊 Total Bets</span>
             <strong>{allBetLength}</strong>
           </div>
           <div className="bet-card">
-            <span>Pending Bets</span>
+            <span>⏳ Pending Bets</span>
             <strong>{pendingBetLength}</strong>
           </div>
           <div className="bet-card">
-            <span>Pending UP</span>
+            <span>⬆️ Pending UP</span>
             <strong>{totalMoneyUp}</strong>
           </div>
           <div className="bet-card">
-            <span>Pending DOWN</span>
+            <span>⬇️ Pending DOWN</span>
             <strong>{totalMoneyDown}</strong>
           </div>
         </div>
 
+        {/* Tabs */}
         <div className="bet-tabs">
           <button
             className={`bet-tab ${tab === "all" ? "active" : ""}`}
             onClick={() => changeTab("all")}
           >
-            All Bets
+            📋 All Bets
           </button>
           <button
             className={`bet-tab ${tab === "pending" ? "active" : ""}`}
             onClick={() => changeTab("pending")}
           >
-            Pending
+            ⏳ Pending
           </button>
           <button
             className={`bet-tab ${tab === "completed" ? "active" : ""}`}
             onClick={() => changeTab("completed")}
           >
-            Completed
+            ✅ Completed
           </button>
           <button
             className={`bet-tab ${tab === "user" ? "active" : ""}`}
-            onClick={() => setTab("user")}
+            onClick={() => changeTab("user")}
           >
-            User Bets
+            👤 User Bets
           </button>
         </div>
 
+        {/* Tools */}
         <form className="bet-tools" onSubmit={searchUser}>
           <div className="bet-search">
             <input
               className="bet-input"
               value={searchUserId}
               onChange={(e) => setSearchUserId(e.target.value)}
-              placeholder="Enter User ID"
+              placeholder="🔍 Enter User ID and press search"
             />
             <button className="bet-btn" type="submit">
-              Search User
+              Search
             </button>
           </div>
 
-          {tab !== "user" && (
-            <>
-              <select
-                className="bet-select"
-                value={status}
-                onChange={(e) => {
-                  setPage(1);
-                  setStatus(e.target.value);
-                }}
-              >
-                <option value="">All Status</option>
-                <option value="0">Pending</option>
-                <option value="1">Win</option>
-                <option value="2">Loss</option>
-              </select>
+          <select
+            className="bet-select"
+            value={status}
+            onChange={handleStatusChange}
+          >
+            <option value="">All Status</option>
+            <option value="0">⏳ Pending</option>
+            <option value="1">✅ Win</option>
+            <option value="2">❌ Loss</option>
+          </select>
 
-              <select
-                className="bet-select"
-                value={betType}
-                onChange={(e) => {
-                  setPage(1);
-                  setBetType(e.target.value);
-                }}
-              >
-                <option value="">All Direction</option>
-                <option value="up">UP</option>
-                <option value="down">DOWN</option>
-              </select>
-            </>
-          )}
+          <select
+            className="bet-select"
+            value={betType}
+            onChange={handleBetTypeChange}
+          >
+            <option value="">All Direction</option>
+            <option value="up">⬆️ UP</option>
+            <option value="down">⬇️ DOWN</option>
+          </select>
         </form>
 
+        {/* Error */}
         {error && <div className="error">{error}</div>}
 
+        {/* Table */}
         <div className="bet-table-wrap">
           {loading ? (
-            <div className="loader">Loading bets...</div>
+            <div className="loader">Loading bets</div>
           ) : rows.length === 0 ? (
-            <div className="empty">No bets found</div>
+            <div className="empty">📭 No bets found</div>
           ) : (
             <table className="bet-table">
               <thead>
                 <tr>
                   <th>#</th>
                   <th>User ID</th>
-                  <th>Bet</th>
+                  <th>Direction</th>
                   <th>Amount</th>
                   <th>Status</th>
                   <th>Order ID</th>
@@ -512,7 +856,6 @@ const BetAdmin = () => {
                   <th>Time</th>
                 </tr>
               </thead>
-
               <tbody>
                 {rows.map((item, index) => {
                   const statusInfo = getStatus(item.status);
@@ -540,16 +883,8 @@ const BetAdmin = () => {
                         </span>
                       </td>
                       <td>{formatValue(item.orderId)}</td>
-                      <td>
-                        {formatValue(
-                          item.period ?? item.issue ?? item.gameId
-                        )}
-                      </td>
-                      <td>
-                        {formatValue(
-                          item.time ?? item.createdAt
-                        )}
-                      </td>
+                      <td>{formatValue(item.period ?? item.issue ?? item.gameId)}</td>
+                      <td>{formatValue(item.time ?? item.createdAt)}</td>
                     </tr>
                   );
                 })}
@@ -558,30 +893,28 @@ const BetAdmin = () => {
           )}
         </div>
 
+        {/* Footer */}
         <div className="bet-footer">
           <div>
             Showing {rows.length} of {total} records
           </div>
-
           <div className="pagination">
             <button
               className="page-btn"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              Prev
+              ‹
             </button>
-
             <span>
               Page {page} / {totalPages}
             </span>
-
             <button
               className="page-btn"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
-              Next
+              ›
             </button>
           </div>
         </div>

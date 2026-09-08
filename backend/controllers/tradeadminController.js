@@ -1,7 +1,8 @@
 const ExcelJS = require("exceljs");
-const bcrypt = require("bcryptjs");  // ✅ Fixed: bcryptjs sahi tarike se
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
+const cron = require("node-cron");
 
 const User = require("../models/authmodel");
 const Bet = require("../models/TradeBet");
@@ -22,7 +23,6 @@ const {
   uploadImage,
 } = require("../utils/uploadImage");
 
-
 // =====================================================
 // HELPERS
 // =====================================================
@@ -30,7 +30,7 @@ const {
 const num = (v) =>
   Number.isFinite(Number(v)) ? Number(v) : 0;
 
-const pageArgs = (q) => {
+const pageArgs = (q = {}) => {
   const p = Math.max(parseInt(q.pageno) || 1, 1);
   const to = Math.max(parseInt(q.pageto) || 10, p);
   const limit = to - p + 1;
@@ -52,7 +52,7 @@ const userFilter = (s) =>
       }
     : {};
 
-async function list(Model, filter, q) {
+async function list(Model, filter, q = {}) {
   const { p, limit, skip } = pageArgs(q);
 
   const [data, length] = await Promise.all([
@@ -72,7 +72,6 @@ async function list(Model, filter, q) {
     limit,
   };
 }
-
 
 // =====================================================
 // BET LIST
@@ -111,7 +110,6 @@ exports.betlist = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // PENDING BET LIST
@@ -165,7 +163,6 @@ exports.pendingBetlist = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // ALL USERS
 // =====================================================
@@ -200,7 +197,6 @@ exports.allUsers = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // USER INFO
 // =====================================================
@@ -233,7 +229,6 @@ exports.userInfo = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // USER RECHARGE
@@ -271,7 +266,6 @@ exports.userRecharge = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // USER WITHDRAWAL
 // =====================================================
@@ -308,33 +302,119 @@ exports.userWithdrawal = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // USER BET
 // =====================================================
 
+// =====================================================
+// USER BET LIST
+// GET /api/admin/bet-admin/userBet
+// =====================================================
+
 exports.userBet = async (req, res) => {
+  try {
+    // userId query ya body dono se accept karega
+    const userId = Number(
+      req.query.userId || req.body?.userId
+    );
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required.",
+      });
+    }
+
+    // Pagination
+    const pageno = Math.max(
+      parseInt(req.query.pageno) || 1,
+      1
+    );
+
+    const pageto = Math.max(
+      parseInt(req.query.pageto) || 10,
+      pageno
+    );
+
+    const limit = pageto - pageno + 1;
+    const skip = (pageno - 1) * limit;
+
+    // User ke bets
+    const [data, length] =
+      await Promise.all([
+        Bet.find({
+          userId,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+
+        Bet.countDocuments({
+          userId,
+        }),
+      ]);
+
+    if (!data.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No bets found for this user.",
+        data: [],
+        length: 0,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "User bets retrieved successfully.",
+      data,
+      length,
+      p: pageno,
+      limit,
+    });
+  } catch (error) {
+    console.error(
+      "[USER BET ERROR]",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
+// =====================================================
+// ALL BETS
+// =====================================================
+
+exports.getAllBet = async (req, res) => {
   try {
     const x = await list(
       Bet,
-      {
-        userId: Number(req.body.userId),
-      },
+      {},
       req.query
     );
 
     if (!x.data.length) {
       return res.status(404).json({
         success: false,
-        message: "No bet found.",
+        message: "No bets found.",
       });
     }
 
-    return res.json({
+    return res.status(200).json({
       success: true,
-      message: "User bet retrieved successfully.",
+      message: "All bets retrieved successfully.",
       data: x.data,
       length: x.length,
+      p: x.p,
+      limit: x.limit,
     });
   } catch (e) {
     return res.status(500).json({
@@ -344,7 +424,6 @@ exports.userBet = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // PENDING RECHARGE
@@ -382,7 +461,6 @@ exports.pendingRecharge = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // RECHARGE LIST
@@ -423,7 +501,6 @@ exports.rechargeList = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // PENDING WITHDRAWAL
 // =====================================================
@@ -460,7 +537,6 @@ exports.pendingWithdrawal = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // WITHDRAWAL LIST
@@ -501,12 +577,11 @@ exports.withdrawalList = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // APPROVE / REJECT WITHDRAWAL
 // =====================================================
 
-exports.approveWithdrawal = async (req, res) => {  // ✅ Fixed: aprrove → approve
+exports.approveWithdrawal = async (req, res) => {
   try {
     const { status, orderId } = req.body;
 
@@ -530,7 +605,6 @@ exports.approveWithdrawal = async (req, res) => {  // ✅ Fixed: aprrove → app
 
     const t = timerJoin(Date.now());
 
-    // APPROVE
     if (Number(status) === 1) {
       const updated = await Withdrawal.findOneAndUpdate(
         {
@@ -563,10 +637,10 @@ exports.approveWithdrawal = async (req, res) => {  // ✅ Fixed: aprrove → app
         status: 1,
         orderId,
       });
-    }
-
-    // REJECT
-    else if (Number(status) === 2 || Number(status) === 0) {
+    } else if (
+      Number(status) === 2 ||
+      Number(status) === 0
+    ) {
       const updated = await Withdrawal.findOneAndUpdate(
         {
           _id: w._id,
@@ -590,7 +664,6 @@ exports.approveWithdrawal = async (req, res) => {  // ✅ Fixed: aprrove → app
         });
       }
 
-      // RETURN WITHDRAWAL AMOUNT TO USER BALANCE
       await User.updateOne(
         {
           userId: w.userId,
@@ -610,9 +683,7 @@ exports.approveWithdrawal = async (req, res) => {  // ✅ Fixed: aprrove → app
         status: 1,
         orderId,
       });
-    }
-
-    else {
+    } else {
       return res.status(400).json({
         success: false,
         message: "Invalid withdrawal status",
@@ -624,7 +695,6 @@ exports.approveWithdrawal = async (req, res) => {  // ✅ Fixed: aprrove → app
       message: "Withdrawal approved successfully.",
       data: [w],
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -634,12 +704,11 @@ exports.approveWithdrawal = async (req, res) => {  // ✅ Fixed: aprrove → app
   }
 };
 
-
 // =====================================================
 // APPROVE / REJECT RECHARGE
 // =====================================================
 
-exports.approveRecharge = async (req, res) => {  // ✅ Fixed: aprrove → approve
+exports.approveRecharge = async (req, res) => {
   try {
     const { status, orderId } = req.body;
 
@@ -663,7 +732,6 @@ exports.approveRecharge = async (req, res) => {  // ✅ Fixed: aprrove → appro
 
     const t = timerJoin(Date.now());
 
-    // APPROVE RECHARGE
     if (Number(status) === 1) {
       const updated = await Recharge.findOneAndUpdate(
         {
@@ -692,7 +760,6 @@ exports.approveRecharge = async (req, res) => {  // ✅ Fixed: aprrove → appro
         num(r.amount) +
         num(r.bonus);
 
-      // ADD RECHARGE TO USER BALANCE
       await User.updateOne(
         {
           userId: r.userId,
@@ -713,10 +780,10 @@ exports.approveRecharge = async (req, res) => {  // ✅ Fixed: aprrove → appro
         status: 1,
         orderId,
       });
-    }
-
-    // REJECT RECHARGE
-    else if (Number(status) === 2 || Number(status) === 0) {
+    } else if (
+      Number(status) === 2 ||
+      Number(status) === 0
+    ) {
       const updated = await Recharge.findOneAndUpdate(
         {
           _id: r._id,
@@ -748,9 +815,7 @@ exports.approveRecharge = async (req, res) => {  // ✅ Fixed: aprrove → appro
         status: 2,
         orderId,
       });
-    }
-
-    else {
+    } else {
       return res.status(400).json({
         success: false,
         message: "Invalid recharge status",
@@ -762,7 +827,6 @@ exports.approveRecharge = async (req, res) => {  // ✅ Fixed: aprrove → appro
       message: "Recharge approved successfully.",
       data: [r],
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -771,7 +835,6 @@ exports.approveRecharge = async (req, res) => {  // ✅ Fixed: aprrove → appro
     });
   }
 };
-
 
 // =====================================================
 // ADMIN RESULT
@@ -833,7 +896,6 @@ exports.adminResult = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // ADMIN GET
 // =====================================================
@@ -859,7 +921,6 @@ exports.adminget = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // INCREASE / DECREASE USER BALANCE
@@ -903,7 +964,6 @@ exports.increaseMoney = async (req, res) => {
       });
     }
 
-    // INCREASE BALANCE
     if (type === "increase") {
       await User.updateOne(
         filter,
@@ -913,10 +973,7 @@ exports.increaseMoney = async (req, res) => {
           },
         }
       );
-    }
-
-    // DECREASE BALANCE
-    else if (type === "decrease") {
+    } else if (type === "decrease") {
       const updated =
         await User.findOneAndUpdate(
           {
@@ -941,9 +998,7 @@ exports.increaseMoney = async (req, res) => {
           message: "Insufficient balance",
         });
       }
-    }
-
-    else {
+    } else {
       return res.status(400).json({
         success: false,
         message: "Invalid type",
@@ -960,7 +1015,6 @@ exports.increaseMoney = async (req, res) => {
       message: "Balance updated successfully.",
       data: updatedUser,
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -969,7 +1023,6 @@ exports.increaseMoney = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // CONVERT USER / AGENT
@@ -1012,7 +1065,6 @@ exports.convertAdmin = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // BLOCK USER
 // =====================================================
@@ -1053,7 +1105,6 @@ exports.blockUser = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // CREATE AGENT
@@ -1100,15 +1151,15 @@ exports.createAgent = async (req, res) => {
         ? last.userId + 1
         : 100001;
 
-    // ✅ Fixed: bcrypt se hash karo
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword =
+      await bcrypt.hash(password, 10);
 
     const u = await User.create({
       userId,
       name: "Unknown",
       email: normalizedEmail,
-      password: hashedPassword,  // ✅ Hashed password store karo
-      plane_password: password,   // Plain password display ke liye
+      password: hashedPassword,
+      plane_password: password,
       country: "INDIA",
       currency: "USD",
       role: 2,
@@ -1134,7 +1185,6 @@ exports.createAgent = async (req, res) => {
       success: true,
       message: "Agent registered successfully",
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -1143,7 +1193,6 @@ exports.createAgent = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // ALL AGENTS
@@ -1173,7 +1222,6 @@ exports.allAgent = async (req, res) => {
       data: x.data,
       length: x.length,
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -1182,7 +1230,6 @@ exports.allAgent = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // ALL ADMIN DATA
@@ -1206,12 +1253,10 @@ exports.allAdminData = async (req, res) => {
       totalWithdrawal,
       todayWithdrawal,
     ] = await Promise.all([
-      // ACTIVE USERS
       User.countDocuments({
         status: 0,
       }),
 
-      // USERS HAVING BALANCE FIELD
       User.countDocuments({
         status: 0,
         balance: {
@@ -1219,7 +1264,6 @@ exports.allAdminData = async (req, res) => {
         },
       }),
 
-      // TODAY USERS
       User.countDocuments({
         status: 0,
         createdAt: {
@@ -1227,27 +1271,22 @@ exports.allAdminData = async (req, res) => {
         },
       }),
 
-      // BLOCKED USERS
       User.countDocuments({
         status: 2,
       }),
 
-      // BET LOSS
       Bet.countDocuments({
         status: 2,
       }),
 
-      // BET WIN
       Bet.countDocuments({
         status: 1,
       }),
 
-      // TOTAL APPROVED RECHARGE
       Recharge.countDocuments({
         status: 1,
       }),
 
-      // TODAY RECHARGE
       Recharge.countDocuments({
         status: 1,
         createdAt: {
@@ -1255,12 +1294,10 @@ exports.allAdminData = async (req, res) => {
         },
       }),
 
-      // TOTAL APPROVED WITHDRAWAL
       Withdrawal.countDocuments({
         status: 1,
       }),
 
-      // TODAY WITHDRAWAL
       Withdrawal.countDocuments({
         status: 1,
         createdAt: {
@@ -1272,12 +1309,8 @@ exports.allAdminData = async (req, res) => {
     return res.json({
       success: true,
       message: "Admin data retrieved successfully.",
-
       totalActiveUser,
-
-      // renamed from totalUserMoney
       totalUserBalance,
-
       todayUser,
       totalBlockUser,
       totalBetLoss,
@@ -1287,7 +1320,6 @@ exports.allAdminData = async (req, res) => {
       totalWithdrawal,
       todayWithdrawal,
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -1297,12 +1329,11 @@ exports.allAdminData = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // DOWNLOAD TODAY RECHARGE / BET DATA
 // =====================================================
 
-exports.downloadTodayRecharge = async (req, res) => {  // ✅ Fixed: Reachrge → Recharge
+exports.downloadTodayRecharge = async (req, res) => {
   try {
     const rows =
       await Bet.find({
@@ -1352,7 +1383,6 @@ exports.downloadTodayRecharge = async (req, res) => {  // ✅ Fixed: Reachrge �
     await wb.xlsx.write(res);
 
     res.end();
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -1361,7 +1391,6 @@ exports.downloadTodayRecharge = async (req, res) => {  // ✅ Fixed: Reachrge �
     });
   }
 };
-
 
 // =====================================================
 // CREATE PROMOCODE
@@ -1410,7 +1439,6 @@ exports.createPromocode = async (req, res) => {
       success: true,
       message: "Created successfully",
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -1419,7 +1447,6 @@ exports.createPromocode = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // GET PROMOCODE
@@ -1439,7 +1466,6 @@ exports.getPromocode = async (req, res) => {
       data,
       message: "Get successfully",
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -1448,7 +1474,6 @@ exports.getPromocode = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // ADD LEADERBOARD
@@ -1494,7 +1519,6 @@ exports.addLeaderboard = async (req, res) => {
       success: true,
       message: "Leaderboard added successfully",
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -1503,7 +1527,6 @@ exports.addLeaderboard = async (req, res) => {
     });
   }
 };
-
 
 // =====================================================
 // GET LEADERBOARD
@@ -1523,7 +1546,6 @@ exports.getLeader = async (req, res) => {
       data,
       message: "Get successfully",
     });
-
   } catch (e) {
     return res.status(500).json({
       success: false,
@@ -1532,3 +1554,230 @@ exports.getLeader = async (req, res) => {
     });
   }
 };
+
+// =====================================================
+// BET CRON
+// =====================================================
+
+const updatePendingBets = async () => {
+  try {
+    console.log("========================================");
+    console.log("[BET CRON] Checking pending bets...");
+    console.log("[BET CRON] Model:", Bet.modelName);
+    console.log("[BET CRON] Collection:", Bet.collection.name);
+
+    // ---------------------------------------------
+    // COUNT PENDING BETS
+    // ---------------------------------------------
+    const pendingCount = await Bet.countDocuments({
+      status: 0,
+    });
+
+    console.log(
+      "[BET CRON] Pending count:",
+      pendingCount
+    );
+
+    // ---------------------------------------------
+    // GET PENDING BETS
+    // ---------------------------------------------
+    const pendingBets = await Bet.find({
+      status: 0,
+    }).lean();
+
+    console.log(
+      "[BET CRON] Pending bets fetched:",
+      pendingBets.length
+    );
+
+    if (!pendingBets.length) {
+      console.log(
+        "[BET CRON] No pending bets found"
+      );
+
+      console.log("========================================");
+
+      return {
+        success: true,
+        updated: 0,
+        winCount: 0,
+        loseCount: 0,
+      };
+    }
+
+    let winCount = 0;
+    let loseCount = 0;
+
+    // ---------------------------------------------
+    // PROCESS EVERY PENDING BET
+    // ---------------------------------------------
+    for (const bet of pendingBets) {
+      try {
+        // Random 50/50
+        const isWin = Math.random() < 0.5;
+
+        // =========================================
+        // WIN
+        // =========================================
+        if (isWin) {
+          const updated =
+            await Bet.findOneAndUpdate(
+              {
+                _id: bet._id,
+                status: 0,
+              },
+              {
+                $set: {
+                  status: 2,
+                  getAmount: Number(bet.amount) || 0,
+                },
+              },
+              {
+                new: true,
+              }
+            );
+
+          if (updated) {
+            winCount++;
+
+            console.log(
+              `[BET CRON] WIN | Order: ${bet.orderId} | Amount: ${bet.amount}`
+            );
+          }
+        }
+
+        // =========================================
+        // LOSE
+        // =========================================
+        else {
+          const updated =
+            await Bet.findOneAndUpdate(
+              {
+                _id: bet._id,
+                status: 0,
+              },
+              {
+                $set: {
+                  status: 2,
+                  getAmount: 0,
+                },
+              },
+              {
+                new: true,
+              }
+            );
+
+          if (updated) {
+            loseCount++;
+
+            console.log(
+              `[BET CRON] LOSE | Order: ${bet.orderId} | Amount: ${bet.amount}`
+            );
+          }
+        }
+      } catch (betError) {
+        console.error(
+          `[BET CRON] Failed bet ${bet.orderId}:`,
+          betError.message
+        );
+      }
+    }
+
+    const updated =
+      winCount + loseCount;
+
+    console.log(
+      `[BET CRON] FINISHED | Total: ${updated} | WIN: ${winCount} | LOSE: ${loseCount}`
+    );
+
+    console.log("========================================");
+
+    return {
+      success: true,
+      updated,
+      winCount,
+      loseCount,
+    };
+  } catch (error) {
+    console.error(
+      "[BET CRON ERROR]",
+      error
+    );
+
+    return {
+      success: false,
+      updated: 0,
+      winCount: 0,
+      loseCount: 0,
+      message: error.message,
+    };
+  }
+};
+
+// =====================================================
+// START CRON
+// =====================================================
+
+const startBetCron = () => {
+  console.log(
+    "[BET CRON] Starting..."
+  );
+
+  cron.schedule(
+    "*/30 * * * * *",
+    async () => {
+      console.log(
+        `[BET CRON] Running at ${new Date().toISOString()}`
+      );
+
+      await updatePendingBets();
+    }
+  );
+
+  console.log(
+    "[BET CRON] Started - every 30 seconds"
+  );
+};
+
+// =====================================================
+// MANUAL CONTROLLER
+// =====================================================
+
+exports.manualUpdatePendingBets = async (
+  req,
+  res
+) => {
+  try {
+    const result =
+      await updatePendingBets();
+
+    return res.status(200).json({
+      success: result.success,
+      message:
+        result.updated > 0
+          ? "Pending bets updated successfully."
+          : "No pending bets found.",
+      updated: result.updated || 0,
+      winCount: result.winCount || 0,
+      loseCount: result.loseCount || 0,
+    });
+  } catch (error) {
+    console.error(
+      "[MANUAL BET ERROR]",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to update pending bets.",
+      error: error.message,
+    });
+  }
+};
+
+exports.updatePendingBets =
+  updatePendingBets;
+
+exports.startBetCron =
+  startBetCron;

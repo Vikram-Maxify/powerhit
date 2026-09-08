@@ -8,11 +8,14 @@ const { upload } = require("../utils/upload.js");
 
 router.get("/admin/allUsers", c.allUsers);
 
-router.get("/admin/betlist", c.betlist);
+router.get("/betlist", c.betlist);
 
-router.get("/admin/pendingBetlist", c.pendingBetlist);
+router.get("/pendingBetlist", c.pendingBetlist);
 
 router.post("/admin/userInfo", c.userInfo);
+
+router.get("/allBet", c.getAllBet);
+
 
 router.post("/admin/userRecharge", c.userRecharge);
 
