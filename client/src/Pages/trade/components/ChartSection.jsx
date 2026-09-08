@@ -228,14 +228,22 @@ function ChartSection({ investment }) {
 
     for (let i = 0; i < 60; i += 1) {
       const x = startTime + i * CANDLE_INTERVAL;
+
       const open = Number(price.toFixed(5));
-      const movement = (Math.random() - 0.5) * 0.0003;
+
+      // Smaller candle body
+      const movement = (Math.random() - 0.5) * 0.00012;
+
       const close = Number((open + movement).toFixed(5));
+
+      // Smaller upper wick
       const high = Number(
-        (Math.max(open, close) + Math.random() * 0.0001).toFixed(5),
+        (Math.max(open, close) + Math.random() * 0.00004).toFixed(5),
       );
+
+      // Smaller lower wick
       const low = Number(
-        (Math.min(open, close) - Math.random() * 0.0001).toFixed(5),
+        (Math.min(open, close) - Math.random() * 0.00004).toFixed(5),
       );
 
       dummy.push({
@@ -287,22 +295,22 @@ function ChartSection({ investment }) {
 
     const rawRealHistory = Array.isArray(allTrade)
       ? allTrade
-          .map((trade) => ({
-            y: [
-              parseFloat(trade.open),
-              parseFloat(trade.high),
-              parseFloat(trade.low),
-              parseFloat(trade.close),
-            ],
-            x: new Date(trade.x),
-          }))
-          .filter(
-            (candle) =>
-              Number.isFinite(candle.x.getTime()) &&
-              candle.y.every((value) => Number.isFinite(value)) &&
-              candle.x.getTime() > lastMockTime
-          )
-          .sort((a, b) => a.x - b.x)
+        .map((trade) => ({
+          y: [
+            parseFloat(trade.open),
+            parseFloat(trade.high),
+            parseFloat(trade.low),
+            parseFloat(trade.close),
+          ],
+          x: new Date(trade.x),
+        }))
+        .filter(
+          (candle) =>
+            Number.isFinite(candle.x.getTime()) &&
+            candle.y.every((value) => Number.isFinite(value)) &&
+            candle.x.getTime() > lastMockTime
+        )
+        .sort((a, b) => a.x - b.x)
       : [];
 
     // Prefer the API history as the anchor when it is available.
@@ -1098,11 +1106,10 @@ function ChartSection({ investment }) {
                     {filters.map((filter) => (
                       <button
                         key={filter}
-                        className={`px-1 text-xs font-medium ${
-                          activeFilter === filter
+                        className={`px-1 text-xs font-medium ${activeFilter === filter
                             ? " text-white rounded-sm bg-[#026fd3]"
                             : "text-white hover:text-gray-100"
-                        }`}
+                          }`}
                         onClick={() => setActiveFilter(filter)}
                       >
                         {filter}
@@ -1224,11 +1231,10 @@ function ChartSection({ investment }) {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                               <div
-                                className={`flex items-center ${
-                                  asset.change >= 0
+                                className={`flex items-center ${asset.change >= 0
                                     ? "text-green-500"
                                     : "text-red-500"
-                                }`}
+                                  }`}
                               >
                                 {asset.change >= 0 ? (
                                   <FaArrowUp className="mr-1" />
