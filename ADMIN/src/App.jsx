@@ -76,6 +76,7 @@ import ReferralLevels from "./admin/pages/ReferralLevels";
 import AdminBettingBonus from "./admin/pages/AdminBettingBonus";
 import AdminWinMultipliers from "./admin/pages/AdminWinMultipliers";
 import MinesAdmin from "./admin/pages/MinesAdmin";
+import BetAdmin from "./admin/pages/BetAdmin";
 
 function App() {
   return (
@@ -367,6 +368,10 @@ function App() {
           <Route
             path="/admin/mines"
             element={<MinesAdmin />}
+          />
+          <Route
+            path="/admin/bet-admin"
+            element={<BetAdmin />}
           />
 
         </Route>

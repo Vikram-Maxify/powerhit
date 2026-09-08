@@ -308,7 +308,7 @@ const TradeChart = () => {
       </div>
 
       {/* Chart Section */}
-      <div className={`${isMobile ? "w-full" : "w-4/5"} px-2 md:p-4`}>
+      <div className={`${isMobile ? "w-full" : "w-[78%]"} px-2 md:p-4`}>
         <div className=" rounded-xl h-full">
           <ChartSection investment={investment} />
         </div>
@@ -317,7 +317,7 @@ const TradeChart = () => {
       {/* Control Panel */}
       <div
         className={`${
-          isMobile ? "w-full h-[25vh] justify-center" : "w-1/5"
+          isMobile ? "w-full h-[25vh] justify-center" : "w-[22%]"
         } flex flex-col space-y-2 md:space-y-4 p-2 md:p-2`}
       >
         {/* Trading Panel */}

@@ -1,5 +1,5 @@
 const ExcelJS = require("exceljs");
-const md5 = require("md5");
+const bcrypt = require("bcryptjs");  // ✅ Fixed: bcryptjs sahi tarike se
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
 
@@ -506,7 +506,7 @@ exports.withdrawalList = async (req, res) => {
 // APPROVE / REJECT WITHDRAWAL
 // =====================================================
 
-exports.aprroveWithdrawal = async (req, res) => {
+exports.approveWithdrawal = async (req, res) => {  // ✅ Fixed: aprrove → approve
   try {
     const { status, orderId } = req.body;
 
@@ -639,7 +639,7 @@ exports.aprroveWithdrawal = async (req, res) => {
 // APPROVE / REJECT RECHARGE
 // =====================================================
 
-exports.aprroveRecharge = async (req, res) => {
+exports.approveRecharge = async (req, res) => {  // ✅ Fixed: aprrove → approve
   try {
     const { status, orderId } = req.body;
 
@@ -1100,12 +1100,15 @@ exports.createAgent = async (req, res) => {
         ? last.userId + 1
         : 100001;
 
+    // ✅ Fixed: bcrypt se hash karo
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const u = await User.create({
       userId,
       name: "Unknown",
       email: normalizedEmail,
-      password: md5(password),
-      plane_password: password,
+      password: hashedPassword,  // ✅ Hashed password store karo
+      plane_password: password,   // Plain password display ke liye
       country: "INDIA",
       currency: "USD",
       role: 2,
@@ -1299,7 +1302,7 @@ exports.allAdminData = async (req, res) => {
 // DOWNLOAD TODAY RECHARGE / BET DATA
 // =====================================================
 
-exports.downloadTodayReachrge = async (req, res) => {
+exports.downloadTodayRecharge = async (req, res) => {  // ✅ Fixed: Reachrge → Recharge
   try {
     const rows =
       await Bet.find({

@@ -12,6 +12,7 @@ import adminMarketReducer from "../admin/redux/adminMarketSlice";
 import adminBidReducer from "../admin/redux/adminBidSlice";
 import adminResultReducer from "../admin/redux/adminResultSlice";
 import currencyRateReducer from "../admin/redux/currencyRateSlice";
+import betAdminReducer from "../admin/redux/betAdminReducer";
 
 // ========================================
 // AUSTRALIA
@@ -158,6 +159,7 @@ export const store = configureStore({
     powerballDivision: powerballDivisionReducer,
     powerballResult: powerballResultReducer,
     minesAdmin: minesAdminReducer,
+    betAdmin: betAdminReducer,
 
   },
 });

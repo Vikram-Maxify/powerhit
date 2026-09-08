@@ -248,6 +248,12 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <Gamepad2 size={20} />,
       color: "red",
     },
+    {
+      name: "Bet Admin",
+      path: "/admin/bet-admin",
+      icon: <BarChart3 size={20} />,
+      color: "cyan",
+    },
 
     // ✅ ============ POWERHIT MENU ============
     {

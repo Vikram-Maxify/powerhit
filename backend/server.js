@@ -167,6 +167,7 @@ app.use("/api/admin/:country/powerball/divisions", adminPowerballDivisionRoutes)
 app.use("/api/public/:country/powerball-results", require("./routes/user/powerballpublicresult"));
 app.use("/api/admin/referral-levels", require("./routes/referralLevelRoutes"));
 app.use("/api", require("./routes/TradebetRoute"));
+app.use("/api/admin/bet-admin", require("./routes/TradeadminRoute"));
 
 // =====================================================
 // HEALTH CHECK

@@ -3,7 +3,7 @@ import { FaCalendarAlt, FaCaretDown } from "react-icons/fa";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useDispatch, useSelector } from "react-redux";
-import { betHistory } from "../Redux/Reducer/betReducer";
+import { betHistory } from "../../../redux/slices/tradingReducer";
 
 const Trade = () => {
   const { traderhistory } = useSelector((state) => state.bet);

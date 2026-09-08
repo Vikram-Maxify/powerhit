@@ -35,6 +35,15 @@ function ChartSection({ investment }) {
     min: undefined,
     max: undefined,
   });
+  const [touchState, setTouchState] = useState({
+    startDistance: null,
+    startRange: null,
+  });
+
+  const [zoomOutStep, setZoomOutStep] = useState(2); // values: 0, 1, 2
+
+  // const dragState = useRef({ isDragging: false, startX: 0, startRange: null });
+
   const [times, setTime] = useState({
     minute: 0,
     secondtime1: 0,
@@ -50,13 +59,14 @@ function ChartSection({ investment }) {
     chartX: 0,
     chartWidth: 0,
   });
+  const [isManualPan, setIsManualPan] = useState(false);
   const [ann, setAnn] = useState(70);
   const newestCandleTimeRef = useRef(null);
   const liveCandleRef = useRef(null);
   const initialRangeSet = useRef(false);
   // Lower this to make each candle visually WIDER (fewer candles packed into the
   // same visible x-axis window). Matches the reference screenshot better.
-  const DEFAULT_VISIBLE_CANDLES = 25;
+  const DEFAULT_VISIBLE_CANDLES = 30;
   const CANDLE_INTERVAL = 10000;
   const candleStartTimeRef = useRef(null);
   const initialAnimationDone = useRef(false);
@@ -139,44 +149,42 @@ function ChartSection({ investment }) {
         setXAxisRange((prev) => {
           const currentMin = Number(prev?.min);
           const currentMax = Number(prev?.max);
-          const currentRange =
+          const hasValidRange =
             Number.isFinite(currentMin) &&
             Number.isFinite(currentMax) &&
-            currentMax > currentMin
-              ? currentMax - currentMin
-              : DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL + RIGHT_PADDING;
+            currentMax > currentMin;
 
-          const right = Math.max(currentMax, candleTime + RIGHT_PADDING);
+          const currentRange = hasValidRange
+            ? currentMax - currentMin
+            : DEFAULT_VISIBLE_CANDLES * CANDLE_INTERVAL + RIGHT_PADDING;
+
+          const right = hasValidRange
+            ? Math.max(currentMax, candleTime + RIGHT_PADDING)
+            : candleTime + RIGHT_PADDING;
           const left = right - currentRange;
 
           return { min: left, max: right };
         });
 
-        // Use the current server OHLC to keep the candle fully visible.
-        setYAxisRange((prev) => {
-          const prices = [
-            Number(live.y[0]),
-            Number(live.y[1]),
-            Number(live.y[2]),
-            Number(live.y[3]),
-          ].filter(Number.isFinite);
+        // Keep the complete live candle inside the Y-axis.
+        // Calculate from HIGH/LOW so fast wicks never get clipped.
+        setYAxisRange(() => {
+          const candleLow = Number(live.y[2]);
+          const candleHigh = Number(live.y[1]);
 
-          if (!prices.length) return prev;
+          if (!Number.isFinite(candleLow) || !Number.isFinite(candleHigh)) {
+            return {
+              min: safeLatestClose - offset,
+              max: safeLatestClose + offset,
+            };
+          }
 
-          const candleMin = Math.min(...prices);
-          const candleMax = Math.max(...prices);
-          const center = Number(live.y[3]);
-          const candleRange = Math.max(candleMax - candleMin, 0.001);
+          const candleRange = Math.max(candleHigh - candleLow, 0.00001);
           const padding = Math.max(candleRange * 0.75, 0.0005);
 
-          // Center the visible price range around the live close while still
-          // including the live high/low.
-          const min = Math.min(candleMin, center - padding);
-          const max = Math.max(candleMax, center + padding);
-
           return {
-            min: Number(Math.max(0, min).toFixed(5)),
-            max: Number(max.toFixed(5)),
+            min: Number(Math.max(0, candleLow - padding).toFixed(5)),
+            max: Number((candleHigh + padding).toFixed(5)),
           };
         });
       }
@@ -253,9 +261,11 @@ function ChartSection({ investment }) {
   }, [allTrade]);
 
   const prevPriceRef = useRef("1.44634");
+  const MIN_ZOOM_RANGE = 100 * 1000;
+  const MAX_ZOOM_RANGE = 200 * 1000;
   const DEFAULT_WINDOW_SIZE = 40;
   const MAX_CANDLE_HISTORY = 350;
-  const RIGHT_PADDING = 130000;
+  const RIGHT_PADDING = 120000;
   const SHIFT_AMOUNT = 5 * 10000;
 
   const generatePriceMovement = (basePrice) => {
@@ -283,8 +293,7 @@ function ChartSection({ investment }) {
     () => ({
       chart: {
         type: "candlestick",
-        height: "100%",
-        width: "100%",
+        height: 500,
         background: "#1c1f2d",
         animations: {
           enabled: true,
@@ -301,12 +310,173 @@ function ChartSection({ investment }) {
         },
         toolbar: {
           show: false,
+          tools: {
+            download: false,
+            selection: true,
+            zoom: true,
+            zoomin: true,
+            zoomout: true,
+            pan: true,
+            reset: true,
+          },
+          autoSelected: "zoom", // Default to zoom mode
         },
         zoom: {
-          enabled: false,
+          enabled: true,
+          type: "xy",
+          autoScaleYaxis: true,
+          limits: {
+            y: {
+              min: 0.001, // Minimum y-axis range
+              max: undefined,
+            },
+          },
+          zoomedArea: {
+            fill: {
+              color: "#90CAF9",
+              opacity: 0.4,
+            },
+            stroke: {
+              color: "#0D47A1",
+              opacity: 0.8,
+              width: 1,
+            },
+          },
         },
-        pan: {
-          enabled: false,
+        pan: { enabled: true, mode: "xy" },
+        events: {
+          zoomed: (chartContext, { xaxis, yaxis }) => {
+            const newMin = xaxis.min;
+            const newMax = xaxis.max;
+            const zoomRange = newMax - newMin;
+            const center = (newMin + newMax) / 2;
+            const visibleData = transformedData.filter(
+              (d) => d.x >= xaxis.min && d.x <= xaxis.max,
+            );
+
+            // Calculate min/max of visible prices
+            let minPrice = Infinity;
+            let maxPrice = -Infinity;
+
+            visibleData.forEach((d) => {
+              minPrice = Math.min(minPrice, d.y[1]); // low price
+              maxPrice = Math.max(maxPrice, d.y[2]); // high price
+            });
+
+            const stepRatio = [1.0, 1.0, 1.0];
+            const currentRatio = stepRatio[zoomOutStep];
+            const maxAllowedRange = MAX_ZOOM_RANGE / currentRatio;
+
+            // Determine new zoom step
+            let newStep = zoomOutStep;
+            if (
+              zoomRange > maxAllowedRange &&
+              zoomOutStep < stepRatio.length - 1
+            ) {
+              newStep = 2; // Zooming OUT
+            } else if (zoomRange < maxAllowedRange && zoomOutStep > 0) {
+              newStep = 2; // Zooming IN
+            }
+
+            // Only update if step changed
+            if (newStep !== zoomOutStep) {
+              const newRatio = stepRatio[newStep];
+
+              setXAxisRange({
+                min: center - MAX_ZOOM_RANGE / newRatio / 2,
+                max: center + MAX_ZOOM_RANGE / newRatio / 2,
+              });
+
+              setZoomOutStep(newStep);
+
+              // Update y-axis range based on new zoom level
+              const dynamicOffset = getDynamicOffset();
+              const latestClose =
+                transformedData[transformedData.length - 1]?.y[3] ||
+                latestPrice;
+
+              setYAxisRange({
+                min: latestClose - dynamicOffset,
+                max: latestClose + dynamicOffset,
+              });
+            } else {
+              setXAxisRange({ min: newMin, max: newMax });
+            }
+          },
+
+          events: {
+            // ... existing events ...
+            beforeZoom: (chartContext, { xaxis, yaxis }) => {
+              // Maintain a minimum zoom level
+              const minRange = 30 * 60 * 1000; // 30 minutes in milliseconds
+              if (xaxis.max - xaxis.min < minRange) {
+                return {
+                  xaxis: {
+                    min: xaxis.min,
+                    max: xaxis.min + minRange,
+                  },
+                };
+              }
+              return { xaxis, yaxis };
+            },
+          },
+
+          mouseDown: (event, chartContext, config) => {
+            setIsManualPan(true);
+            const xAxis = chartContext.w.globals.minX;
+            const xAxisMax = chartContext.w.globals.maxX;
+            const chartWidth = chartContext.w.globals.gridWidth;
+
+            dragState.current = {
+              isDragging: true,
+              startX: event.clientX,
+              startRange: { min: xAxis.min, max: xAxis.max },
+              chartX: xAxis,
+              chartWidth: chartWidth,
+            };
+          },
+          mouseMove: (event, chartContext, config) => {
+            if (!dragState.current.isDragging) return;
+
+            const deltaX = event.clientX - dragState.current.startX;
+            const timePerPixel =
+              (dragState.current.startRange.max -
+                dragState.current.startRange.min) /
+              dragState.current.chartWidth;
+
+            const transformedDataTimes = transformedData.map((d) =>
+              d.x.getTime(),
+            );
+            const oldestCandle = Math.min(...transformedDataTimes);
+            const newestCandle =
+              Math.max(...transformedDataTimes) + RIGHT_PADDING;
+
+            setXAxisRange((prev) => {
+              let newMin =
+                dragState.current.startRange.min - deltaX * timePerPixel;
+              let newMax =
+                dragState.current.startRange.max - deltaX * timePerPixel;
+
+              // Prevent dragging beyond data boundaries
+              if (newMax > newestCandle) {
+                newMin -= newMax - newestCandle;
+                newMax = newestCandle;
+              }
+
+              if (newMin < oldestCandle) {
+                newMax += oldestCandle - newMin;
+                newMin = oldestCandle;
+              }
+
+              return {
+                min: Math.max(oldestCandle, newMin),
+                max: Math.min(newestCandle, newMax),
+              };
+            });
+          },
+          mouseUp: () => {
+            dragState.current.isDragging = false;
+          },
         },
       },
 
@@ -352,7 +522,7 @@ function ChartSection({ investment }) {
         axisTicks: { color: "#2d3748" },
         tickPlacement: "on",
         range: undefined, // Let chart auto-calculate range
-        tickAmount: "dataPoints", // Show tick for each data point
+        tickAmount: 8, // Keep the x-axis clean like the reference chart
         group: {
           style: {
             colors: [], // Remove grouping colors
@@ -401,7 +571,8 @@ function ChartSection({ investment }) {
         candlestick: {
           colors: { upward: "#10a055", downward: "#e85b4e" },
           wick: { useFillColor: true },
-          barWidth: "100%",
+          borderRadius: 2,
+          barWidth: "72%",
         },
       },
       tooltip: {
@@ -413,98 +584,92 @@ function ChartSection({ investment }) {
     [xAxisRange, transformedData],
   );
 
-  // Calculate dynamic offset based on zoom level
+  // Calculate dynamic offset from candle HIGH/LOW.
+  // Extra space is kept above HIGH and below LOW so wicks are never cut.
   const getDynamicOffset = () => {
-    // Base minimum offset to ensure at least 0.00100 difference
-    const baseMinOffset = 0.0005; // Half of 0.00100 since we add to both sides
+    const baseMinOffset = 0.0005;
 
-    // Calculate dynamic offset based on visible price range
-    if (transformedData.length === 0) return baseMinOffset;
+    if (!transformedData.length) return baseMinOffset;
 
-    const visibleData = transformedData.filter(
-      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max,
-    );
+    const visibleData = transformedData.filter((d) => {
+      const time = d.x.getTime();
+      return (
+        Number.isFinite(time) &&
+        Number.isFinite(xAxisRange.min) &&
+        Number.isFinite(xAxisRange.max) &&
+        time >= xAxisRange.min &&
+        time <= xAxisRange.max
+      );
+    });
 
-    if (visibleData.length === 0) return baseMinOffset;
+    if (!visibleData.length) return baseMinOffset;
 
-    // Calculate price range of visible candles
     let minPrice = Infinity;
     let maxPrice = -Infinity;
 
     visibleData.forEach((d) => {
-      minPrice = Math.min(minPrice, d.y[2]); // Low price
-      maxPrice = Math.max(maxPrice, d.y[1]); // High price
+      minPrice = Math.min(minPrice, Number(d.y[2]));
+      maxPrice = Math.max(maxPrice, Number(d.y[1]));
     });
 
-    const priceRange = maxPrice - minPrice;
+    if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice)) {
+      return baseMinOffset;
+    }
 
-    // Use whichever is larger - the actual price range or our minimum offset
-    return Math.max(baseMinOffset, priceRange * 1.0); // Extra Y-axis padding makes candles visually shorter
+    const priceRange = Math.max(maxPrice - minPrice, 0.00001);
+    return Math.max(baseMinOffset, priceRange * 0.5);
   };
 
   useEffect(() => {
-    if (transformedData.length === 0) return;
+    if (!transformedData.length) return;
 
-    const dynamicOffset = getDynamicOffset();
-    const close = Number(transformedData[transformedData.length - 1]?.y?.[3]);
-    const center = Number.isFinite(close)
-      ? close
-      : Number(latestPrice) || 1.44634;
-    const min = Number((center - dynamicOffset).toFixed(5));
-    const max = Number((center + dynamicOffset).toFixed(5));
-
-    setYAxisRange((prev) => {
-      if (prev.min === min && prev.max === max) return prev;
-      return { min, max };
+    const visibleData = transformedData.filter((d) => {
+      const time = d.x.getTime();
+      return (
+        Number.isFinite(time) &&
+        Number.isFinite(xAxisRange.min) &&
+        Number.isFinite(xAxisRange.max) &&
+        time >= xAxisRange.min &&
+        time <= xAxisRange.max
+      );
     });
-  }, [
-    transformedData,
-    latestPrice,
-    xAxisRange.min,
-    xAxisRange.max,
-  ]);
-  // Update the y-axis range calculation useEffect
-  useEffect(() => {
-    if (transformedData.length === 0 || !xAxisRange.min || !xAxisRange.max)
-      return;
 
-    const visibleData = transformedData.filter(
-      (d) => d.x.getTime() >= xAxisRange.min && d.x.getTime() <= xAxisRange.max,
-    );
+    const dataForRange = visibleData.length ? visibleData : transformedData;
 
-    if (visibleData.length === 0) return;
-
-    // Calculate min/max prices from visible candles
     let minY = Infinity;
     let maxY = -Infinity;
 
-    visibleData.forEach((d) => {
-      minY = Math.min(minY, d.y[2]); // Low price
-      maxY = Math.max(maxY, d.y[1]); // High price
+    dataForRange.forEach((d) => {
+      const low = Number(d.y?.[2]);
+      const high = Number(d.y?.[1]);
+
+      if (Number.isFinite(low)) minY = Math.min(minY, low);
+      if (Number.isFinite(high)) maxY = Math.max(maxY, high);
     });
 
-    // Calculate the required padding to ensure at least 0.00100 difference
-    const currentRange = maxY - minY;
-    const minRequiredRange = 0.001;
+    const live = liveCandleRef.current;
+    if (live?.y) {
+      const liveLow = Number(live.y[2]);
+      const liveHigh = Number(live.y[1]);
 
-    let padding = 0;
-    if (currentRange < minRequiredRange) {
-      padding = (minRequiredRange - currentRange) / 2;
-    } else {
-      // Add more vertical padding so candles appear shorter
-      padding = currentRange * 0.50;
+      if (Number.isFinite(liveLow)) minY = Math.min(minY, liveLow);
+      if (Number.isFinite(liveHigh)) maxY = Math.max(maxY, liveHigh);
     }
 
-    // Apply the padding
-    minY -= padding;
-    maxY += padding;
+    if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return;
 
-    // Ensure we don't go below 0 for currency pairs
-    minY = Math.max(0, minY);
+    const currentRange = Math.max(maxY - minY, 0.00001);
+    const minRequiredRange = 0.001;
+
+    const padding = Math.max(
+      currentRange * 0.50,
+      (minRequiredRange - currentRange) / 2,
+      0.0005
+    );
 
     const nextRange = {
-      min: Number(minY.toFixed(5)),
-      max: Number(maxY.toFixed(5)),
+      min: Number(Math.max(0, minY - padding).toFixed(5)),
+      max: Number((maxY + padding).toFixed(5)),
     };
 
     setYAxisRange((prev) => {
@@ -513,10 +678,16 @@ function ChartSection({ investment }) {
       }
       return nextRange;
     });
-  }, [xAxisRange.min, xAxisRange.max, transformedData]);
+  }, [
+    transformedData,
+    xAxisRange.min,
+    xAxisRange.max,
+    latestPrice,
+    zoomOutStep,
+  ]);
 
-  // Remove the existing useEffect that sets yAxisRange based on latestClose
-
+  // console.log("Zoom Out Step:", zoomOutStep);
+  // console.log("Initial X-Axis Range:", xAxisRange);
 
   // Keep the chart data synchronized with Redux only when Redux data changes.
   // IMPORTANT: do not depend on `times` here. The server sends a candleUpdate
@@ -604,14 +775,9 @@ function ChartSection({ investment }) {
     }
   }, [transformedData]);
 
-  // Price movement is driven exclusively by the server Socket.IO
-  // `candleUpdate` event. Do not generate or animate prices on the client:
-  // doing so would fight the server OHLC values and make the candle appear stuck
-  // or jump backwards.
 
-  // Navigation handlers
-  // Updated navigation handlers
   const handleMoveLeft = () => {
+    setIsManualPan(true);
     if (transformedData.length === 0) return;
 
     const oldestCandleTime = transformedData[0].x.getTime();
@@ -627,6 +793,7 @@ function ChartSection({ investment }) {
   };
 
   const handleMoveRight = () => {
+    setIsManualPan(true);
     if (transformedData.length === 0) return;
 
     const newestCandleTime =
@@ -641,6 +808,55 @@ function ChartSection({ investment }) {
       };
     });
   };
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+      setTouchState({
+        startDistance: distance,
+        startRange: { ...xAxisRange },
+      });
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && touchState.startDistance) {
+      const currentDistance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+
+      const scale = currentDistance / touchState.startDistance;
+      const range = touchState.startRange.max - touchState.startRange.min;
+      const newRange = range / scale;
+
+      // Calculate center point
+      const centerX =
+        (touchState.startRange.min + touchState.startRange.max) / 2;
+
+      setXAxisRange({
+        min: centerX - newRange / 2,
+        max: centerX + newRange / 2,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const preventDefault = (e) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener("touchmove", preventDefault, { passive: false });
+
+    return () => {
+      document.removeEventListener("touchmove", preventDefault);
+    };
+  }, []);
 
   // Dropdown content state
   const [showButton, SetShowButton] = useState(false);
@@ -1017,6 +1233,8 @@ function ChartSection({ investment }) {
         {/* Main chart */}
         <div
           className="chart-wrapper md:pt-1 h-[50vh] lg:h-[88vh]"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
         >
           <ReactApexChart
             options={options}
