@@ -12,7 +12,7 @@ const PopularGamesCards = () => {
       id: 2,
       name: "Trading",
       img: "https://i.ibb.co/B5ZYHtbf/Chat-GPT-Image-Aug-29-2026-05-26-35-PM-2.png",
-      to: "/trading",
+      to: "https://lotterry.trade.marinclub.site/",
     },
     {
       id: 3,
