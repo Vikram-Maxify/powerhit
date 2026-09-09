@@ -249,48 +249,42 @@ const generateToken = (user) => {
 // SET AUTH COOKIE
 // ======================================================
 
-const setAuthCookie = (
-  res,
-  token,
-  role
-) => {
+const setAuthCookie = (res, token, role) => {
   const cookieName =
     role === "admin"
       ? "adminToken"
       : "token";
 
   const isProduction =
-    process.env.NODE_ENV ===
-    "production";
+    process.env.NODE_ENV === "production";
 
-  res.cookie(
-    cookieName,
-    token,
-    {
-      httpOnly: true,
+  res.cookie(cookieName, token, {
+    httpOnly: true,
 
-      secure: isProduction,
+    // HTTPS production
+    secure: isProduction,
 
-      // Development:
-      // localhost frontend/backend works
-      //
-      // Production:
-      // allows cross-site frontend/backend
-      sameSite: isProduction
-        ? "none"
-        : "lax",
+    // Main domain + subdomains
+    domain: isProduction
+      ? ".marinclub.site"
+      : undefined,
 
-      maxAge:
-        7 *
-        24 *
-        60 *
-        60 *
-        1000,
+    // Main domain aur subdomain ke beech cookie allow
+    sameSite: isProduction
+      ? "none"
+      : "lax",
 
-      path: "/",
-    }
-  );
+    maxAge:
+      7 *
+      24 *
+      60 *
+      60 *
+      1000,
+
+    path: "/",
+  });
 };
+
 
 // ======================================================
 // REMOVE AUTH COOKIES
@@ -298,13 +292,16 @@ const setAuthCookie = (
 
 const clearAuthCookies = (res) => {
   const isProduction =
-    process.env.NODE_ENV ===
-    "production";
+    process.env.NODE_ENV === "production";
 
   const options = {
     httpOnly: true,
 
     secure: isProduction,
+
+    domain: isProduction
+      ? ".marinclub.site"
+      : undefined,
 
     sameSite: isProduction
       ? "none"
@@ -323,6 +320,7 @@ const clearAuthCookies = (res) => {
     options
   );
 };
+
 
 // ======================================================
 // REGISTER
