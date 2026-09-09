@@ -68,7 +68,6 @@ const adminPowerballDivisionRoutes = require("./routes/admin/powerballDivisionRo
 // SOCKET.IO
 // =====================================================
 const socket = require("./config/socket");
-const { startBetCron } = require("./controllers/tradeadminController");
 
 // =====================================================
 // APP
@@ -102,7 +101,9 @@ const allowedOrigins = [
 
 const corsOrigin = (origin, callback) => {
   if (!origin) return callback(null, true);
-  const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(
+    origin,
+  );
   if (allowedOrigins.includes(origin) || isLocalhost) {
     return callback(null, true);
   }
@@ -110,13 +111,21 @@ const corsOrigin = (origin, callback) => {
   return callback(new Error("CORS origin not allowed"));
 };
 
-app.use(cors({
-  origin: corsOrigin,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires"],
-  optionsSuccessStatus: 204
-}));
+app.use(
+  cors({
+    origin: corsOrigin,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Cache-Control",
+      "Pragma",
+      "Expires",
+    ],
+    optionsSuccessStatus: 204,
+  }),
+);
 
 app.options("*path", cors());
 
@@ -164,8 +173,14 @@ app.use("/api/admin/ticket-types", adminTicketTypeRoutes);
 app.use("/api/admin/:country/game-count", adminGameCountRoutes);
 app.use("/api/admin/:country/game-entries", adminGameEntryRoutes);
 app.use("/api/admin/:country/powerball-results", adminPowerballResultRoutes);
-app.use("/api/admin/:country/powerball/divisions", adminPowerballDivisionRoutes);
-app.use("/api/public/:country/powerball-results", require("./routes/user/powerballpublicresult"));
+app.use(
+  "/api/admin/:country/powerball/divisions",
+  adminPowerballDivisionRoutes,
+);
+app.use(
+  "/api/public/:country/powerball-results",
+  require("./routes/user/powerballpublicresult"),
+);
 app.use("/api/admin/referral-levels", require("./routes/referralLevelRoutes"));
 app.use("/api", require("./routes/TradebetRoute"));
 app.use("/api/admin/bet-admin", require("./routes/TradeadminRoute"));
@@ -214,13 +229,21 @@ app.get("/{*path}", (req, res) => {
 // 404 & ERROR HANDLER
 // =====================================================
 app.use("/api", (req, res) => {
-  res.status(404).json({ success: false, message: "API route not found", path: req.originalUrl });
+  res
+    .status(404)
+    .json({
+      success: false,
+      message: "API route not found",
+      path: req.originalUrl,
+    });
 });
 
 app.use((err, req, res, next) => {
   console.error("SERVER ERROR:", err);
   if (res.headersSent) return next(err);
-  res.status(err.status || 500).json({ success: false, message: err.message || "Internal server error" });
+  res
+    .status(err.status || 500)
+    .json({ success: false, message: err.message || "Internal server error" });
 });
 
 // =====================================================
@@ -228,23 +251,55 @@ app.use((err, req, res, next) => {
 // =====================================================
 let currentTimers = {
   timeUpdate_30: { minute: 0, secondtime1: 0, secondtime2: 0 },
-  timeUpdate_20: { minute: 0, secondtime1: 0, secondtime2: 0, countdown: 0, cycleSecond: 0, timestamp: 0, nextRoundAt: 0 },
+  timeUpdate_20: {
+    minute: 0,
+    secondtime1: 0,
+    secondtime2: 0,
+    countdown: 0,
+    cycleSecond: 0,
+    timestamp: 0,
+    nextRoundAt: 0,
+  },
   timeUpdate_11: { minute: 0, secondtime1: 0, secondtime2: 0 },
   timeUpdate_3: { minute: 0, secondtime1: 0, secondtime2: 0 },
   timeUpdate_5: { minute: 0, secondtime1: 0, secondtime2: 0 },
 };
 
-let lastResults = { wingo10: null, wingo: null, wingo3: null, wingo5: null, trx: null };
-const processedPeriods = { wingo10: null, wingo: null, wingo3: null, wingo5: null, trx: null };
-const emittedPeriods = { wingo10: null, wingo: null, wingo3: null, wingo5: null, trx: null };
-const lastTimerBoundary = { wingo10: null, wingo: null, wingo3: null, wingo5: null };
+let lastResults = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+  trx: null,
+};
+const processedPeriods = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+  trx: null,
+};
+const emittedPeriods = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+  trx: null,
+};
+const lastTimerBoundary = {
+  wingo10: null,
+  wingo: null,
+  wingo3: null,
+  wingo5: null,
+};
 
 // =====================================================
 // TIMER CALCULATOR
 // =====================================================
 function calculateTimer(intervalSeconds) {
   const now = new Date();
-  const totalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const totalSeconds =
+    now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   let remaining = intervalSeconds - (totalSeconds % intervalSeconds);
   if (remaining === 0) remaining = intervalSeconds;
   const minute = Math.floor(remaining / 60);
@@ -255,8 +310,6 @@ function calculateTimer(intervalSeconds) {
     secondtime2: seconds % 10,
   };
 }
-
-startBetCron();
 
 // =====================================================
 // TRADING 30 SECOND CLOCK
@@ -284,7 +337,9 @@ function getTradingClock() {
 // =====================================================
 async function processResultImmediately(gameName, typeId) {
   try {
-    const winGoNow = await Wingo.findOne({ status: 0, game: gameName }).sort({ _id: -1 }).limit(1);
+    const winGoNow = await Wingo.findOne({ status: 0, game: gameName })
+      .sort({ _id: -1 })
+      .limit(1);
     if (!winGoNow) {
       console.log(`[${gameName}] No pending period found`);
       return;
@@ -294,15 +349,16 @@ async function processResultImmediately(gameName, typeId) {
     console.log(`[${gameName}] Attempting atomic processing: ${period}`);
 
     const resultAmount = Number(betController.generateRandomResult());
-    const finalResult = Number.isInteger(resultAmount) && resultAmount >= 0 && resultAmount <= 9
-      ? resultAmount
-      : Math.floor(Math.random() * 10);
+    const finalResult =
+      Number.isInteger(resultAmount) && resultAmount >= 0 && resultAmount <= 9
+        ? resultAmount
+        : Math.floor(Math.random() * 10);
 
     console.log(`[${gameName}] Generated result: ${period} -> ${finalResult}`);
 
     const updateResult = await Wingo.updateOne(
       { _id: winGoNow._id, status: 0, game: gameName },
-      { $set: { amount: finalResult, status: 1 } }
+      { $set: { amount: finalResult, status: 1 } },
     );
 
     if (updateResult.modifiedCount !== 1) {
@@ -313,7 +369,10 @@ async function processResultImmediately(gameName, typeId) {
     console.log(`[${gameName}] LOCKED/PROCESSED: ${period} -> ${finalResult}`);
 
     const newPeriod = String(BigInt(period) + BigInt(1));
-    const existingNext = await Wingo.findOne({ game: gameName, period: newPeriod });
+    const existingNext = await Wingo.findOne({
+      game: gameName,
+      period: newPeriod,
+    });
     if (!existingNext) {
       await Wingo.create({
         period: newPeriod,
@@ -381,7 +440,7 @@ function broadcastCandle() {
     createLiveCandle(now);
   }
 
-  const delta = (Math.random() - 0.5) * 0.00020;
+  const delta = (Math.random() - 0.5) * 0.0002;
   livePrice = Number(Math.max(0.00001, livePrice + delta).toFixed(5));
 
   liveCandle.close = livePrice;
@@ -417,7 +476,8 @@ function broadcastTimers() {
   io.emit("timeUpdate_5", timers.timeUpdate_5);
 
   const now = new Date();
-  const totalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const totalSeconds =
+    now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
   const gameConfigs = [
     { name: "wingo10", interval: 30, type: 10 },
@@ -432,7 +492,9 @@ function broadcastTimers() {
     if (lastTimerBoundary[config.name] === boundary) continue;
     lastTimerBoundary[config.name] = boundary;
 
-    console.log(`[TIMER] ${config.name} completed exactly. Processing result now.`);
+    console.log(
+      `[TIMER] ${config.name} completed exactly. Processing result now.`,
+    );
     processResultImmediately(config.name, config.type).catch((error) => {
       console.error(`[TIMER] ${config.name} result processing error:`, error);
     });
@@ -520,7 +582,9 @@ const startServer = async () => {
       console.log("Socket.IO: ENABLED");
       console.log(`Socket.IO path: ${socket.SOCKET_PATH}`);
       console.log("Trading Engine: enabled");
-      console.log("Games: 30s (wingo10), 1m (wingo), 3m (wingo3), 5m (wingo5), TRX (trx)");
+      console.log(
+        "Games: 30s (wingo10), 1m (wingo), 3m (wingo3), 5m (wingo5), TRX (trx)",
+      );
       console.log("Database: MongoDB");
       console.log("======================================");
     });
