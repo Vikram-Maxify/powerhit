@@ -843,7 +843,7 @@ const Wingo = () => {
 
   const renderPeriodSection = () => (
     <section
-      className="relative mt-3 h-[260px] overflow-hidden rounded-2xl py-3 border border-[#d9aa3d]/40 bg-cover bg-center bg-no-repeat shadow-lg sm:min-h-[240px]"
+      className="relative mt-3 h-[230px] overflow-hidden rounded-2xl py-3 border border-[#d9aa3d]/40 bg-cover bg-center bg-no-repeat shadow-lg sm:min-h-[240px]"
       style={{ backgroundImage: `url(${WINGO_BANNER_BG})`, loading: "lazy" }}
     >
       {/* Header row — title left, "How to play" pill right */}
@@ -852,14 +852,14 @@ const Wingo = () => {
           <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#8a5c0b] sm:text-xs">
             Current Game
           </p>
-          <h2 className="truncate font-black border-b border-[#d9aa3d]/70 mt-2 text-[#3c2b12] drop-shadow-sm text-xl">
+          <h2 className="truncate font-black border-b border-[#d9aa3d]/70 text-[#3c2b12] drop-shadow-sm text-xl">
             Wingo {activeTime === 10 ? "30s" : `${activeTime}Min`}
           </h2>
         </div>
         <button
           type="button"
           onClick={() => setHowtoPlay(true)}
-          className="shrink-0 px-3 py-1.5 text-[11px] font-extrabold text-[#8a5c0b] transition -mt-[2.25rem]"
+          className="shrink-0 px-3 py-1.5 text-[11px] font-extrabold text-[#8a5c0b] transition mr-4 -mt-[2.25rem]"
         >
           How to play
         </button>
@@ -887,55 +887,55 @@ const Wingo = () => {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[#d8ae4e]/50 bg-[#fffaf0]/90 px-3 py-2 text-center shadow-md backdrop-blur-sm w-[180px]">
+        <div className="rounded-xl border border-[#d8ae4e]/50 bg-[#fffaf0]/90 px-3 pt-1 pb-1 text-center shadow-md backdrop-blur-sm w-[180px]">
           <p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-[#9a8257]">
             Time remaining
           </p>
           <div className="mt-1 flex items-center justify-center">
             <span
-              className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md  bg-gradient-to-b
+              className="mx-0.5 flex h-8 w-6 items-center justify-center rounded-md  bg-gradient-to-b
           from-[#FFF19A]
           via-[#FFC928]
           to-[#D99200]
           border
           border-[#FFD75A]
-          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-2xl font-black text-white "
+          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-xl font-black text-white "
             >
               {minutetime1}
             </span>
             <span
-              className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md  bg-gradient-to-b
+              className="mx-0.5 flex h-8 w-6 items-center justify-center rounded-md  bg-gradient-to-b
           from-[#FFF19A]
           via-[#FFC928]
           to-[#D99200]
           border
           border-[#FFD75A]
-          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-2xl font-black text-white "
+          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-xl font-black text-white "
             >
               {minutetime2}
             </span>
-            <span className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md bg-transparent text-2xl font-black text-black shadow-none">
+            <span className="mx-0.5 flex h-8 w-6 items-center justify-center rounded-md bg-transparent text-xl font-black text-black shadow-none">
               :
             </span>
             <span
-              className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md  bg-gradient-to-b
+              className="mx-0.5 flex h-8 w-6 items-center justify-center rounded-md  bg-gradient-to-b
           from-[#FFF19A]
           via-[#FFC928]
           to-[#D99200]
           border
           border-[#FFD75A]
-          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-2xl font-black text-white "
+          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-xl font-black text-white "
             >
               {secondtime1}
             </span>
             <span
-              className="mx-0.5 flex h-10 w-8 items-center justify-center rounded-md  bg-gradient-to-b
+              className="mx-0.5 flex h-8 w-6 items-center justify-center rounded-md  bg-gradient-to-b
           from-[#FFF19A]
           via-[#FFC928]
           to-[#D99200]
           border
           border-[#FFD75A]
-          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-2xl font-black text-white "
+          shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-xl font-black text-white "
             >
               {secondtime2}
             </span>
