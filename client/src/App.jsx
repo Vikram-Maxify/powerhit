@@ -18,12 +18,12 @@ import WithdrawalHistory from "./components/WithdrawalHistory.jsx";
 // Common Pages
 // ========================================
 import Deposit from "./Pages/Deposit.jsx";
-import DepositHistory from "./pages/DepositHistory.jsx";
+import DepositHistory from "./Pages/DepositHistory.jsx";
 import GameCounts from "./Pages/GameCounts.jsx";
-import Homme from "./pages/Homme.jsx";
+import Homme from "./Pages/Homme.jsx";
 import Login from "./Pages/Login.jsx";
 import ProfilePage from "./Pages/ProfilePage.jsx";
-import PromoPage from "./pages/Promo/PromoPage.jsx";
+import PromoPage from "./Pages/Promo/PromoPage.jsx";
 import Register from "./Pages/Register.jsx";
 import WalletDashboard from "./Pages/WalletDashboard.jsx";
 import Withdrawal from "./Pages/Withdrawal.jsx";
@@ -58,9 +58,8 @@ import PlaceBid from "./Pages/user/PlaceBid.jsx";
 import MatkaResults from "./Pages/user/Results.jsx";
 
 import MarketDetailedResults from "./Pages/MarketDetailedResults.jsx";
-import MinesGame from "./pages/MinesGame.jsx";
+import MinesGame from "./Pages/MinesGame.jsx";
 import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
-import TradeChart from "./Pages/trade/Pages/TradeChart.jsx";
 import Wingo from "./Pages/wingo/Wingo.jsx";
 import { getProfile, logout } from "./redux/slices/authSlice.js";
 
@@ -670,14 +669,6 @@ function App() {
 
             <Route path="/wingo" element={<Wingo />} />
 
-            <Route
-              path="/trading"
-              element={
-                <ProtectedRoute>
-                  <TradeChart />
-                </ProtectedRoute>
-              }
-            />
 
             {/* ========================================
                 404 / MAINTENANCE

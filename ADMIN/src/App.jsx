@@ -44,8 +44,8 @@ import AdminPakistanPowerballDivision from "./admin/pages/pakistan/PakistanPower
 // BANGLADESH
 // ========================================
 import AdminBangladeshGameCount from "./admin/pages/bangladesh/AdminGameCount";
-import AdminBangladeshGameEntries from "./admin/pages/bangladesh/AdminbangladeshGameEntries";
-import AdminBangladeshPowerballResult from "./admin/pages/bangladesh/AdminbangladeshPowerballResult";
+import AdminBangladeshGameEntries from "./admin/pages/bangladesh/AdminBangladeshGameEntries";
+import AdminBangladeshPowerballResult from "./admin/pages/bangladesh/AdminBangladeshPowerballResult";
 import AdminBangladeshPowerballDivision from "./admin/pages/bangladesh/BangladeshPowerballDivisions";
 
 // ========================================
