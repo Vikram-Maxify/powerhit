@@ -1,7 +1,7 @@
 import axios from "axios";
 
-// const API_BASE_URL = "http://localhost:5007/api";
-const API_BASE_URL = "/api";
+const API_BASE_URL = "http://localhost:5007/api";
+// const API_BASE_URL = "/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -15,8 +15,7 @@ const api = axios.create({
     Accept: "application/json",
 
     // NO CACHE
-    "Cache-Control": 
-      "no-cache, no-store, must-revalidate",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
 
     Pragma: "no-cache",
 
@@ -34,8 +33,7 @@ api.interceptors.request.use(
     // FORM DATA CHECK
     // =================================================
 
-    const isFormData =
-      config.data instanceof FormData;
+    const isFormData = config.data instanceof FormData;
 
     if (isFormData) {
       // IMPORTANT:
@@ -49,8 +47,7 @@ api.interceptors.request.use(
     } else {
       // Normal JSON requests
       if (config.data !== undefined) {
-        config.headers["Content-Type"] =
-          "application/json";
+        config.headers["Content-Type"] = "application/json";
       }
     }
 
@@ -58,8 +55,7 @@ api.interceptors.request.use(
     // NO CACHE
     // =================================================
 
-    config.headers["Cache-Control"] =
-      "no-cache, no-store, must-revalidate";
+    config.headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
 
     config.headers.Pragma = "no-cache";
 
@@ -79,7 +75,7 @@ api.interceptors.request.use(
 
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // =====================================================
@@ -93,10 +89,7 @@ api.interceptors.response.use(
 
   (error) => {
     if (error.response?.status === 401) {
-      const isProfileCheck =
-        error.config?.url?.includes(
-          "/auth/profile"
-        );
+      const isProfileCheck = error.config?.url?.includes("/auth/profile");
 
       if (
         !isProfileCheck &&
@@ -108,14 +101,13 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 // =====================================================
 // HOST
 // =====================================================
 
-const host =
-  "https://demo22.etsblokchain.live/";
+const host = "https://demo22.etsblokchain.live/";
 
 export { api, host };
