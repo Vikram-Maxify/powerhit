@@ -9,7 +9,7 @@ import io from "socket.io-client";
 
 import EmptyData from "../../components/EmptyData.jsx";
 import { host } from "../../redux/slices/api.js";
-import { getProfile } from "../../redux/Slices/authSlice.js";
+import { getProfile } from "../../redux/slices/authSlice.js";
 import {
   getMyBets,
   getOrderList,

@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
+import { host } from "../redux/slices/api";
 
-export const socket = io("http://localhost:5007", {
+export const socket = io(host, {
   withCredentials: true,
   autoConnect: true,
 });

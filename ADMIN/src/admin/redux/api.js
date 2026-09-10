@@ -15,7 +15,7 @@ const api = axios.create({
     Accept: "application/json",
 
     // NO CACHE
-    "Cache-Control":
+    "Cache-Control": 
       "no-cache, no-store, must-revalidate",
 
     Pragma: "no-cache",

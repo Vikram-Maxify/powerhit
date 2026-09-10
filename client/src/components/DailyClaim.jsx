@@ -10,7 +10,7 @@ import {
   claimDailyBonus,
   clearDailyClaimError,
   resetClaimSuccess,
-} from "../redux/Slices/dailyClaimSlice";
+} from "../redux/slices/dailyClaimSlice";
 
 const defaultRewards = {
   1: 10,
