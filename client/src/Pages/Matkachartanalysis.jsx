@@ -84,6 +84,54 @@ function formatGameType(gt = "") {
   return gt.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// resultNumber can legitimately be null (bid still "pending", result not
+// declared yet) — never String(null) that, it prints "null" and renders
+// N/U/L/L balls. Use this everywhere resultNumber is rendered.
+function resultDigits(resultNumber) {
+  if (
+    resultNumber === null ||
+    resultNumber === undefined ||
+    resultNumber === ""
+  ) {
+    return null;
+  }
+  return String(resultNumber).split("");
+}
+
+// half-sangam / full-sangam results come as "112-456" — split on the dash
+// first and render each side as its own group of balls, with the dash as a
+// plain text separator (not a ball). Splitting the whole string character-
+// by-character used to turn "-" into a ball and blow the row's width out,
+// causing it to overlap the row below it.
+function ResultCell({ resultNumber }) {
+  if (
+    resultNumber === null ||
+    resultNumber === undefined ||
+    resultNumber === ""
+  ) {
+    return <span className="text-[10px] text-gray-400">Pending</span>;
+  }
+
+  const groups = String(resultNumber).split("-");
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {groups.map((group, gIdx) => (
+        <span key={gIdx} className="flex items-center gap-1">
+          {gIdx > 0 && (
+            <span className="text-gray-300 text-[10px] leading-none">-</span>
+          )}
+          <span className="flex gap-0.5">
+            {group.split("").map((digit, dIdx) => (
+              <ResultBall key={dIdx} n={digit} size="sm" />
+            ))}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function MatkaChartAnalysis() {
   const [activeMarketId, setActiveMarketId] = useState("all");
   const [activeChartTab, setActiveChartTab] = useState("Chart");
@@ -144,7 +192,7 @@ export default function MatkaChartAnalysis() {
 
   // TOP OPEN (jodi / pana) — group by the declared number, count occurrences,
   // take the top 4. Reflects only what's in the currently loaded page of
-  // results (pagination.limit), same as the chart table below.
+  // results (pagination.limit), same as the results table below.
   const buildTopOpen = (digitLen) => {
     const map = new Map();
     rows.forEach((r) => {
@@ -165,24 +213,31 @@ export default function MatkaChartAnalysis() {
     ...(gameTypeStats || []).map((g) => g.count),
   );
 
+  const latestResultDigits = latestRow
+    ? resultDigits(latestRow.resultNumber)
+    : null;
+
   return (
     <div className="min-h-screen bg-white [&_*::-webkit-scrollbar]:hidden [&_*]:[scrollbar-width:none]">
       <div className="max-w-md mx-auto px-3 pb-8 pt-4 space-y-4">
         {/* ===== Header ===== */}
         <div>
           <div className="flex items-center gap-1.5">
-            <Crown className="w-5 h-5 text-amber-500" fill="currentColor" />
-            <h1 className="text-lg font-black text-gray-900 tracking-tight">
+            <Crown
+              className="w-5 h-5 text-amber-500 shrink-0"
+              fill="currentColor"
+            />
+            <h1 className="text-base xs:text-lg font-black text-gray-900 tracking-tight leading-tight">
               MATKA CHART &amp; ANALYSIS
             </h1>
           </div>
-          <p className="text-xs text-gray-400 ml-6.5 pl-0.5">
+          <p className="text-xs text-gray-400 mt-0.5">
             {activeMarketName} Market
           </p>
         </div>
 
         {/* ===== Market selector row (dynamic, from markets[] in publicBid state) ===== */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-3 px-3">
           {marketFilters
             .filter((m) => m._id !== "all")
             .map((m) => (
@@ -213,17 +268,17 @@ export default function MatkaChartAnalysis() {
 
         {/* ===== Market summary card ===== */}
         <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/40 p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <div
-                className="w-10 h-10 rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
+                className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
 border border-[#FFD75A]
-shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center shrink-0"
+shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center"
               >
-                <Landmark className="w-5 h-5 text-white" />
+                <Landmark className="w-4.5 h-4.5 text-white" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-sm font-extrabold text-gray-900 truncate">
                     {activeMarketName.toUpperCase()}{" "}
                     {activeMarketId !== "all" ? "MARKET" : ""}
@@ -232,12 +287,12 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                 </div>
                 <p className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5">
                   {latestRow ? formatDate(latestRow.createdAt) : "—"}
-                  <Calendar className="w-3 h-3 ml-1" />
+                  <Calendar className="w-3 h-3 ml-1 shrink-0" />
                   {latestRow ? formatTime(latestRow.createdAt) : "—"}
                 </p>
               </div>
             </div>
-            <button className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl bg-white border border-amber-300 text-amber-700 text-xs font-bold shadow-sm">
+            <button className="shrink-0 flex items-center gap-1 px-2.5 py-2 rounded-xl bg-white border border-amber-300 text-amber-700 text-[11px] font-bold shadow-sm whitespace-nowrap">
               View Result
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
@@ -245,36 +300,36 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
 
           <div className="bg-white rounded-xl border border-amber-100 grid grid-cols-3 divide-x divide-amber-100 overflow-hidden">
             {/* Last result */}
-            <div className="p-3 flex flex-col items-center">
-              <span className="flex items-center gap-1 text-[10px] font-bold text-gray-500 tracking-wide">
-                <Sparkles className="w-3 h-3 text-amber-400" />
+            <div className="p-2.5 flex flex-col items-center">
+              <span className="flex items-center gap-1 text-[9px] font-bold text-gray-500 tracking-wide text-center">
+                <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
                 LAST RESULT
-                <Sparkles className="w-3 h-3 text-amber-400" />
+                <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
               </span>
-              <div className="flex gap-1.5 mt-2">
-                {latestRow ? (
-                  String(latestRow.resultNumber)
-                    .split("")
-                    .map((digit, i) => (
-                      <ResultBall key={i} n={digit} size="lg" />
-                    ))
+              <div className="flex gap-1 mt-2 flex-wrap justify-center">
+                {latestResultDigits ? (
+                  latestResultDigits.map((digit, i) => (
+                    <ResultBall key={i} n={digit} size="lg" />
+                  ))
                 ) : (
-                  <span className="text-xs text-gray-400 py-2">No data</span>
+                  <span className="text-[11px] text-gray-400 py-3">
+                    {latestRow ? "Pending" : "No data"}
+                  </span>
                 )}
               </div>
-              <div className="mt-3 px-2.5 py-1.5 rounded-lg bg-amber-50 text-center w-full">
+              <div className="mt-3 px-1.5 py-1.5 rounded-lg bg-amber-50 text-center w-full">
                 <p className="text-[9px] text-gray-500 font-semibold">
                   Next Open
                 </p>
-                <p className="text-xs font-extrabold text-gray-900">
+                <p className="text-[11px] font-extrabold text-gray-900 leading-tight">
                   {formatNextOpen(latestRow?.nextOpenDate)}
                 </p>
               </div>
             </div>
 
             {/* Jodi + Pana */}
-            <div className="p-3 flex flex-col items-center">
-              <span className="text-[10px] font-bold text-gray-500 tracking-wide">
+            <div className="p-2.5 flex flex-col items-center">
+              <span className="text-[9px] font-bold text-gray-500 tracking-wide">
                 JODI
               </span>
               <div className="flex gap-1.5 mt-2">
@@ -284,13 +339,13 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
                   <span className="text-xs text-gray-400">—</span>
                 )}
               </div>
-              <span className="text-[10px] font-bold text-gray-500 tracking-wide mt-3">
+              <span className="text-[9px] font-bold text-gray-500 tracking-wide mt-3">
                 PANA
               </span>
               <div
-                className="mt-2 px-3 py-1.5 rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
+                className="mt-2 px-2.5 py-1.5 rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
 border border-[#FFD75A]
-shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black text-sm font-extrabold min-w-[3rem] text-center"
+shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black text-xs font-extrabold min-w-[2.75rem] text-center"
               >
                 {latestPanaRow ? latestPanaRow.resultNumber : "—"}
               </div>
@@ -300,13 +355,13 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                ranges from the reference image, since that concept isn't
                derivable from bid records. Uses the real gameTypeStats the
                API already returns. */}
-            <div className="p-3 flex flex-col">
-              <span className="text-[10px] font-bold text-gray-500 tracking-wide text-center">
+            <div className="p-2.5 flex flex-col">
+              <span className="text-[9px] font-bold text-gray-500 tracking-wide text-center">
                 GAME TYPE
               </span>
-              <div className="mt-2 flex-1 flex flex-col justify-center gap-2.5">
+              <div className="mt-2 flex-1 flex flex-col justify-center gap-2">
                 {(gameTypeStats || []).length === 0 && (
-                  <span className="text-[11px] text-gray-400 text-center">
+                  <span className="text-[10px] text-gray-400 text-center">
                     No data
                   </span>
                 )}
@@ -315,7 +370,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                   return (
                     <div
                       key={g._id}
-                      className="flex items-center justify-between text-xs gap-1"
+                      className="flex items-center justify-between text-[10px] gap-1"
                     >
                       <span className="text-gray-500 font-semibold truncate">
                         {formatGameType(g._id)}
@@ -333,192 +388,203 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
           </div>
         </div>
 
-        {/* ===== Chart table — wired to results[], real fields only ===== */}
-        <div className="rounded-2xl border border-gray-100 shadow-sm p-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-extrabold text-gray-900">
-              MATKA CHART{" "}
-              <span className="font-medium text-gray-400">
-                (Last {rows.length} Results)
-              </span>
-            </p>
-            <button className="flex items-center gap-1 text-[11px] font-semibold text-gray-400">
-              <Info className="w-3.5 h-3.5" />
-              How to Read Chart
+        {/* ===== Chart tabs (was declared but never rendered before) ===== */}
+        <div className="flex items-center gap-4 overflow-x-auto -mx-3 px-3 border-b border-gray-100">
+          {CHART_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveChartTab(tab)}
+              className={`shrink-0 pb-2.5 pt-1 text-xs font-bold whitespace-nowrap border-b-2 transition ${
+                activeChartTab === tab
+                  ? "border-amber-500 text-amber-600"
+                  : "border-transparent text-gray-400"
+              }`}
+            >
+              {tab}
             </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left">
-              <thead>
-                <tr className="text-[10px] font-bold text-gray-400 tracking-wide">
-                  <th className="py-2 pr-2 font-bold">DATE</th>
-                  <th className="py-2 pr-2 font-bold">TIME</th>
-                  {/* <th className="py-2 pr-2 font-bold">GAME TYPE</th> */}
-                  <th className="py-2 pr-2 font-bold">NUMBER</th>
-                  <th className="py-2 pr-2 font-bold">RESULT</th>
-                  <th className="py-2 font-bold">WIN AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="py-6 text-center text-xs text-gray-400"
-                    >
-                      Loading results…
-                    </td>
-                  </tr>
-                )}
-                {error && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="py-6 text-center text-xs text-red-500"
-                    >
-                      {error}
-                    </td>
-                  </tr>
-                )}
-                {!loading && !error && sortedRows.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="py-6 text-center text-xs text-gray-400"
-                    >
-                      No results yet
-                    </td>
-                  </tr>
-                )}
-                {!loading &&
-                  !error &&
-                  sortedRows.map((row, i) => (
-                    <tr key={row._id} className="border-t border-gray-100">
-                      <td className="py-3 pr-2 text-xs text-gray-700 whitespace-nowrap">
-                        {formatDate(row.createdAt)}
-                      </td>
-                      <td className="py-3 pr-2 text-xs text-gray-500 whitespace-nowrap">
-                        {formatTime(row.createdAt)}
-                      </td>
-                      {/* <td className="py-3 pr-2 text-xs font-semibold text-gray-700 whitespace-nowrap">
-                        {formatGameType(row.gameType)}
-                      </td> */}
-                      <td className="py-3 pr-2 text-xs text-gray-500 whitespace-nowrap">
-                        {row.number}
-                      </td>
-                      <td className="py-3 pr-2">
-                        <span className="flex gap-1">
-                          {String(row.resultNumber)
-                            .split("")
-                            .map((digit, idx) => (
-                              <ResultBall key={idx} n={digit} size="sm" />
-                            ))}
-                        </span>
-                      </td>
-                      <td className="py-3 text-xs font-extrabold text-emerald-600 whitespace-nowrap">
-                        {row.winAmount ? formatINR(row.winAmount) : "—"}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+          ))}
         </div>
 
-        {/* ===== Number Frequency + Top Open — all derived from rows[] ===== */}
-        <div className="grid grid-cols-1 gap-4">
-          <div className="rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-1.5 mb-3">
-              <BarChart3 className="w-4 h-4 text-gray-700" />
-              <h3 className="text-xs font-extrabold text-gray-900 tracking-tight">
-                NUMBER FREQUENCY
-              </h3>
-            </div>
-            <div className="space-y-2.5">
-              {numberFrequency.map((f) => (
-                <div key={f.n} className="flex items-center gap-2.5">
-                  <span className="w-3 text-xs font-bold text-gray-700 shrink-0">
-                    {f.n}
-                  </span>
-                  <div className="flex-1 h-2.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-500"
-                      style={{ width: `${(f.times / maxFrequency) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-[11px] text-gray-500 font-semibold w-14 text-right shrink-0">
-                    {f.times} Times
-                  </span>
-                </div>
-              ))}
-            </div>
+        {activeChartTab !== "Chart" ? (
+          <div className="rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
+            <p className="text-sm font-bold text-gray-700">{activeChartTab}</p>
+            <p className="text-xs text-gray-400 mt-1">Coming soon</p>
           </div>
-
-          <div className="rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-1.5 mb-3">
-              <Star className="w-4 h-4 text-amber-500" fill="currentColor" />
-              <h3 className="text-xs font-extrabold text-gray-900 tracking-tight">
-                JODI TOP OPEN
-              </h3>
-            </div>
-            {jodiTopOpen.length === 0 ? (
-              <p className="text-[11px] text-gray-400 mb-3">
-                No jodi results in this range
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                {jodiTopOpen.map((j) => (
-                  <div key={j.n} className="flex items-center gap-2">
-                    <ResultBall n={j.n} size="lg" />
-                    <span className="text-[11px] text-gray-500 font-semibold">
-                      {j.times} Times
-                    </span>
-                  </div>
-                ))}
+        ) : (
+          <>
+            {/* ===== Results — real table, no horizontal scroll ===== */}
+            <div className="rounded-2xl border border-gray-100 shadow-sm p-3">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <p className="text-xs font-extrabold text-gray-900">
+                  MATKA CHART{" "}
+                  <span className="font-medium text-gray-400">
+                    (Last {rows.length} Results)
+                  </span>
+                </p>
+                <button className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-gray-400 whitespace-nowrap">
+                  <Info className="w-3.5 h-3.5" />
+                  How to Read
+                </button>
               </div>
-            )}
-            <button className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-amber-300 text-amber-700 text-xs font-bold">
-              View All Jodi Chart
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
 
-          <div className="rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center gap-1.5 mb-3">
-              <Crown className="w-4 h-4 text-amber-500" fill="currentColor" />
-              <h3 className="text-xs font-extrabold text-gray-900 tracking-tight">
-                PANA TOP OPEN
-              </h3>
+              {loading && (
+                <div className="py-6 text-center text-xs text-gray-400">
+                  Loading results…
+                </div>
+              )}
+              {error && (
+                <div className="py-6 text-center text-xs text-red-500">
+                  {error}
+                </div>
+              )}
+              {!loading && !error && sortedRows.length === 0 && (
+                <div className="py-6 text-center text-xs text-gray-400">
+                  No results yet
+                </div>
+              )}
+              {!loading && !error && sortedRows.length > 0 && (
+                <table className="w-full table-fixed border-collapse">
+                  <thead>
+                    <tr className="text-[9px] font-bold text-gray-400 tracking-wide border-b border-gray-100">
+                      <th className="py-2 pr-1 text-left font-bold w-[34%]">
+                        DATE
+                      </th>
+                      <th className="py-2 pr-1 text-left font-bold">RESULT</th>
+                      <th className="py-2 text-right font-bold w-[24%]">WIN</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedRows.map((row) => (
+                      <tr
+                        key={row._id}
+                        className="border-b border-gray-50 last:border-0 align-top"
+                      >
+                        <td className="py-2.5 pr-1">
+                          <p className="text-[11px] font-semibold text-gray-700 leading-tight">
+                            {formatDate(row.createdAt)}
+                          </p>
+                          <p className="text-[10px] text-gray-400 leading-tight truncate">
+                            {formatTime(row.createdAt)} · No.{row.number}
+                          </p>
+                        </td>
+                        <td className="py-2.5 pr-1">
+                          <ResultCell resultNumber={row.resultNumber} />
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <span className="text-[11px] font-extrabold text-emerald-600 leading-tight break-words">
+                            {row.winAmount ? formatINR(row.winAmount) : "—"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
-            {panaTopOpen.length === 0 ? (
-              <p className="text-[11px] text-gray-400 mb-3">
-                No pana results in this range
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                {panaTopOpen.map((p) => (
-                  <div key={p.n} className="flex items-center gap-2">
-                    <span
-                      className="px-2.5 py-1.5 rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
+
+            {/* ===== Number Frequency + Top Open — all derived from rows[] ===== */}
+            <div className="grid grid-cols-1 gap-4">
+              <div className="rounded-2xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <BarChart3 className="w-4 h-4 text-gray-700" />
+                  <h3 className="text-xs font-extrabold text-gray-900 tracking-tight">
+                    NUMBER FREQUENCY
+                  </h3>
+                </div>
+                <div className="space-y-2.5">
+                  {numberFrequency.map((f) => (
+                    <div key={f.n} className="flex items-center gap-2.5">
+                      <span className="w-3 text-xs font-bold text-gray-700 shrink-0">
+                        {f.n}
+                      </span>
+                      <div className="flex-1 h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-amber-300 to-amber-500"
+                          style={{
+                            width: `${(f.times / maxFrequency) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[11px] text-gray-500 font-semibold w-14 text-right shrink-0">
+                        {f.times} Times
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Star
+                    className="w-4 h-4 text-amber-500"
+                    fill="currentColor"
+                  />
+                  <h3 className="text-xs font-extrabold text-gray-900 tracking-tight">
+                    JODI TOP OPEN
+                  </h3>
+                </div>
+                {jodiTopOpen.length === 0 ? (
+                  <p className="text-[11px] text-gray-400 mb-3">
+                    No jodi results in this range
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    {jodiTopOpen.map((j) => (
+                      <div key={j.n} className="flex items-center gap-2">
+                        <ResultBall n={j.n} size="lg" />
+                        <span className="text-[11px] text-gray-500 font-semibold">
+                          {j.times} Times
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-amber-300 text-amber-700 text-xs font-bold">
+                  View All Jodi Chart
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="rounded-2xl border border-gray-100 shadow-sm p-4">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Crown
+                    className="w-4 h-4 text-amber-500"
+                    fill="currentColor"
+                  />
+                  <h3 className="text-xs font-extrabold text-gray-900 tracking-tight">
+                    PANA TOP OPEN
+                  </h3>
+                </div>
+                {panaTopOpen.length === 0 ? (
+                  <p className="text-[11px] text-gray-400 mb-3">
+                    No pana results in this range
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    {panaTopOpen.map((p) => (
+                      <div key={p.n} className="flex items-center gap-2">
+                        <span
+                          className="px-2.5 py-1.5 rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
 border border-[#FFD75A]
 shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] border-amber-400/60 text-black text-xs font-extrabold shrink-0"
-                    >
-                      {p.n}
-                    </span>
-                    <span className="text-[11px] text-gray-500 font-semibold">
-                      {p.times} Times
-                    </span>
+                        >
+                          {p.n}
+                        </span>
+                        <span className="text-[11px] text-gray-500 font-semibold">
+                          {p.times} Times
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+                <button className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-amber-300 text-amber-700 text-xs font-bold">
+                  View All Pana Chart
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
-            )}
-            <button className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-amber-300 text-amber-700 text-xs font-bold">
-              View All Pana Chart
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
+            </div>
+          </>
+        )}
 
         {/* ===== Upgrade banner (static, no data dependency) ===== */}
         <div className="rounded-2xl bg-gradient-to-r from-[#2a0e4d] via-[#3d1466] to-[#1a0a33] p-4 flex items-center justify-between gap-3">

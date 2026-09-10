@@ -52,8 +52,7 @@ api.interceptors.request.use(
     // NO CACHE
     // =================================================
 
-    config.headers["Cache-Control"] =
-      "no-cache, no-store, must-revalidate";
+    config.headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
 
     config.headers.Pragma = "no-cache";
 
@@ -71,7 +70,7 @@ api.interceptors.request.use(
     return config;
   },
 
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // =====================================================
@@ -85,8 +84,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Ignore guest profile checks
 
-      const isProfileCheck =
-        error.config?.url?.includes("/auth/profile");
+      const isProfileCheck = error.config?.url?.includes("/auth/profile");
 
       if (
         !isProfileCheck &&
@@ -98,7 +96,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 // =====================================================
@@ -106,6 +104,6 @@ api.interceptors.response.use(
 // =====================================================
 
 // const host = "http://localhost:5007";
-const host="/"
+const host = "/";
 
 export { api, host };
