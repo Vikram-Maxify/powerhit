@@ -1048,7 +1048,7 @@ const Wingo = () => {
                   key={i}
                   type="button"
                   onClick={() => selectBetHandle(i)}
-                  className={`flex items-center justify-center rounded-xl border border-[#e3c67c]/70 bg-white p-2.5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#f2c85b] hover:shadow-[0_4px_12px_rgba(220,164,39,.25)] active:scale-95 ${
+                  className={`flex items-center justify-center rounded-xl bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-[#f2c85b] hover:shadow-[0_4px_12px_rgba(220,164,39,.25)] active:scale-95 ${
                     animate ? "animate-bounce" : ""
                   }`}
                   style={{ animationDelay: `${i * 0.06}s` }}
@@ -1056,7 +1056,7 @@ const Wingo = () => {
                   <img
                     src={item}
                     alt={i}
-                    className="h-8 w-8 object-contain sm:h-9 sm:w-9"
+                    className="h-16 w-16 object-contain sm:h-9 sm:w-9"
                   />
                 </button>
               ))}
