@@ -13,8 +13,8 @@ import {
   Key,
   LogIn,
   LogOut,
-  Menu,
   MessageCircle,
+  Plus,
   PlusCircle,
   PowerIcon,
   Sparkles,
@@ -163,6 +163,24 @@ const Navbar = ({ children }) => {
   const getUserDisplayName = () => {
     if (!user) return "User";
     return user.name || user.username || "User";
+  };
+
+  const walletBalance = user?.balance;
+  const getCurrencySymbol = () => {
+    const country = String(user?.country || "")
+      .trim()
+      .toUpperCase();
+
+    const currencyMap = {
+      IN: "₹", // India - INR
+      AU: "A$", // Australia - AUD
+      NP: "रू", // Nepal - NPR
+      AE: "د.إ", // UAE - AED
+      BD: "৳", // Bangladesh - BDT
+      PK: "₨", // Pakistan - PKR
+    };
+
+    return currencyMap[country] || "₹";
   };
 
   const getUserSubtitle = () => {
@@ -414,39 +432,47 @@ const Navbar = ({ children }) => {
       <div className="md:ml-72 flex flex-col min-h-screen bg-gradient-to-b from-gray-50 to-white">
         {/* ================= TOP NAVBAR ================= */}
         <div className="h-16 border-b border-white/40 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shadow-lg shadow-gray-100/50 transform-gpu">
-          <div className="h-full flex items-center px-4 sm:px-6">
-            {/* Left - Menu Button & Logo */}
+          <div className="h-full flex items-center justify-between px-4 sm:px-6">
+            {/* ================= LEFT - LOGO ================= */}
             <div className="flex items-center gap-2 md:gap-4">
-              {/* Mobile Menu Button */}
-              <button
-                ref={menuButtonRef}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsSidebarOpen(!isSidebarOpen);
-                }}
-                className="md:hidden text-gray-700 hover:text-yellow-500 transition-all duration-500 p-2 -ml-2 hover:bg-gradient-to-r hover:from-yellow-50/60 hover:to-orange-50/60 rounded-2xl transform-gpu hover:scale-110 hover:rotate-y-6 [transform-style:preserve-3d]"
-                aria-label="Toggle menu"
-              >
-                <Menu size={22} />
-              </button>
-
-              {/* Logo - Always Left Aligned */}
               <Link
                 to="/"
                 className="flex items-center transform-gpu hover:scale-105 transition-all duration-500"
               >
-                <WinzoxLogo className="h-12 md:h-10" />
+                <WinzoxLogo className="h-[5rem] md:h-10" />
               </Link>
             </div>
 
-            {/* Center - Empty for spacing */}
-            <div className="flex-1"></div>
-
-            {/* Right - Login & Register Buttons */}
+            {/* ================= RIGHT - WALLET + ACCOUNT ================= */}
             <div className="flex items-center gap-2">
+              {/* Wallet Balance */}
+              {isAuthenticated && (
+                <Link
+                  to="/wallet"
+                  className="flex items-center gap-1.5 rounded-xl border border-[#d9aa3d]/40 bg-gradient-to-b from-[#fffdf5] to-[#fff7df] px-2.5 py-1.5 shadow-sm transition-all duration-300 hover:shadow-md hover:border-[#d9aa3d]/70"
+                >
+                  <Wallet
+                    size={17}
+                    strokeWidth={2.2}
+                    className="text-[#b27a16]"
+                  />
+
+                  <span className="text-xs font-bold text-[#5f4a2c] sm:text-sm">
+                    {getCurrencySymbol()}
+                    {Number(walletBalance || 0).toFixed(2)}
+                  </span>
+
+                  {/* Plus Button */}
+                  <span className="ml-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] text-black shadow-[inset_0_1px_2px_rgba(255,255,255,0.9),0_2px_5px_rgba(210,145,0,0.35)] transition-transform duration-300 hover:scale-110">
+                    <Plus size={15} strokeWidth={3} />
+                  </span>
+                </Link>
+              )}
+
+              {/* ================= AUTHENTICATED USER ================= */}
               {isAuthenticated ? (
                 <>
-                  {/* Desktop Avatar/Name */}
+                  {/* Desktop Avatar + Name */}
                   <Link
                     to="/account"
                     className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl text-black hover:shadow-2xl transition-all duration-500"
@@ -461,12 +487,13 @@ const Navbar = ({ children }) => {
                         )}&background=FBBF24&color=fff&size=128`;
                       }}
                     />
+
                     <span className="text-sm font-bold">
                       {getUserDisplayName()}
                     </span>
                   </Link>
 
-                  {/* Mobile Avatar only */}
+                  {/* Mobile Avatar */}
                   <Link to="/account" className="md:hidden flex items-center">
                     <img
                       src={getAvatar()}
@@ -482,22 +509,27 @@ const Navbar = ({ children }) => {
                 </>
               ) : (
                 <>
+                  {/* Login */}
                   <Link
                     to="/login"
                     className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-gray-400 text-black text-sm"
                   >
                     <LogIn size={16} />
+
                     <span className="hidden sm:inline">LOGIN</span>
+
                     <span className="sm:hidden">Login</span>
                   </Link>
+
+                  {/* Register */}
                   <Link
                     to="/register"
-                    className="flex ml-3 items-center gap-1.5 px-2 py-1.5 rounded-lg bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
-border border-[#FFD75A]
-shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black text-sm"
+                    className="flex ml-3 items-center gap-1.5 px-2 py-1.5 rounded-lg bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black text-sm"
                   >
                     <UserPlus size={16} />
+
                     <span className="hidden sm:inline">REGISTER</span>
+
                     <span className="sm:hidden">Register</span>
                   </Link>
                 </>
@@ -655,161 +687,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
       </div>
 
       {/* ================= MOBILE SIDEBAR ================= */}
-      <div
-        className={`fixed inset-0 z-50 md:hidden transition-all duration-500 ${
-          isSidebarOpen ? "opacity-100 visible" : "opacity-0 invisible"
-        }`}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setIsSidebarOpen(false);
-          }
-        }}
-      >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
-        <div
-          ref={sidebarRef}
-          className={`fixed left-0 top-0 h-full w-80 bg-white/95 backdrop-blur-xl shadow-2xl transform transition-all duration-500 ease-out ${
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } perspective-1000`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex flex-col h-full transform-gpu hover:rotate-y-2 transition-all duration-700 [transform-style:preserve-3d]">
-            {/* Header */}
-            <div className="flex items-center justify-center p-4 border-b border-white/40 bg-gradient-to-r from-yellow-50/40 to-orange-50/40">
-              <Link
-                to="/"
-                onClick={() => setIsSidebarOpen(false)}
-                className="transform-gpu hover:scale-105 hover:rotate-y-6 transition-all duration-500 [transform-style:preserve-3d]"
-              >
-                <WinzoxLogo className="h-16" />
-              </Link>
-            </div>
-
-            {/* Tagline */}
-            <div className="px-4 py-2 mx-4 mt-2 bg-white/60 rounded-2xl border border-gray-200/50 shadow-lg">
-              <div className="flex items-center justify-center gap-2 text-[10px] text-gray-700 tracking-widest font-bold">
-                <Sparkles
-                  size={10}
-                  className="text-yellow-500 animate-sparkle"
-                />
-                <span className="text-gray-700">PLAY • WIN • REPEAT</span>
-                <Sparkles
-                  size={10}
-                  className="text-yellow-500 animate-sparkle"
-                />
-              </div>
-            </div>
-
-            {/* User Info */}
-            {isAuthenticated && user && (
-              <div className="px-4 py-4 border-b border-white/40 bg-gradient-to-r from-yellow-50/30 to-orange-50/30">
-                <Link
-                  to="/account"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="flex items-center gap-3 group"
-                >
-                  <img
-                    src={getAvatar()}
-                    alt={getUserDisplayName()}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-yellow-400 shadow-lg transform-gpu group-hover:scale-110 group-hover:rotate-y-6 transition-all duration-500 [transform-style:preserve-3d]"
-                    onError={(e) => {
-                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        getUserDisplayName(),
-                      )}&background=FBBF24&color=fff&size=128`;
-                    }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">
-                      {getUserDisplayName()}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {getUserSubtitle()}
-                    </p>
-                  </div>
-                  <ChevronRight
-                    size={16}
-                    className="text-gray-400 group-hover:text-yellow-500 transition-colors"
-                  />
-                </Link>
-              </div>
-            )}
-
-            {/* Navigation */}
-            <div className="px-3 py-4 overflow-y-auto h-[calc(100%-14rem)] scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
-              <div className="space-y-1.5">
-                {menuItems.map((item, index) => (
-                  <Link
-                    key={index}
-                    to={item.path}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-all duration-500 [transform-style:preserve-3d] ${
-                      isActiveRoute(item.path)
-                        ? "bg-gradient-to-r from-yellow-400/20 to-orange-400/20 text-yellow-600 border border-yellow-200/30 transform-gpu scale-105 shadow-lg shadow-yellow-500/15"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-yellow-50/60 hover:to-orange-50/60 transform-gpu hover:translate-x-2 hover:scale-105"
-                    }`}
-                  >
-                    <item.icon
-                      size={20}
-                      className={
-                        isActiveRoute(item.path)
-                          ? "text-yellow-500"
-                          : "text-gray-400"
-                      }
-                    />
-                    <span className="text-sm font-bold">{item.label}</span>
-                    {isActiveRoute(item.path) && (
-                      <ChevronRight
-                        size={16}
-                        className="ml-auto text-yellow-500"
-                      />
-                    )}
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="absolute bottom-0 left-0 w-full border-t border-white/40 p-4 bg-gradient-to-b from-gray-50/30 to-white/30">
-              {isAuthenticated ? (
-                <button
-                  onClick={handleLogout}
-                  disabled={loading}
-                  className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-gray-600 hover:text-red-500 hover:bg-gradient-to-r hover:from-red-50/60 hover:to-red-50/30 w-full transition-all duration-500 disabled:opacity-50 transform-gpu hover:scale-105 [transform-style:preserve-3d]"
-                >
-                  <LogOut size={20} />
-                  {loading ? (
-                    <span className="flex items-center gap-2">
-                      <Circle className="animate-spin" size={16} />
-                      Logging out...
-                    </span>
-                  ) : (
-                    "Logout"
-                  )}
-                </button>
-              ) : (
-                <div className="space-y-2.5">
-                  <Link
-                    to="/login"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="flex items-center gap-3 rounded-2xl px-4 py-3.5 text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-yellow-50/60 hover:to-orange-50/60 transition-all duration-500 transform-gpu hover:translate-x-2 [transform-style:preserve-3d]"
-                  >
-                    <LogIn size={20} className="text-gray-400" />
-                    Login
-                  </Link>
-                  <Link
-                    to="/register"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 bg-gradient-to-r from-yellow-400 via-orange-400 to-orange-500 text-black font-bold hover:shadow-2xl hover:shadow-yellow-500/40 transition-all duration-500 transform-gpu hover:scale-105 [transform-style:preserve-3d]"
-                  >
-                    <UserPlus size={20} />
-                    Register Now
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
 
       <style>{`
         .bg-surface {

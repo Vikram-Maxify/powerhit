@@ -153,14 +153,16 @@ const Wingo = () => {
   const getRandomNumbers = (length, max) =>
     Array.from({ length }, () => Math.floor(Math.random() * max) + 1);
 
-  const getColorClass = (value, type = "bg") => {
-    const map = {
-      0: `${type}-red-voilet`,
-      5: `${type}-green-voilet`,
-    };
-    if (map[value]) return map[value];
-    const isGreen = [1, 3, 7, 9].includes(value);
-    return isGreen ? `${type}-green` : `${type}-red-200`;
+  const getColorClass = (value, type = "text") => {
+    if ([1, 3, 7, 9].includes(Number(value))) {
+      return `${type}-green-600`;
+    }
+
+    if ([2, 4, 6, 8].includes(Number(value))) {
+      return `${type}-red-600`;
+    }
+
+    return "";
   };
 
   const getBetLabel = (bet) => {

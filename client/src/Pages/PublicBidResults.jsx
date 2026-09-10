@@ -35,17 +35,10 @@ const LiveResults = () => {
   const liveMarkets = results.slice(0, 5);
 
   return (
-    <div className="bg-gradient-to-b from-amber-50/50 via-white to-white px-3 py-4">
+    <div className="bg-gradient-to-b from-amber-50/50 via-white to-white px-3 py-2">
       <div className="max-w-md mx-auto rounded-2xl border border-amber-200 shadow-sm bg-white overflow-hidden">
-        {/* Top dots indicator */}
-        <div className="flex justify-center gap-1 pt-3">
-          <span className="w-1 h-1 rounded-full bg-gray-300" />
-          <span className="w-1 h-1 rounded-full bg-gray-300" />
-          <span className="w-1 h-1 rounded-full bg-gray-300" />
-        </div>
-
         {/* Live Results Banner */}
-        <div className="flex justify-center -mt-2 mb-1 z-50">
+        {/* <div className="flex justify-center -mt-2 mb-1 z-50">
           <div className="flex items-center gap-1.5 bg-black px-5 py-2 rounded-full shadow-md">
             <span className="text-sm">🔥</span>
             <span
@@ -55,7 +48,7 @@ const LiveResults = () => {
               LIVE RESULTS
             </span>
           </div>
-        </div>
+        </div> */}
 
         <div className="px-4 pt-4 pb-2">
           {/* Matka Header */}
@@ -101,7 +94,7 @@ const LiveResults = () => {
               {liveMarkets.map((bid) => (
                 <div
                   key={bid._id}
-                  className="min-w-[100px] shrink-0 snap-start border border-gray-100 rounded-xl px-2.5 py-2.5 text-center"
+                  className="min-w-[100px] shrink-0 snap-start border border-gray-100 rounded-xl px-1 py-0.5 text-center"
                 >
                   {/* Market name — highlighted at top */}
                   <p className="text-[11px] font-bold text-amber-600 uppercase truncate">
@@ -109,9 +102,9 @@ const LiveResults = () => {
                   </p>
 
                   {/* Game type — small badge below market name */}
-                  <span className="inline-block text-[9px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full mt-1 mb-1">
+                  {/* <span className="inline-block text-[9px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full mt-1 mb-1">
                     {getGameTypeLabel(bid.gameType)}
-                  </span>
+                  </span> */}
 
                   <p className="text-[10px] text-gray-400 mb-1.5">
                     {format(new Date(bid.createdAt), "hh:mm a")}
