@@ -64,17 +64,23 @@ const AdminMarkets = () => {
   const [filterStatus, setFilterStatus] =
     useState("");
 
-  const [formData, setFormData] = useState({
-    name: "",
-    marketId: "",
-    digitType: "",
+  const emptyMarketDay = () => ({
+    marketDate: new Date().toISOString().slice(0, 10),
     openTime: "",
     closeTime: "",
     resultTime: "",
     minBid: "",
     maxBid: "",
+    isActive: true,
+  });
+
+  const [formData, setFormData] = useState({
+    name: "",
+    marketId: "",
+    digitType: "",
     description: "",
     image: null,
+    marketDay: emptyMarketDay(),
   });
 
   const [imagePreview, setImagePreview] =
@@ -194,7 +200,7 @@ const AdminMarkets = () => {
   ]);
 
   // ======================================================
-  // INPUT CHANGE
+  // INPUT CHANGE (top-level fields)
   // ======================================================
 
   const handleInputChange = (
@@ -208,6 +214,21 @@ const AdminMarkets = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  // ======================================================
+  // INPUT CHANGE (nested marketDay fields)
+  // ======================================================
+
+  const handleDayInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      marketDay: {
+        ...prev.marketDay,
+        [name]: value,
+      },
     }));
   };
 
@@ -268,6 +289,49 @@ const AdminMarkets = () => {
   };
 
   // ======================================================
+  // MARKET DAY HELPERS
+  // ======================================================
+
+  const getMarketDays = (market) =>
+    Array.isArray(market?.marketArray) ? market.marketArray : [];
+
+  const getPrimaryMarketDay = (market) => {
+    const days = getMarketDays(market);
+    return days.length ? days[0] : null;
+  };
+
+  const formatDate = (value) => {
+    if (!value) return "";
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  };
+
+  const normalizeDayForPayload = (day) => {
+    const minBid =
+      day.minBid === "" || day.minBid == null
+        ? 10
+        : Number(day.minBid);
+
+    const maxBid =
+      day.maxBid === "" || day.maxBid == null
+        ? 10000
+        : Number(day.maxBid);
+
+    return {
+      marketDate: formatDate(day.marketDate),
+      openTime: day.openTime ?? "",
+      closeTime: day.closeTime ?? "",
+      resultTime: day.resultTime ?? "",
+      minBid: Number.isFinite(minBid) ? minBid : 10,
+      maxBid: Number.isFinite(maxBid) ? maxBid : 10000,
+      isActive: day.isActive !== false,
+    };
+  };
+
+  // ======================================================
   // SUBMIT
   // ======================================================
 
@@ -308,126 +372,44 @@ const AdminMarkets = () => {
         return;
       }
 
-      if (!formData.openTime) {
-        alert(
-          "Open time is required."
-        );
+      // Timing fields are optional. They are stored inside marketDay.
+      // Do not validate them here because blank values are allowed.
+      // ==================================================
+      // MARKET DATA
+      // ==================================================
+
+      const day = normalizeDayForPayload(formData.marketDay);
+
+      if (!day.marketDate) {
+        alert("Market date is required.");
         return;
       }
 
-      if (!formData.closeTime) {
-        alert(
-          "Close time is required."
-        );
-        return;
-      }
+      const data = new FormData();
 
-      if (
-        !formData.resultTime
-      ) {
-        alert(
-          "Result time is required."
-        );
-        return;
+      data.append("name", formData.name.trim());
+      data.append("marketId", formData.marketId.trim());
+      data.append("digitType", formData.digitType);
+      data.append("description", formData.description?.trim() || "");
+      data.append("marketArray", JSON.stringify([day]));
+
+      if (formData.image instanceof File) {
+        data.append("image", formData.image);
       }
 
       // ==================================================
-      // FORM DATA
-      // ==================================================
-
-      const data =
-        new FormData();
-
-      data.append(
-        "name",
-        formData.name.trim()
-      );
-
-      data.append(
-        "marketId",
-        formData.marketId.trim()
-      );
-
-      // ONLY DIGIT TYPE
-      data.append(
-        "digitType",
-        formData.digitType
-      );
-
-      data.append(
-        "openTime",
-        formData.openTime
-      );
-
-      data.append(
-        "closeTime",
-        formData.closeTime
-      );
-
-      data.append(
-        "resultTime",
-        formData.resultTime
-      );
-
-      data.append(
-        "minBid",
-        String(
-          Number(
-            formData.minBid
-          ) || 10
-        )
-      );
-
-      data.append(
-        "maxBid",
-        String(
-          Number(
-            formData.maxBid
-          ) || 10000
-        )
-      );
-
-      data.append(
-        "description",
-        formData.description?.trim() ||
-          ""
-      );
-
-      // ==================================================
-      // IMAGE
-      // ==================================================
-
-      if (
-        formData.image instanceof
-        File
-      ) {
-        data.append(
-          "image",
-          formData.image
-        );
-      }
-
-      // ==================================================
-      // UPDATE
+      // UPDATE / CREATE
       // ==================================================
 
       if (editingMarket) {
         await dispatch(
           updateMarket({
-            marketId:
-              editingMarket._id,
+            marketId: editingMarket._id,
             updates: data,
           })
         ).unwrap();
-      }
-
-      // ==================================================
-      // CREATE
-      // ==================================================
-      else {
-        await dispatch(
-          createMarket(data)
-        ).unwrap();
+      } else {
+        await dispatch(createMarket(data)).unwrap();
       }
 
       // ==================================================
@@ -453,59 +435,34 @@ const AdminMarkets = () => {
   // EDIT MARKET
   // ======================================================
 
-  const handleEdit = (
-    market
-  ) => {
-    setEditingMarket(
-      market
-    );
+  const handleEdit = (market) => {
+    const day = getPrimaryMarketDay(market);
 
+    setEditingMarket(market);
     setFormData({
-      name:
-        market.name || "",
-
-      marketId:
-        market.marketId || "",
-
-      digitType:
-        market.digitType || "",
-
-      openTime:
-        market.openTime || "",
-
-      closeTime:
-        market.closeTime || "",
-
-      resultTime:
-        market.resultTime || "",
-
-      minBid:
-        market.minBid ?? "",
-
-      maxBid:
-        market.maxBid ?? "",
-
-      description:
-        typeof market.description ===
-        "string"
-          ? market.description
-          : "",
-
+      name: market.name || "",
+      marketId: market.marketId || "",
+      digitType: market.digitType || "",
+      description: typeof market.description === "string"
+        ? market.description
+        : "",
       image: null,
+      marketDay: {
+        marketDate: formatDate(day?.marketDate) || new Date().toISOString().slice(0, 10),
+        openTime: day?.openTime || "",
+        closeTime: day?.closeTime || "",
+        resultTime: day?.resultTime || "",
+        minBid: day?.minBid ?? "",
+        maxBid: day?.maxBid ?? "",
+        isActive: day?.isActive !== false,
+      },
     });
 
-    if (
-      typeof market.image ===
-        "string" &&
-      market.image.trim()
-    ) {
-      setImagePreview(
-        market.image
-      );
-    } else {
-      setImagePreview("");
-    }
-
+    setImagePreview(
+      typeof market.image === "string" && market.image.trim()
+        ? market.image
+        : ""
+    );
     setShowModal(true);
   };
 
@@ -516,14 +473,15 @@ const AdminMarkets = () => {
   const handleToggleStatus =
     async (
       marketId,
-      isActive
+      isActive,
+      marketDayId
     ) => {
       try {
         await dispatch(
           toggleMarketStatus({
             marketId,
-            isActive:
-              !isActive,
+            isActive: !isActive,
+            ...(marketDayId ? { marketDayId } : {}),
           })
         ).unwrap();
 
@@ -582,23 +540,15 @@ const AdminMarkets = () => {
 
   const closeModal = () => {
     setShowModal(false);
-
     setEditingMarket(null);
-
     setFormData({
       name: "",
-      marketId:
-        generateMarketId(),
+      marketId: generateMarketId(),
       digitType: "",
-      openTime: "",
-      closeTime: "",
-      resultTime: "",
-      minBid: "",
-      maxBid: "",
       description: "",
       image: null,
+      marketDay: emptyMarketDay(),
     });
-
     setImagePreview("");
   };
 
@@ -608,23 +558,15 @@ const AdminMarkets = () => {
 
   const openCreateModal = () => {
     setEditingMarket(null);
-
     setFormData({
       name: "",
-      marketId:
-        generateMarketId(),
+      marketId: generateMarketId(),
       digitType: "",
-      openTime: "",
-      closeTime: "",
-      resultTime: "",
-      minBid: "",
-      maxBid: "",
       description: "",
       image: null,
+      marketDay: emptyMarketDay(),
     });
-
     setImagePreview("");
-
     setShowModal(true);
   };
 
@@ -694,12 +636,13 @@ const AdminMarkets = () => {
             searchValue
           );
 
+        const day = getPrimaryMarketDay(market);
+
         const matchStatus =
           filterStatus
-            ? filterStatus ===
-              "active"
-              ? market.isActive
-              : !market.isActive
+            ? filterStatus === "active"
+              ? day?.isActive !== false
+              : day?.isActive === false
             : true;
 
         return (
@@ -887,7 +830,9 @@ const AdminMarkets = () => {
 
               <tbody className="divide-y divide-gray-100">
                 {filteredMarkets.map(
-                  (market) => (
+                  (market) => {
+                    const day = getPrimaryMarketDay(market);
+                    return (
                     <tr
                       key={
                         market._id
@@ -1010,20 +955,14 @@ const AdminMarkets = () => {
 
                       <td className="px-4 py-3 text-sm text-gray-600">
                         <div>
-                          {
-                            market.openTime
-                          }{" "}
+                          {day?.openTime || "--"}{" "}
                           -{" "}
-                          {
-                            market.closeTime
-                          }
+                          {day?.closeTime || "--"}
                         </div>
 
                         <div className="text-xs text-gray-400 mt-1">
                           Result:{" "}
-                          {
-                            market.resultTime
-                          }
+                          {day?.resultTime || "--"}
                         </div>
                       </td>
 
@@ -1031,13 +970,9 @@ const AdminMarkets = () => {
 
                       <td className="px-4 py-3 text-sm text-gray-600">
                         ₹
-                        {
-                          market.minBid
-                        }{" "}
+                        {day?.minBid ?? 10}{" "}
                         - ₹
-                        {
-                          market.maxBid
-                        }
+                        {day?.maxBid ?? 10000}
                       </td>
 
                       {/* STATUS */}
@@ -1045,12 +980,12 @@ const AdminMarkets = () => {
                       <td className="px-4 py-3">
                         <span
                           className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                            market.isActive
+                            day?.isActive !== false
                               ? "bg-green-100 text-green-700"
                               : "bg-red-100 text-red-700"
                           }`}
                         >
-                          {market.isActive
+                          {day?.isActive !== false
                             ? "Active"
                             : "Inactive"}
                         </span>
@@ -1061,12 +996,12 @@ const AdminMarkets = () => {
                       <td className="px-4 py-3">
                         <span
                           className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                            market.isResultDeclared
+                            day?.isResultDeclared === true
                               ? "bg-blue-100 text-blue-700"
                               : "bg-yellow-100 text-yellow-700"
                           }`}
                         >
-                          {market.isResultDeclared
+                          {day?.isResultDeclared === true
                             ? "Declared"
                             : "Pending"}
                         </span>
@@ -1098,16 +1033,17 @@ const AdminMarkets = () => {
                             onClick={() =>
                               handleToggleStatus(
                                 market._id,
-                                market.isActive
+                                day?.isActive !== false,
+                                day?._id
                               )
                             }
                             className={`p-1.5 rounded-lg transition ${
-                              market.isActive
+                              day?.isActive !== false
                                 ? "text-red-600 hover:bg-red-50"
                                 : "text-green-600 hover:bg-green-50"
                             }`}
                             title={
-                              market.isActive
+                              day?.isActive !== false
                                 ? "Deactivate"
                                 : "Activate"
                             }
@@ -1138,7 +1074,8 @@ const AdminMarkets = () => {
                         </div>
                       </td>
                     </tr>
-                  )
+                    );
+                  }
                 )}
               </tbody>
             </table>
@@ -1290,6 +1227,25 @@ const AdminMarkets = () => {
                   </p>
                 </div>
 
+                {/* MARKET DATE */}
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Market Date *
+                  </label>
+                  <input
+                    type="date"
+                    name="marketDate"
+                    value={formData.marketDay.marketDate}
+                    onChange={handleDayInputChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Timing, bid limits and status are stored for this date.
+                  </p>
+                </div>
+
                 {/* OPEN TIME */}
 
                 <div>
@@ -1301,10 +1257,10 @@ const AdminMarkets = () => {
                     type="time"
                     name="openTime"
                     value={
-                      formData.openTime
+                      formData.marketDay.openTime
                     }
                     onChange={
-                      handleInputChange
+                      handleDayInputChange
                     }
                     required
                     className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -1322,10 +1278,10 @@ const AdminMarkets = () => {
                     type="time"
                     name="closeTime"
                     value={
-                      formData.closeTime
+                      formData.marketDay.closeTime
                     }
                     onChange={
-                      handleInputChange
+                      handleDayInputChange
                     }
                     required
                     className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -1343,10 +1299,10 @@ const AdminMarkets = () => {
                     type="time"
                     name="resultTime"
                     value={
-                      formData.resultTime
+                      formData.marketDay.resultTime
                     }
                     onChange={
-                      handleInputChange
+                      handleDayInputChange
                     }
                     required
                     className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -1364,10 +1320,10 @@ const AdminMarkets = () => {
                     type="number"
                     name="minBid"
                     value={
-                      formData.minBid
+                      formData.marketDay.minBid
                     }
                     onChange={
-                      handleInputChange
+                      handleDayInputChange
                     }
                     min="1"
                     placeholder="10"
@@ -1386,10 +1342,10 @@ const AdminMarkets = () => {
                     type="number"
                     name="maxBid"
                     value={
-                      formData.maxBid
+                      formData.marketDay.maxBid
                     }
                     onChange={
-                      handleInputChange
+                      handleDayInputChange
                     }
                     min="1"
                     placeholder="10000"

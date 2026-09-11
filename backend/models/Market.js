@@ -1,55 +1,10 @@
 const mongoose = require("mongoose");
 
-const marketSchema = new mongoose.Schema(
+const marketDaySchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
+    marketDate: {
+      type: Date,
       required: true,
-      trim: true,
-      unique: true,
-    },
-
-    marketId: {
-      type: String,
-      required: true,
-      trim: true,
-      unique: true,
-    },
-
-    // ======================================================
-    // MARKET DIGIT TYPE
-    // ======================================================
-    // Admin sirf 2-digit ya 3-digit select karega
-
-    digitType: {
-      type: String,
-      enum: ["2-digit", "3-digit"],
-      required: true,
-    },
-
-    // ======================================================
-    // AUTOMATIC GAME TYPES
-    // ======================================================
-
-    gameTypes: {
-      type: [
-        {
-          type: String,
-          enum: [
-            "single",
-            "single-Patti",
-            "double-Patti",
-            "triple-Patti",
-            "jodi",
-            "panna",
-            "half-sangam",
-            "full-sangam",
-            "last-digit",
-            "first-digit",
-          ],
-        },
-      ],
-      default: [],
     },
 
     openTime: {
@@ -77,16 +32,6 @@ const marketSchema = new mongoose.Schema(
       default: 10000,
     },
 
-    description: {
-      type: String,
-      default: "",
-    },
-
-    image: {
-      type: String,
-      default: "",
-    },
-
     isActive: {
       type: Boolean,
       default: true,
@@ -105,6 +50,73 @@ const marketSchema = new mongoose.Schema(
     resultDeclaredAt: {
       type: Date,
       default: null,
+    },
+  },
+  { _id: true }
+);
+
+const marketSchema = new mongoose.Schema(
+  {
+    // ======================================================
+    // COMMON MARKET DATA
+    // ======================================================
+
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    marketId: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    image: {
+      type: String,
+      default: "",
+    },
+
+    digitType: {
+      type: String,
+      enum: ["2-digit", "3-digit"],
+      required: true,
+    },
+
+    gameTypes: {
+      type: [
+        {
+          type: String,
+          enum: [
+            "single",
+            "single-Patti",
+            "double-Patti",
+            "triple-Patti",
+            "jodi",
+            "panna",
+            "half-sangam",
+            "full-sangam",
+            "last-digit",
+            "first-digit",
+          ],
+        },
+      ],
+      default: [],
+    },
+
+    // ======================================================
+    // DAILY MARKET DATA
+    // ======================================================
+
+    marketArray: {
+      type: [marketDaySchema],
+      default: [],
+    },
+
+    description: {
+      type: String,
+      default: "",
     },
 
     createdBy: {

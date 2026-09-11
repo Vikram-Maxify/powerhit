@@ -6,6 +6,76 @@ const WinMultiplier = require("../models/WinMultiplier");
 const CurrencyRate = require("../models/CurrencyRate");
 
 // ============================================================
+// MARKET DAY HELPERS (marketArray based)
+// ============================================================
+const toDateKey = (value = new Date()) => {
+  const d = value instanceof Date ? new Date(value) : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const findMarketDay = (market, marketDayId = null, marketDate = null) => {
+  if (!market || !Array.isArray(market.marketArray)) return null;
+
+  if (marketDayId) {
+    const found = market.marketArray.id
+      ? market.marketArray.id(marketDayId)
+      : market.marketArray.find((d) => String(d._id) === String(marketDayId));
+    if (found) return found;
+  }
+
+  if (marketDate) {
+    const key = toDateKey(marketDate);
+    const found = market.marketArray.find((d) => toDateKey(d.marketDate) === key);
+    if (found) return found;
+  }
+
+  const todayKey = toDateKey(new Date());
+  return market.marketArray.find((d) => toDateKey(d.marketDate) === todayKey) || null;
+};
+
+const requireMarketDay = (market, marketDayId = null, marketDate = null) => {
+  const day = findMarketDay(market, marketDayId, marketDate);
+  if (!day) {
+    const err = new Error(
+      "Market day not found. Send a valid marketDayId or marketDate for a marketArray entry."
+    );
+    err.statusCode = 404;
+    throw err;
+  }
+  return day;
+};
+
+// Keeps old controller reads working while all writes/results are stored in marketArray.
+const attachMarketDayCompatibility = (market, day) => {
+  if (!market || !day) return market;
+  Object.defineProperties(market, {
+    isActive: { value: day.isActive, writable: true, configurable: true },
+    isResultDeclared: { value: day.isResultDeclared, writable: true, configurable: true },
+    minBid: { value: day.minBid, writable: true, configurable: true },
+    maxBid: { value: day.maxBid, writable: true, configurable: true },
+    openTime: { value: day.openTime, writable: true, configurable: true },
+    closeTime: { value: day.closeTime, writable: true, configurable: true },
+    resultTime: { value: day.resultTime, writable: true, configurable: true },
+    winningNumber: { value: day.winningNumber, writable: true, configurable: true },
+    resultDeclaredAt: { value: day.resultDeclaredAt, writable: true, configurable: true },
+    declaredGameType: { value: day.declaredGameType || null, writable: true, configurable: true },
+  });
+  return market;
+};
+
+const getDayFromBid = (bid, market) =>
+  findMarketDay(market, bid?.marketDayId, bid?.marketDate);
+
+const decorateBidMarketDay = (bid) => {
+  if (!bid?.marketId || !Array.isArray(bid.marketId.marketArray)) return bid;
+  const day = getDayFromBid(bid, bid.marketId);
+  if (day) bid.marketDay = day;
+  return bid;
+};
+
+
+// ============================================================
 // MARKET DIGIT TYPE / GAME TYPE CONFIG
 // ============================================================
 
@@ -634,6 +704,8 @@ exports.placeBid = async (
   try {
     const {
       marketId,
+      marketDayId,
+      marketDate,
       gameType,
       number,
       bidAmount,
@@ -709,6 +781,9 @@ exports.placeBid = async (
           "Market not found",
       });
     }
+
+    const marketDay = requireMarketDay(market, marketDayId, marketDate);
+    attachMarketDayCompatibility(market, marketDay);
 
     const marketConfig =
       validateMarketDigitType(
@@ -828,6 +903,8 @@ exports.placeBid = async (
       await Bid.create({
         userId,
         marketId,
+        marketDayId: marketDay._id,
+        marketDate: marketDay.marketDate,
         gameType,
         number: formattedNumber,
         bidAmount: amount,
@@ -858,6 +935,8 @@ exports.placeBid = async (
           market: {
             id: market._id,
             name: market.name,
+            marketDayId: marketDay._id,
+            marketDate: marketDay.marketDate,
             marketId:
               market.marketId,
             digitType:
@@ -996,6 +1075,8 @@ exports.placeMultipleBids = async (
 
       const {
         marketId,
+        marketDayId,
+        marketDate,
         gameType,
         number,
         bidAmount,
@@ -1082,6 +1163,9 @@ exports.placeMultipleBids = async (
             `Market not found at index ${i}`,
         });
       }
+
+      const marketDay = requireMarketDay(market, marketDayId, marketDate);
+      attachMarketDayCompatibility(market, marketDay);
 
       const marketConfig =
         validateMarketDigitType(
@@ -1185,6 +1269,8 @@ exports.placeMultipleBids = async (
 
       validatedBids.push({
         ...currentBid,
+        marketDayId: marketDay._id,
+        marketDate: marketDay.marketDate,
         amount,
         formattedNumber:
           formatGameNumber(
@@ -1228,6 +1314,10 @@ exports.placeMultipleBids = async (
               userId,
               marketId:
                 bidData.marketId,
+              marketDayId:
+                bidData.marketDayId,
+              marketDate:
+                bidData.marketDate,
               gameType:
                 bidData.gameType,
               number:
@@ -1277,6 +1367,10 @@ exports.placeMultipleBids = async (
                 bid.transactionId,
               marketId:
                 bid.marketId,
+              marketDayId:
+                bid.marketDayId,
+              marketDate:
+                bid.marketDate,
               gameType:
                 bid.gameType,
               number:
@@ -1335,6 +1429,8 @@ exports.placeBidOnMultipleNumbers =
     try {
       const {
         marketId,
+        marketDayId,
+        marketDate,
         gameType,
         numbers,
         bidAmount,
@@ -1419,6 +1515,9 @@ exports.placeBidOnMultipleNumbers =
             "Market not found",
         });
       }
+
+      const marketDay = requireMarketDay(market, marketDayId, marketDate);
+      attachMarketDayCompatibility(market, marketDay);
 
       const marketConfig =
         validateMarketDigitType(
@@ -1608,6 +1707,8 @@ exports.placeBidOnMultipleNumbers =
               {
                 userId,
                 marketId,
+                marketDayId: marketDay._id,
+                marketDate: marketDay.marketDate,
                 gameType,
                 number:
                   formatGameNumber(
@@ -1716,6 +1817,8 @@ exports.getBiddingHistory =
       const {
         status,
         marketId,
+        marketDayId,
+        marketDate,
         gameType,
         startDate,
         endDate,
@@ -1734,6 +1837,12 @@ exports.getBiddingHistory =
       if (marketId)
         filter.marketId =
           marketId;
+
+      if (marketDayId)
+        filter.marketDayId = marketDayId;
+
+      if (marketDate)
+        filter.marketDate = marketDate;
 
       if (gameType) {
         if (
@@ -1777,7 +1886,7 @@ exports.getBiddingHistory =
         await Bid.find(filter)
           .populate(
             "marketId",
-            "name marketId digitType gameTypes openTime closeTime resultTime"
+            "name marketId digitType gameTypes marketArray"
           )
           .sort({
             createdAt: -1,
@@ -1903,7 +2012,7 @@ exports.getBidById =
         })
           .populate(
             "marketId",
-            "name marketId digitType gameTypes openTime closeTime resultTime"
+            "name marketId digitType gameTypes marketArray"
           )
           .populate(
             "userId",
@@ -1949,6 +2058,8 @@ exports.getUserBids =
 
       const {
         marketId,
+        marketDayId,
+        marketDate,
         gameType,
         status,
         startDate,
@@ -1966,6 +2077,12 @@ exports.getUserBids =
       if (marketId)
         filter.marketId =
           marketId;
+
+      if (marketDayId)
+        filter.marketDayId = marketDayId;
+
+      if (marketDate)
+        filter.marketDate = marketDate;
 
       if (gameType) {
         if (
@@ -2720,6 +2837,8 @@ exports.adminGetAllBids =
       const {
         status,
         marketId,
+        marketDayId,
+        marketDate,
         userId,
         gameType,
         startDate,
@@ -2737,6 +2856,12 @@ exports.adminGetAllBids =
       if (marketId)
         filter.marketId =
           marketId;
+
+      if (marketDayId)
+        filter.marketDayId = marketDayId;
+
+      if (marketDate)
+        filter.marketDate = marketDate;
 
       if (userId)
         filter.userId =
@@ -3526,7 +3651,7 @@ exports.adminGetBidById =
           )
           .populate(
             "marketId",
-            "name marketId digitType gameTypes openTime closeTime"
+            "name marketId digitType gameTypes marketArray"
           );
 
       if (!bid) {
@@ -3893,6 +4018,8 @@ exports.declareResult =
         winningNumber,
         gameType,
         resultDate,
+        marketDayId,
+        marketDate,
       } = req.body;
 
       if (
@@ -3955,6 +4082,13 @@ exports.declareResult =
             "Market not found",
         });
       }
+
+      const marketDay = requireMarketDay(
+        market,
+        marketDayId,
+        marketDate || resultDate
+      );
+      attachMarketDayCompatibility(market, marketDay);
 
       const marketConfig =
         validateMarketDigitType(
@@ -4069,6 +4203,7 @@ exports.declareResult =
       const pendingBids =
         await Bid.find({
           marketId,
+          marketDayId: marketDay._id,
           gameType,
           status: "pending",
         }).session(session);
@@ -4152,6 +4287,12 @@ exports.declareResult =
         marketId:
           market._id,
 
+        marketDayId:
+          marketDay._id,
+
+        marketDate:
+          marketDay.marketDate,
+
         marketName:
           market.name,
 
@@ -4211,16 +4352,16 @@ exports.declareResult =
           { session }
         );
 
-      market.winningNumber =
+      marketDay.winningNumber =
         formattedWinningNumber;
 
-      market.isResultDeclared =
+      marketDay.isResultDeclared =
         true;
 
-      market.resultDeclaredAt =
+      marketDay.resultDeclaredAt =
         new Date();
 
-      market.declaredGameType =
+      marketDay.declaredGameType =
         gameType;
 
       await market.save({
@@ -4239,6 +4380,8 @@ exports.declareResult =
           market: {
             id: market._id,
             name: market.name,
+            marketDayId: marketDay._id,
+            marketDate: marketDay.marketDate,
             digitType:
               marketConfig.digitType,
             winningNumber:
@@ -4450,7 +4593,7 @@ const sortUnusedCandidates = (a, b) => {
 
 exports.getLowestBidNumber = async (req, res) => {
   try {
-    const { marketId } = req.params;
+    const { marketId, marketDayId, marketDate } = req.params;
 
     // ========================================================
     // VALIDATE MARKET ID
@@ -4475,7 +4618,7 @@ exports.getLowestBidNumber = async (req, res) => {
     // ========================================================
 
     const market = await Market.findById(marketId).select(
-      "name marketId digitType numberType gameTypes"
+      "name marketId digitType numberType gameTypes marketArray"
     );
 
     if (!market) {
@@ -4484,6 +4627,9 @@ exports.getLowestBidNumber = async (req, res) => {
         message: "Market not found",
       });
     }
+
+    const marketDay = requireMarketDay(market, marketDayId, marketDate);
+    attachMarketDayCompatibility(market, marketDay);
 
     // ========================================================
     // GET MARKET GAME TYPES
@@ -4504,6 +4650,7 @@ exports.getLowestBidNumber = async (req, res) => {
 
     const pendingBids = await Bid.find({
       marketId: new mongoose.Types.ObjectId(marketId),
+      marketDayId: marketDay._id,
       status: "pending",
       gameType: { $in: gameTypes },
     })
@@ -4678,12 +4825,13 @@ exports.getMarketResults =
       const {
         marketId,
       } = req.params;
+      const { marketDayId, marketDate } = req.query;
 
       const market =
         await Market.findById(
           marketId
         ).select(
-          "name marketId digitType gameTypes winningNumber isResultDeclared resultDeclaredAt declaredGameType"
+          "name marketId digitType gameTypes marketArray"
         );
 
       if (!market) {
@@ -4694,9 +4842,13 @@ exports.getMarketResults =
         });
       }
 
+      const marketDay = requireMarketDay(market, marketDayId, marketDate);
+      attachMarketDayCompatibility(market, marketDay);
+
       const winningBids =
         await Bid.find({
           marketId,
+          marketDayId: marketDay._id,
           status: "won",
         })
           .populate(
@@ -4715,6 +4867,7 @@ exports.getMarketResults =
                 new mongoose.Types.ObjectId(
                   marketId
                 ),
+              marketDayId: marketDay._id,
             },
           },
 
@@ -4745,6 +4898,7 @@ exports.getMarketResults =
 
         data: {
           market,
+          marketDay,
           winningBids,
           summary,
         },
@@ -4774,6 +4928,7 @@ exports.getBidsByMarketId =
       const {
         marketId,
       } = req.params;
+      const { marketDayId, marketDate } = req.query;
 
       if (!marketId) {
         return res.status(400).json({
@@ -4795,9 +4950,23 @@ exports.getBidsByMarketId =
         });
       }
 
+      const market = await Market.findById(marketId).select(
+        "name marketId digitType gameTypes marketArray"
+      );
+
+      if (!market) {
+        return res.status(404).json({
+          success: false,
+          message: "Market not found",
+        });
+      }
+
+      const marketDay = requireMarketDay(market, marketDayId, marketDate);
+
       const bids =
         await Bid.find({
           marketId,
+          marketDayId: marketDay._id,
         })
           .populate(
             "userId",
@@ -4848,6 +5017,7 @@ exports.getAllowedGameTypesForMarket =
       const {
         marketId,
       } = req.params;
+      const { marketDayId, marketDate } = req.query;
 
       if (
         !marketId ||
@@ -4866,7 +5036,7 @@ exports.getAllowedGameTypesForMarket =
         await Market.findById(
           marketId
         ).select(
-          "name marketId digitType numberType gameTypes isActive isResultDeclared minBid maxBid"
+          "name marketId digitType numberType gameTypes marketArray"
         );
 
       if (!market) {
@@ -4876,6 +5046,9 @@ exports.getAllowedGameTypesForMarket =
             "Market not found",
         });
       }
+
+      const marketDay = requireMarketDay(market, marketDayId, marketDate);
+      attachMarketDayCompatibility(market, marketDay);
 
       const config =
         validateMarketDigitType(
