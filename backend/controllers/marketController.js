@@ -707,17 +707,39 @@ exports.getMarketById = async (req, res) => {
 // ======================================================
 exports.getActiveMarkets = async (req, res) => {
   try {
-    const markets = await Market.find()
-      .select("name marketId digitType gameTypes image description marketArray")
-      .sort({ createdAt: -1 });
+    const markets = await Market.find({})
+      .select(
+        "name marketId digitType gameTypes image description marketArray createdAt"
+      )
+      .sort({ createdAt: -1 })
+      .lean();
 
-    return res.status(200).json({ success: true, data: markets });
+    const activeMarkets = markets
+      .map((market) => {
+        const activeDays = (market.marketArray || []).filter(
+          (day) => day.isActive === true
+        );
+
+        return {
+          ...market,
+          marketArray: activeDays,
+        };
+      })
+      .filter((market) => market.marketArray.length > 0);
+
+    return res.status(200).json({
+      success: true,
+      data: activeMarkets,
+    });
   } catch (error) {
     console.error("GET ACTIVE MARKETS ERROR:", error);
-    return res.status(500).json({ success: false, message: error.message });
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
-
 // ======================================================
 // DELETE A DATE OBJECT
 // ======================================================
