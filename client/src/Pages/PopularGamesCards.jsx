@@ -1,29 +1,33 @@
 import { Link } from "react-router-dom";
+import matkaIMG from "../assets/Home/matka.png";
+import minesIMG from "../assets/Home/mines.png";
+import tradingIMG from "../assets/Home/trading.png";
+import wingoIMG from "../assets/Home/wingoo.png";
 
 const PopularGamesCards = () => {
   const popularCards = [
     {
       id: 1,
       name: "Wingo",
-      img: "https://i.ibb.co/TMX48QXQ/Chat-GPT-Image-Aug-29-2026-05-26-35-PM-1.png",
+      img: wingoIMG,
       to: "/wingo",
     },
     {
       id: 2,
       name: "Trading",
-      img: "https://i.ibb.co/B5ZYHtbf/Chat-GPT-Image-Aug-29-2026-05-26-35-PM-2.png",
+      img: tradingIMG,
       to: "https://lotterry.trade.marinclub.site/",
     },
     {
       id: 3,
       name: "Mines",
-      img: "https://i.ibb.co/D0JmTQV/Chat-GPT-Image-Aug-29-2026-05-26-35-PM-3.png",
+      img: minesIMG,
       to: "/mine-games",
     },
     {
       id: 4,
       name: "Matka",
-      img: "https://i.ibb.co/zhN1HmZY/Chat-GPT-Image-Aug-29-2026-05-26-35-PM-4.png",
+      img: matkaIMG,
       to: "/matka/markets",
     },
   ];
