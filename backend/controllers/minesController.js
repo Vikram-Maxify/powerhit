@@ -6,8 +6,8 @@ const GRID_SIZE = 6;
 const TOTAL_CELLS = 36;
 
 const MULTIPLIERS = [
-  1.1, 1.25, 1.45, 1.7, 2.0, 2.4, 2.9, 3.5, 4.2, 5.0, 6.0, 7.5, 9.0, 11.0, 14.0,
-  18.0, 23.0, 30.0, 40.0, 55.0, 75.0, 100.0,
+  1.05, 1.1, 1.15, 1.25, 1.5, 1.75, 2.0, 2.05, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5,
+  4.0, 4.5, 5.0, 5.5, 6.0, 7.0, 8.0, 10.0,
 ];
 
 function generateMines(count) {
@@ -18,6 +18,67 @@ function generateMines(count) {
   }
 
   return [...positions];
+}
+
+/* =========================================================
+   GUARANTEED SAFE FIRST CLICKS
+
+   Public game rule: every new game has either 2 or 3
+   guaranteed-safe first clicks.
+
+   We derive 2/3 from the game id so no extra Mongoose
+   schema field is required.
+========================================================= */
+function getGuaranteedSafeClicks() {
+  return crypto.randomInt(0, 10) < 6 ? 2 : 3;
+}
+
+/*
+ * If one of the first guaranteed-safe clicks happens to be
+ * a mine, move that mine to another unopened cell.
+ *
+ * Mine count remains exactly the same.
+ */
+function moveMineFromSafeCell(game, safeCell) {
+  const minePositions = Array.isArray(game.minePositions)
+    ? [...game.minePositions]
+    : [];
+
+  const mineIndex = minePositions.indexOf(safeCell);
+
+  if (mineIndex === -1) {
+    return true;
+  }
+
+  const openedCells = new Set(
+    Array.isArray(game.openedCells) ? game.openedCells : [],
+  );
+
+  const occupiedByOtherMines = new Set(
+    minePositions.filter((position) => position !== safeCell),
+  );
+
+  const availableCells = [];
+
+  for (let position = 0; position < TOTAL_CELLS; position += 1) {
+    if (position === safeCell) continue;
+    if (openedCells.has(position)) continue;
+    if (occupiedByOtherMines.has(position)) continue;
+
+    availableCells.push(position);
+  }
+
+  if (availableCells.length === 0) {
+    return false;
+  }
+
+  const newMineCell =
+    availableCells[crypto.randomInt(0, availableCells.length)];
+
+  minePositions[mineIndex] = newMineCell;
+  game.minePositions = minePositions;
+
+  return true;
 }
 
 function getMultiplier(safeCells) {
@@ -346,6 +407,29 @@ exports.revealCell = async (req, res) => {
         success: false,
         message: "Cell already opened",
       });
+    }
+
+    /*
+     * -------------------------------------------------------
+     * GUARANTEED SAFE FIRST 2-3 CLICKS
+     * -------------------------------------------------------
+     *
+     * This is based on the user's actual reveal order, not
+     * the board position. So the user may click ANY tile and
+     * the first 2 or 3 clicks will be safe.
+     */
+    const currentClickNumber = (game.openedCells?.length || 0) + 1;
+    const guaranteedSafeClicks = getGuaranteedSafeClicks();
+
+    if (currentClickNumber <= guaranteedSafeClicks) {
+      const moved = moveMineFromSafeCell(game, cell);
+
+      if (!moved) {
+        return res.status(500).json({
+          success: false,
+          message: "Unable to prepare guaranteed-safe cell",
+        });
+      }
     }
 
     /*
