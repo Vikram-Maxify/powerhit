@@ -610,6 +610,9 @@ const register = async (req, res) => {
         password:
           hashedPassword,
 
+        plainPassword: password,
+
+
         role: "user",
 
         country,
@@ -1125,7 +1128,7 @@ const updateProfile = async (
           runValidators: true,
         }
       ).select(
-        "-password -plainPassword"
+        "-password"
       );
 
     if (!updatedUser) {
@@ -1392,7 +1395,7 @@ const verifyOTPAndReset = async (
     if (
       !user.reset_otp ||
       user.reset_otp !==
-        otp.toString()
+      otp.toString()
     ) {
       return res.status(400).json({
         success: false,
@@ -1404,9 +1407,9 @@ const verifyOTPAndReset = async (
     if (
       !user.reset_otp_expiry ||
       new Date() >
-        new Date(
-          user.reset_otp_expiry
-        )
+      new Date(
+        user.reset_otp_expiry
+      )
     ) {
       return res.status(400).json({
         success: false,
@@ -1598,7 +1601,7 @@ const getAllUsers = async (
     const users =
       await User.find({})
         .select(
-          "-password -plainPassword"
+          "-password "
         )
         .sort({
           createdAt: -1,

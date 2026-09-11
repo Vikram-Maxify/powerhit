@@ -53,7 +53,7 @@ const normalizeCountryCode = (country) => {
 const getCurrencySymbol = (country) => {
   const symbols = {
     IN: "₹",
-    AU: "$",
+    AU: "A$",
     PK: "₨",
     BD: "৳",
     NP: "रू",
@@ -64,7 +64,7 @@ const getCurrencySymbol = (country) => {
 };
 
 // =========================================================
-// ACTIVE SESSION HELPER  ← KEY FIX
+// ACTIVE SESSION HELPER
 // =========================================================
 const getActiveSession = (market) => {
   if (!market?.marketArray?.length) return null;
@@ -87,24 +87,11 @@ const GAME_TYPE_MAP = {
   "first-digit": "first-digit",
 };
 
-const GAME_TYPE_DISPLAY = {
-  single: "Single",
-  jodi: "Jodi",
-  panna: "Panna",
-  "single-Patti": "Single Patti",
-  "double-Patti": "Double Patti",
-  "triple-Patti": "Triple Patti",
-  "half-sangam": "Half-Sangam",
-  "full-sangam": "Full-Sangam",
-  "last-digit": "Last Digit",
-  "first-digit": "First Digit",
-};
-
 const getBackendGameType = (frontendType) =>
   GAME_TYPE_MAP[frontendType] || frontendType;
 
 // =========================================================
-// NORMALIZE API gameTypes  ("single-Patti" → "single-patti")
+// NORMALIZE API gameTypes
 // =========================================================
 const normalizeGameKey = (key) =>
   String(key || "")
@@ -245,7 +232,7 @@ const PlaceBid = () => {
     location.state || {};
 
   // =========================================================
-  // FLATTEN SESSION DATA FROM marketArray  ← KEY FIX
+  // FLATTEN SESSION DATA FROM marketArray
   // =========================================================
   const activeSession = useMemo(
     () => getActiveSession(currentMarket),
@@ -273,7 +260,7 @@ const PlaceBid = () => {
     marketData?.digitType || marketData?.marketType || autoDigitType || "";
 
   // =========================================================
-  // ALLOWED GAME TYPES  ← uses digitType ∩ API gameTypes
+  // ALLOWED GAME TYPES
   // =========================================================
   const allowedGameTypesByDigitType = useMemo(() => {
     let byDigitType = [];
@@ -297,7 +284,6 @@ const PlaceBid = () => {
       return [];
     }
 
-    // Intersect with API gameTypes (if provided)
     const apiKeys = (marketData?.gameTypes || []).map(normalizeGameKey);
     return apiKeys.length
       ? byDigitType.filter((k) => apiKeys.includes(k))
@@ -328,19 +314,76 @@ const PlaceBid = () => {
     );
   }, [currencies, userCountryCode]);
 
-  const formatCurrency = (amount) => {
-    const amt = Number(amount) || 0;
+  // Rate = 1 user currency = X INR
+  // e.g. 1 AUD = 68.37 INR, 1 INR = 1 INR
+  const exchangeRate = useMemo(() => {
+    const rate = Number(userCurrencyRate?.rate);
+    return Number.isFinite(rate) && rate > 0 ? rate : 1;
+  }, [userCurrencyRate]);
 
-    if (userCurrencyRate && userCurrencyRate.countryCode !== "IN") {
-      const converted = amt / userCurrencyRate.rate;
-      return `${converted.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })} ${userCurrencyRate.currencyCode}`;
-    }
+  const userCurrencyCode = userCurrencyRate?.currencyCode || "INR";
 
-    return `${currencySymbol}${amt.toLocaleString("en-IN")}`;
+  // =========================================================
+  // CORE CONVERSION HELPERS (INR <-> user currency)
+  // =========================================================
+  /**
+   * Convert user currency amount -> INR
+   * (bid amount user ne user-currency me daala hai)
+   */
+  const userToINR = (amount) => {
+    const a = Number(amount);
+    if (!Number.isFinite(a)) return 0;
+    return a * exchangeRate;
   };
+
+  /**
+   * Convert INR amount -> user currency
+   * (market min/max INR me hain, user ko user-currency me dikhana hai)
+   */
+  const inrToUser = (amountINR) => {
+    const a = Number(amountINR);
+    if (!Number.isFinite(a)) return 0;
+    return a / exchangeRate;
+  };
+
+  /**
+   * Format an amount that is ALREADY in user's currency.
+   */
+  const formatUserCurrency = (amount) => {
+    const amt = Number(amount) || 0;
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: userCurrencyCode,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amt);
+  };
+
+  /**
+   * Format an INR amount (e.g. market min/max, stats).
+   */
+  const formatINR = (amount) => {
+    const amt = Number(amount) || 0;
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amt);
+  };
+
+  // =========================================================
+  // MARKET MIN/MAX IN USER CURRENCY
+  // =========================================================
+  const minBidUser = useMemo(
+    () => inrToUser(marketData?.minBid || 0),
+    [marketData?.minBid, exchangeRate],
+  );
+
+  const maxBidUser = useMemo(
+    () => inrToUser(marketData?.maxBid || 0),
+    [marketData?.maxBid, exchangeRate],
+  );
 
   // =========================================================
   // LOCAL STATE
@@ -360,10 +403,22 @@ const PlaceBid = () => {
   const [isCustomAmount, setIsCustomAmount] = useState(false);
   const [customAmountError, setCustomAmountError] = useState("");
 
-  const bidAmountOptions = useMemo(
-    () => generateBidAmounts(marketData?.minBid, marketData?.maxBid),
-    [marketData?.minBid, marketData?.maxBid],
-  );
+  // Bid amount quick buttons — INR se user currency me convert
+  const bidAmountOptions = useMemo(() => {
+    const inrAmounts = generateBidAmounts(
+      marketData?.minBid,
+      marketData?.maxBid,
+    );
+    // Convert each INR option to user currency & round sensibly
+    const userAmounts = inrAmounts.map((amt) => {
+      const v = inrToUser(amt);
+      // Round nicely: small amounts -> 2 decimals, large -> whole
+      if (v < 1) return Number(v.toFixed(2));
+      if (v < 100) return Number(v.toFixed(2));
+      return Math.round(v);
+    });
+    return Array.from(new Set(userAmounts)).filter((v) => v > 0);
+  }, [marketData?.minBid, marketData?.maxBid, exchangeRate]);
 
   // =========================================================
   // FETCHES
@@ -665,9 +720,12 @@ const PlaceBid = () => {
     setFormData({ ...formData, bidAmount: amount.toString() });
   };
 
+  // =========================================================
+  // CUSTOM AMOUNT VALIDATION (user currency me)
+  // =========================================================
   const handleCustomAmountChange = (e) => {
     const value = e.target.value;
-    if (value !== "" && !/^\d+$/.test(value)) return;
+    if (value !== "" && !/^\d*\.?\d*$/.test(value)) return;
 
     setFormData({ ...formData, bidAmount: value });
 
@@ -676,14 +734,23 @@ const PlaceBid = () => {
       return;
     }
 
-    const amount = parseInt(value, 10);
-    const min = marketData?.minBid;
-    const max = marketData?.maxBid;
+    const amount = parseFloat(value);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setCustomAmountError("Enter a valid amount");
+      return;
+    }
 
-    if (min && amount < min) {
-      setCustomAmountError(`Minimum bid is ${formatCurrency(min)}`);
-    } else if (max && amount > max) {
-      setCustomAmountError(`Maximum bid is ${formatCurrency(max)}`);
+    // ✅ User currency me validate karo (INR me convert karke)
+    const amountInINR = userToINR(amount);
+
+    if (amountInINR < (marketData?.minBid || 0)) {
+      setCustomAmountError(
+        `Minimum bid is ${formatUserCurrency(minBidUser)} (₹${marketData?.minBid} INR)`,
+      );
+    } else if (amountInINR > (marketData?.maxBid || 0)) {
+      setCustomAmountError(
+        `Maximum bid is ${formatUserCurrency(maxBidUser)} (₹${marketData?.maxBid} INR)`,
+      );
     } else {
       setCustomAmountError("");
     }
@@ -711,28 +778,53 @@ const PlaceBid = () => {
 
     if (!isAllDigitsSelected())
       return setLocalError("Please select all digits");
+
     if (!formData.bidAmount || parseFloat(formData.bidAmount) <= 0)
       return setLocalError("Enter valid bid amount");
+
     if (isCustomAmount && customAmountError)
       return setLocalError(customAmountError);
 
-    const bidAmount = parseFloat(formData.bidAmount);
-    if (bidAmount < marketData?.minBid)
-      return setLocalError(`Min: ${formatCurrency(marketData?.minBid)}`);
-    if (bidAmount > marketData?.maxBid)
-      return setLocalError(`Max: ${formatCurrency(marketData?.maxBid)}`);
+    const bidAmountUser = parseFloat(formData.bidAmount);
+    const bidAmountInINR = userToINR(bidAmountUser);
 
-    const userBalance = user?.balance?.local ?? user?.balance ?? 0;
-    if (bidAmount > userBalance) return setLocalError(`Insufficient balance`);
+    // ✅ Correct min/max validation in INR space
+    if (bidAmountInINR < (marketData?.minBid || 0)) {
+      return setLocalError(
+        `Minimum bid is ${formatUserCurrency(minBidUser)} (₹${marketData?.minBid} INR)`,
+      );
+    }
+
+    if (bidAmountInINR > (marketData?.maxBid || 0)) {
+      return setLocalError(
+        `Maximum bid is ${formatUserCurrency(maxBidUser)} (₹${marketData?.maxBid} INR)`,
+      );
+    }
+
+    // Balance check — backend INR me maintain karta hai
+    // Frontend pe user.balance usually INR me aata hai; lekin
+    // aapke code me `.local` bhi tha, usko prefer karo agar diya gaya.
+    const userBalanceINR = Number(
+      user?.balance?.local ?? user?.balance ?? 0,
+    );
+
+    if (!Number.isFinite(userBalanceINR) || userBalanceINR < bidAmountInINR) {
+      return setLocalError(
+        `Insufficient balance. Need ${formatUserCurrency(bidAmountUser)}, have ${formatUserCurrency(inrToUser(userBalanceINR))}`,
+      );
+    }
 
     const backendGameType = getBackendGameType(formData.gameType);
 
+    // ⚠️ IMPORTANT:
+    // Backend ko USER CURRENCY me amount bhejo.
+    // Backend khud INR me convert karega (calculateWinAmount + placeBid).
     const result = await dispatch(
       placeBid({
         marketId,
         gameType: backendGameType,
         number: formData.number,
-        bidAmount,
+        bidAmount: bidAmountUser, // user currency amount
       }),
     );
 
@@ -747,7 +839,7 @@ const PlaceBid = () => {
   };
 
   // =========================================================
-  // WIN CALC
+  // WIN CALC — user currency me
   // =========================================================
   const calculateWinAmount = () => {
     if (!formData.bidAmount || !formData.gameType) return 0;
@@ -761,6 +853,7 @@ const PlaceBid = () => {
       "full-sangam": 900,
       "last-digit": 9,
       "first-digit": 9,
+      single: 9,
     };
     return (
       parseFloat(formData.bidAmount) * (multipliers[formData.gameType] || 9)
@@ -778,6 +871,7 @@ const PlaceBid = () => {
       "full-sangam": "900x",
       "last-digit": "9x",
       "first-digit": "9x",
+      single: "9x",
     };
     return multipliers[gameType] || "9x";
   };
@@ -1300,8 +1394,11 @@ const PlaceBid = () => {
                 Choose how many coins you want to play
               </p>
               <p className="text-[10px] text-gray-400 mb-3">
-                Range: {formatCurrency(marketData.minBid)} —{" "}
-                {formatCurrency(marketData.maxBid)}
+                Range: {formatUserCurrency(minBidUser)} —{" "}
+                {formatUserCurrency(maxBidUser)}{" "}
+                <span className="text-gray-300">
+                  (₹{marketData.minBid} - ₹{marketData.maxBid} INR)
+                </span>
               </p>
 
               <form onSubmit={handleSubmit}>
@@ -1315,13 +1412,13 @@ const PlaceBid = () => {
                         className={`
                           py-2.5 rounded-xl text-sm font-bold transition-all border-2
                           ${
-                            formData.bidAmount === amount.toString()
+                            Number(formData.bidAmount) === Number(amount)
                               ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
                               : "bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-300 hover:bg-amber-50"
                           }
                         `}
                       >
-                        {formatCurrency(amount)}
+                        {formatUserCurrency(amount)}
                       </button>
                     ))}
                   </div>
@@ -1349,12 +1446,12 @@ const PlaceBid = () => {
                             </span>
                             <input
                               type="text"
-                              inputMode="numeric"
+                              inputMode="decimal"
                               autoFocus
                               value={formData.bidAmount}
                               onChange={handleCustomAmountChange}
-                              placeholder={`${marketData.minBid} - ${marketData.maxBid}`}
-                              className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${
+                              placeholder={`${minBidUser.toFixed(2)} - ${maxBidUser.toFixed(2)}`}
+                              className={`w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${
                                 customAmountError
                                   ? "border-red-300 focus:border-red-400 text-red-600"
                                   : "border-amber-300 focus:border-amber-500 text-gray-700"
@@ -1379,8 +1476,8 @@ const PlaceBid = () => {
                           </p>
                         ) : (
                           <p className="text-[10px] text-gray-400 mt-1.5">
-                            Min {formatCurrency(marketData.minBid)} · Max{" "}
-                            {formatCurrency(marketData.maxBid)}
+                            Min {formatUserCurrency(minBidUser)} · Max{" "}
+                            {formatUserCurrency(maxBidUser)}
                           </p>
                         )}
                       </div>
@@ -1400,7 +1497,7 @@ const PlaceBid = () => {
                               BET AMOUNT
                             </p>
                             <p className="font-bold text-gray-700">
-                              {formatCurrency(parseFloat(formData.bidAmount))}
+                              {formatUserCurrency(parseFloat(formData.bidAmount))}
                             </p>
                           </div>
                           <div className="text-right">
@@ -1408,7 +1505,7 @@ const PlaceBid = () => {
                               YOU WILL WIN (APPROX.)
                             </p>
                             <p className="font-extrabold text-green-600 text-lg">
-                              {formatCurrency(calculateWinAmount())}
+                              {formatUserCurrency(calculateWinAmount())}
                               <span className="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full ml-1.5 align-middle">
                                 {getMultiplierDisplay(formData.gameType)}
                               </span>
@@ -1438,18 +1535,20 @@ const PlaceBid = () => {
                       <div className="flex justify-between text-sm">
                         <div>
                           <p className="text-[10px] text-gray-400">
-                            YOUR Balance
+                            YOUR BALANCE
                           </p>
                           <p className="font-bold text-gray-700">
-                            {formatCurrency(
-                              user?.balance?.local ?? user?.balance ?? 0,
+                            {formatUserCurrency(
+                              inrToUser(
+                                Number(user?.balance?.local ?? user?.balance ?? 0),
+                              ),
                             )}
                           </p>
                         </div>
                         <div>
                           <p className="text-[10px] text-gray-400">YOUR BET</p>
                           <p className="font-bold text-amber-600">
-                            {formatCurrency(
+                            {formatUserCurrency(
                               parseFloat(formData.bidAmount) || 0,
                             )}
                           </p>
@@ -1459,7 +1558,7 @@ const PlaceBid = () => {
                             POSSIBLE WIN
                           </p>
                           <p className="font-bold text-green-600">
-                            {formatCurrency(calculateWinAmount())}
+                            {formatUserCurrency(calculateWinAmount())}
                           </p>
                         </div>
                       </div>

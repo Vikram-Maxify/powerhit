@@ -25,6 +25,31 @@ import {
   getAdminResultStats,
 } from "../redux/adminResultSlice";
 
+// ---------------------------------------------------------------------------
+// DATE HELPERS
+// ---------------------------------------------------------------------------
+// Convert "YYYY-MM-DD" (from <input type="date">) to a full ISO datetime.
+// Mongoose requires a proper Date-castable value — date-only strings like
+// "2026-09-10" can trigger a CastError on strict Date paths.
+const toISODate = (d) => {
+  if (!d) return undefined;
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+};
+
+// Convert any date-like value to a local "YYYY-MM-DD" string suitable for
+// <input type="date">. Using local getters avoids off-by-one UTC shifts.
+const toInputDate = (d) => {
+  if (!d) return "";
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return "";
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const AdminResults = () => {
   const dispatch = useDispatch();
 
@@ -92,8 +117,9 @@ const AdminResults = () => {
   // =========================
   const [formData, setFormData] = useState({
     marketId: "",
+    marketDayId: "",
     winningResult: "",
-    resultDate: new Date().toISOString().split("T")[0],
+    resultDate: toInputDate(new Date()),
     nextOpenDate: "",
   });
 
@@ -101,54 +127,74 @@ const AdminResults = () => {
   // GAME TYPES
   // =========================
   const gameTypes = [
-    {
-      key: "jodi",
-      label: "Jodi",
-    },
-    {
-      key: "panna",
-      label: "Panna",
-    },
-    {
-      key: "half-sangam",
-      label: "Half-Sangam",
-    },
-    {
-      key: "full-sangam",
-      label: "Full-Sangam",
-    },
-    {
-      key: "last-digit",
-      label: "Last Digit",
-    },
-    {
-      key: "first-digit",
-      label: "First Digit",
-    },
+    { key: "single", label: "Single" },
+    { key: "single-Patti", label: "Single Patti" },
+    { key: "double-Patti", label: "Double Patti" },
+    { key: "triple-Patti", label: "Triple Patti" },
+    { key: "jodi", label: "Jodi" },
+    { key: "panna", label: "Panna" },
+    { key: "half-sangam", label: "Half-Sangam" },
+    { key: "full-sangam", label: "Full-Sangam" },
+    { key: "last-digit", label: "Last Digit" },
+    { key: "first-digit", label: "First Digit" },
   ];
 
-  // Admin only selects the market digit type:
-  // 2-digit or 3-digit.
+  // Only 2-digit / 3-digit are valid admin-facing market types.
   const getMarketDigitType = (market) => {
     return market?.digitType === "2-digit" || market?.digitType === "3-digit"
       ? market.digitType
       : "";
   };
 
+  // Intersect market.gameTypes with supported gameTypes + digitType rules.
   const getAllowedGamesForMarket = (market) => {
     const digitType = getMarketDigitType(market);
+    const marketGameTypes = Array.isArray(market?.gameTypes)
+      ? market.gameTypes
+      : [];
+
+    const baseAllowed =
+      marketGameTypes.length > 0
+        ? gameTypes.filter((g) => marketGameTypes.includes(g.key))
+        : gameTypes;
 
     if (digitType === "2-digit") {
-      return gameTypes.filter((game) =>
-        ["jodi", "last-digit", "first-digit"].includes(game.key),
+      return baseAllowed.filter((g) =>
+        ["jodi", "last-digit", "first-digit"].includes(g.key),
       );
     }
 
     if (digitType === "3-digit") {
-      return gameTypes;
+      return baseAllowed;
     }
 
     return [];
+  };
+
+  // Find the first pending market-day (not declared, active) for a market.
+  const getPendingMarketDay = (market) => {
+    const days = Array.isArray(market?.marketArray) ? market.marketArray : [];
+
+    return (
+      days.find(
+        (d) => d?.isActive !== false && d?.isResultDeclared !== true,
+      ) || null
+    );
+  };
+
+  // Get the currently selected market-day object.
+  const getSelectedMarketDay = () => {
+    const market = markets.find(
+      (m) => String(m._id) === String(formData.marketId),
+    );
+
+    if (!market) return null;
+
+    const days = Array.isArray(market?.marketArray) ? market.marketArray : [];
+
+    return (
+      days.find((d) => String(d._id) === String(formData.marketDayId)) || null
+    );
   };
 
   // =========================
@@ -156,9 +202,12 @@ const AdminResults = () => {
   // =========================
   useEffect(() => {
     dispatch(getAdminResults(filter));
+  }, [dispatch, filter]);
+
+  useEffect(() => {
     dispatch(getAdminResultStats());
     dispatch(getAdminMarkets({ limit: 100 }));
-  }, [dispatch, filter]);
+  }, [dispatch]);
 
   // =========================
   // CLEAR MESSAGES
@@ -202,18 +251,12 @@ const AdminResults = () => {
   // WINNING RESULT CHANGE
   // =========================
   const handleWinningResultChange = (value) => {
-    const selectedMarket = markets.find(
+    const market = markets.find(
       (m) => String(m._id) === String(formData.marketId),
     );
 
-    const digitType = getMarketDigitType(selectedMarket);
-    // Winning result is digits-only.
-    // 2-digit market: 2 digits (e.g. 25)
-    // 3-digit market: 6 digits (e.g. 123456)
-    // For 3-digit markets:
-    //   123 = Open Panna
-    //   456 = Close Panna
-    //   123456 = Full result
+    const digitType = getMarketDigitType(market);
+
     const maxLength =
       digitType === "2-digit" ? 2 : digitType === "3-digit" ? 6 : 0;
 
@@ -233,19 +276,35 @@ const AdminResults = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Fetch lowest bids whenever market changes
     if (name === "marketId") {
+      const market = markets.find((m) => String(m._id) === String(value));
+      const pendingDay = getPendingMarketDay(market);
+
+      const prefillResultDate = pendingDay?.marketDate
+        ? toInputDate(pendingDay.marketDate)
+        : toInputDate(new Date());
+
+      setFormData((prev) => ({
+        ...prev,
+        marketId: value,
+        marketDayId: pendingDay?._id || "",
+        winningResult: "",
+        resultDate: prefillResultDate,
+      }));
+
       dispatch(clearLowestBid());
 
       if (value) {
         dispatch(getLowestBidNumber(value));
       }
+
+      return;
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   // =========================
@@ -259,11 +318,18 @@ const AdminResults = () => {
       return;
     }
 
-    const selectedMarket = markets.find(
+    if (!formData.marketDayId) {
+      alert(
+        "No pending market day found for this market. Please check the market schedule.",
+      );
+      return;
+    }
+
+    const market = markets.find(
       (m) => String(m._id) === String(formData.marketId),
     );
 
-    const digitType = getMarketDigitType(selectedMarket);
+    const digitType = getMarketDigitType(market);
 
     if (!digitType) {
       alert("Please configure this market as 2-digit or 3-digit");
@@ -298,26 +364,17 @@ const AdminResults = () => {
     }
 
     // ------------------------------------------------------------
-    // BUILD ONLY VALID GAME-TYPE KEYS.
-    // Never send "result" as a game type.
+    // BUILD PAYLOAD
     //
-    // 2-digit result: 25
-    //   jodi=25, first-digit=2, last-digit=5
+    // Dates are converted to full ISO datetime strings so Mongoose
+    // can cast them into Date fields without a CastError.
     //
-    // 3-digit market result: 123456
-    //   openPanna=123
-    //   closePanna=456
-    //
-    //   jodi=56
-    //   panna=123
-    //   half-sangam=123-6
-    //   full-sangam=123-456
-    //   first-digit=1
-    //   last-digit=6
+    // marketDayId is included so the backend can locate the specific
+    // entry inside marketArray.
     // ------------------------------------------------------------
-
     const payload = {
       marketId: formData.marketId,
+      marketDayId: formData.marketDayId,
       winningNumbers:
         digitType === "2-digit"
           ? {
@@ -334,32 +391,57 @@ const AdminResults = () => {
               "last-digit": winningResult.slice(-1),
             },
       digitType,
-      resultDate: formData.resultDate,
-      nextOpenDate: formData.nextOpenDate,
+      resultDate: toISODate(formData.resultDate),
+      nextOpenDate: toISODate(formData.nextOpenDate),
     };
+
+    // Log exactly what we send so backend issues are easy to diagnose.
+    console.log("→ declareResult payload:", JSON.stringify(payload, null, 2));
 
     try {
       const response = await dispatch(declareResult(payload));
 
+      // Log the raw response for debugging backend validation errors.
+      console.log("← declareResult response:", response);
+
+      if (declareResult.rejected.match(response)) {
+        // Surface the backend message directly (e.g. CastError).
+        const backendMsg =
+          response.payload?.message ||
+          response.error?.message ||
+          "Failed to declare result";
+        console.error("declareResult rejected:", backendMsg);
+        alert(backendMsg);
+        return;
+      }
+
       if (declareResult.fulfilled.match(response)) {
         await dispatch(getAdminResults(filter));
-
         await dispatch(getAdminResultStats());
+        await dispatch(getAdminMarkets({ limit: 100 }));
 
         setShowModal(false);
-
         dispatch(clearLowestBid());
 
-        setFormData({
-          marketId: "",
-          winningResult: "",
-          resultDate: new Date().toISOString().split("T")[0],
-          nextOpenDate: "",
-        });
+        resetFormData();
       }
-    } catch (error) {
-      console.error("Declare Result Error:", error);
+    } catch (err) {
+      console.error("Declare Result Error:", err);
+      alert(err?.message || "Unexpected error while declaring result");
     }
+  };
+
+  // =========================
+  // RESET FORM
+  // =========================
+  const resetFormData = () => {
+    setFormData({
+      marketId: "",
+      marketDayId: "",
+      winningResult: "",
+      resultDate: toInputDate(new Date()),
+      nextOpenDate: "",
+    });
   };
 
   // =========================
@@ -381,13 +463,7 @@ const AdminResults = () => {
   const closeModal = () => {
     setShowModal(false);
     dispatch(clearLowestBid());
-
-    setFormData({
-      marketId: "",
-      winningResult: "",
-      resultDate: new Date().toISOString().split("T")[0],
-      nextOpenDate: "",
-    });
+    resetFormData();
   };
 
   // =========================
@@ -406,6 +482,10 @@ const AdminResults = () => {
   // =========================
   const getGameTypeDisplay = (type) => {
     const display = {
+      single: "Single",
+      "single-Patti": "Single Patti",
+      "double-Patti": "Double Patti",
+      "triple-Patti": "Triple Patti",
       jodi: "Jodi",
       panna: "Panna",
       "half-sangam": "Half-Sangam",
@@ -426,13 +506,12 @@ const AdminResults = () => {
         return <span className="text-gray-400 text-xs">N/A</span>;
       }
 
-      if (!result.winningNumber) {
+      const wn = result.winningNumber || result.winningNumbers;
+
+      if (!wn) {
         return <span className="text-gray-400 text-xs">N/A</span>;
       }
 
-      const wn = result.winningNumber;
-
-      // String
       if (typeof wn === "string") {
         return (
           <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
@@ -441,19 +520,17 @@ const AdminResults = () => {
         );
       }
 
-      // Array
       if (Array.isArray(wn)) {
         return wn.map((num, index) => (
           <span
             key={index}
             className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 mr-1 mb-1 inline-block"
           >
-            {num}
+            {typeof num === "object" ? JSON.stringify(num) : num}
           </span>
         ));
       }
 
-      // Object
       if (typeof wn === "object" && wn !== null) {
         const entries = Object.entries(wn).filter(
           ([, value]) =>
@@ -476,16 +553,15 @@ const AdminResults = () => {
               key={gameType}
               className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 mr-1 mb-1 inline-block"
             >
-              {displayName}: {number}
+              {displayName}: {String(number)}
             </span>
           );
         });
       }
 
       return <span className="text-gray-400 text-xs">N/A</span>;
-    } catch (error) {
-      console.error("Error rendering winning numbers:", error);
-
+    } catch (err) {
+      console.error("Error rendering winning numbers:", err);
       return <span className="text-gray-400 text-xs">Error</span>;
     }
   };
@@ -494,6 +570,18 @@ const AdminResults = () => {
   // STATS
   // =========================
   const calculateStats = () => {
+    if (Array.isArray(stats) && stats.length > 0) {
+      const s = stats[0];
+
+      const totalResults = s.totalResults ?? results.length ?? 0;
+      const totalPayout = s.totalPayout ?? 0;
+      const totalWinningBids = s.totalWinningBids ?? 0;
+      const avgPayout =
+        s.avgPayout ?? (totalResults > 0 ? totalPayout / totalResults : 0);
+
+      return { totalResults, totalPayout, totalWinningBids, avgPayout };
+    }
+
     if (!results || results.length === 0) {
       return {
         totalResults: 0,
@@ -533,7 +621,6 @@ const AdminResults = () => {
       return "N/A";
     }
 
-    // Populated market object
     if (typeof marketId === "object") {
       return (
         marketId.name ||
@@ -583,20 +670,10 @@ const AdminResults = () => {
       return null;
     }
 
-    // Backend response:
-    // {
-    //   success: true,
-    //   lowestBids: {
-    //      single: {...},
-    //      jodi: {...}
-    //   }
-    // }
-
     if (lowestBid.lowestBids) {
       return lowestBid.lowestBids?.[gameKey] || null;
     }
 
-    // If reducer stores action.payload.lowestBids directly
     if (typeof lowestBid === "object" && lowestBid[gameKey]) {
       return lowestBid[gameKey];
     }
@@ -651,7 +728,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
       {/* ================= STATS CARDS ================= */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* Total Results */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -660,7 +736,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
             <div>
               <p className="text-gray-500 text-xs">Total Results</p>
-
               <p className="text-xl font-bold text-gray-800">
                 {statsData.totalResults}
               </p>
@@ -668,7 +743,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
           </div>
         </div>
 
-        {/* Total Payout */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
@@ -677,7 +751,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
             <div>
               <p className="text-gray-500 text-xs">Total Payout</p>
-
               <p className="text-xl font-bold text-green-600">
                 {formatCurrency(statsData.totalPayout)}
               </p>
@@ -685,7 +758,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
           </div>
         </div>
 
-        {/* Winners */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
@@ -694,7 +766,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
             <div>
               <p className="text-gray-500 text-xs">Total Winners</p>
-
               <p className="text-xl font-bold text-purple-600">
                 {statsData.totalWinningBids}
               </p>
@@ -702,7 +773,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
           </div>
         </div>
 
-        {/* Average */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
@@ -711,7 +781,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
             <div>
               <p className="text-gray-500 text-xs">Avg Payout</p>
-
               <p className="text-xl font-bold text-orange-600">
                 {formatCurrency(statsData.avgPayout)}
               </p>
@@ -736,7 +805,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
       {/* ================= FILTERS ================= */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Market */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               Market
@@ -758,7 +826,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
             </select>
           </div>
 
-          {/* Start Date */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               Start Date
@@ -773,7 +840,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
             />
           </div>
 
-          {/* End Date */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">
               End Date
@@ -788,7 +854,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
             />
           </div>
 
-          {/* Buttons */}
           <div className="flex items-end gap-2">
             <button
               onClick={clearFilters}
@@ -817,23 +882,18 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Market Name
                   </th>
-
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Winning Numbers
                   </th>
-
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Total Bids
                   </th>
-
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Winners
                   </th>
-
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Total Payout
                   </th>
-
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Date
                   </th>
@@ -843,9 +903,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
               <tbody className="divide-y divide-gray-100">
                 {results.map((result) => (
                   <tr
-                    key={
-                      result._id || `${result.marketId}-${result.resultDate}`
-                    }
+                    key={result._id || `${result.marketId}-${result.resultDate}`}
                     className="hover:bg-amber-50/30 transition"
                   >
                     <td className="px-4 py-3">
@@ -895,7 +953,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
             </table>
           </div>
 
-          {/* Pagination */}
           <div className="px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3 border-t border-gray-100">
             <span className="text-sm text-gray-600">
               Showing {results.length} of {pagination?.total || results.length}{" "}
@@ -943,9 +1000,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
           <div className="text-5xl mb-4">📋</div>
-
           <p className="text-gray-500 text-lg">No results found</p>
-
           <p className="text-gray-400 text-sm mt-1">
             Declare a result to get started
           </p>
@@ -962,7 +1017,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
             className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div>
                 <h2 className="text-lg md:text-xl font-bold text-gray-800">
@@ -982,7 +1036,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
               </button>
             </div>
 
-            {/* Content */}
             <div className="p-4 overflow-y-auto max-h-[75vh]">
               {marketBidsLoading ? (
                 <div className="flex justify-center items-center py-16">
@@ -1129,7 +1182,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
               )}
             </div>
 
-            {/* Footer */}
             <div className="px-5 py-3 border-t border-gray-100 flex justify-between items-center">
               <span className="text-sm text-gray-500">
                 Total Bids:{" "}
@@ -1152,7 +1204,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            {/* Modal Header */}
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 <Trophy size={20} className="text-amber-500" />
@@ -1185,7 +1236,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                     <option value="">Select Market</option>
 
                     {markets
-                      ?.filter((m) => m?.isActive && !m?.isResultDeclared)
+                      ?.filter((m) => !!getPendingMarketDay(m))
                       .map((m) => (
                         <option key={m._id} value={m._id}>
                           {m?.name || m?.marketName || "Unnamed Market"}
@@ -1194,8 +1245,41 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                   </select>
 
                   <p className="text-xs text-gray-400 mt-1">
-                    Showing only active markets with pending results
+                    Showing only markets with a pending (undeclared) market day
                   </p>
+
+                  {/* ================= MARKET DAY INFO ================= */}
+                  {formData.marketDayId &&
+                    (() => {
+                      const day = getSelectedMarketDay();
+
+                      if (!day) return null;
+
+                      return (
+                        <div className="mt-3 rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2 text-xs text-indigo-700">
+                          <p className="font-semibold mb-0.5">
+                            Declaring for market day:
+                          </p>
+                          <p>
+                            {new Date(day.marketDate).toLocaleDateString(
+                              "en-IN",
+                              {
+                                weekday: "short",
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )}
+                            {day.openTime && ` · Open ${day.openTime}`}
+                            {day.closeTime && ` · Close ${day.closeTime}`}
+                            {day.resultTime && ` · Result ${day.resultTime}`}
+                          </p>
+                          <p className="mt-1 text-[10px] text-indigo-500">
+                            marketDayId: {day._id}
+                          </p>
+                        </div>
+                      );
+                    })()}
 
                   {/* ================= LOWEST BIDS ================= */}
                   {formData.marketId && (
@@ -1219,37 +1303,54 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                       </div>
 
                       {!lowestBidLoading && !lowestBidError && (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          {getAllowedGamesForMarket(
-                            markets.find(
+                        <>
+                          {(() => {
+                            const market = markets.find(
                               (m) =>
                                 String(m._id) === String(formData.marketId),
-                            ),
-                          ).map((game) => {
-                            const bidData = getLowestBidData(game.key);
+                            );
+
+                            const allowedGames =
+                              getAllowedGamesForMarket(market);
+
+                            if (allowedGames.length === 0) {
+                              return (
+                                <p className="text-xs text-gray-400">
+                                  No game types available for this market
+                                </p>
+                              );
+                            }
 
                             return (
-                              <div
-                                key={game.key}
-                                className="bg-white border border-amber-100 rounded-lg p-2"
-                              >
-                                <p className="text-[10px] text-gray-500 font-medium">
-                                  {game.label}
-                                </p>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {allowedGames.map((game) => {
+                                  const bidData = getLowestBidData(game.key);
 
-                                <p className="text-lg font-bold text-amber-700">
-                                  {bidData?.number ?? "N/A"}
-                                </p>
+                                  return (
+                                    <div
+                                      key={game.key}
+                                      className="bg-white border border-amber-100 rounded-lg p-2"
+                                    >
+                                      <p className="text-[10px] text-gray-500 font-medium">
+                                        {game.label}
+                                      </p>
 
-                                {bidData?.bidAmount > 0 && (
-                                  <p className="text-[10px] text-gray-400">
-                                    Bid: ₹{bidData.bidAmount}
-                                  </p>
-                                )}
+                                      <p className="text-lg font-bold text-amber-700">
+                                        {bidData?.number ?? "N/A"}
+                                      </p>
+
+                                      {bidData?.bidAmount > 0 && (
+                                        <p className="text-[10px] text-gray-400">
+                                          Bid: ₹{bidData.bidAmount}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             );
-                          })}
-                        </div>
+                          })()}
+                        </>
                       )}
 
                       {!lowestBidLoading && !lowestBidError && !lowestBid && (
@@ -1268,11 +1369,11 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                   </label>
 
                   {(() => {
-                    const selectedMarket = markets.find(
+                    const market = markets.find(
                       (m) => String(m._id) === String(formData.marketId),
                     );
 
-                    const digitType = getMarketDigitType(selectedMarket);
+                    const digitType = getMarketDigitType(market);
 
                     const expectedLength =
                       digitType === "2-digit"
@@ -1305,7 +1406,9 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
                         {digitType === "2-digit" && (
                           <div className="mt-3 rounded-xl bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700">
-                            <p className="font-semibold mb-1">2-Digit Result</p>
+                            <p className="font-semibold mb-1">
+                              2-Digit Result
+                            </p>
                             <p>
                               Example: <strong>25</strong>
                               {" → "}
@@ -1316,15 +1419,17 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
                         {digitType === "3-digit" && (
                           <div className="mt-3 rounded-xl bg-green-50 border border-green-100 p-3 text-xs text-green-700">
-                            <p className="font-semibold mb-1">3-Digit Result</p>
+                            <p className="font-semibold mb-1">
+                              3-Digit Result
+                            </p>
                             <p>
                               Example: <strong>123456</strong>
                               {" → "}
                               Open Panna 123, Close Panna 456
                             </p>
                             <p className="mt-1">
-                              Jodi 56, Panna 123, Half-Sangam 123-6, Full-Sangam
-                              123-456, First Digit 1, Last Digit 6
+                              Jodi 56, Panna 123, Half-Sangam 123-6,
+                              Full-Sangam 123-456, First Digit 1, Last Digit 6
                             </p>
                           </div>
                         )}
@@ -1378,7 +1483,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                 </div>
               </div>
 
-              {/* ================= BUTTONS ================= */}
               <div className="flex gap-3 mt-6">
                 <button
                   type="submit"

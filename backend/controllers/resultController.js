@@ -5,10 +5,31 @@ const User = require("../models/authmodel");
 const mongoose = require("mongoose");
 
 const normalizeMarketDate = (value) => {
-  if (value === undefined || value === null || String(value).trim() === "") return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
+  if (!value) return null;
+
+  // Already Date
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const strValue = String(value).trim();
+
+  if (!strValue) return null;
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(strValue)) {
+    const date = new Date(`${strValue}T00:00:00.000Z`);
+
+    return Number.isNaN(date.getTime())
+      ? null
+      : date;
+  }
+
+  const date = new Date(strValue);
+
+  return Number.isNaN(date.getTime())
+    ? null
+    : date;
 };
 
 const findMarketDay = (market, { marketDayId, marketDate, resultDate } = {}) => {
@@ -1927,8 +1948,11 @@ exports.declareResult = async (req, res) => {
     marketDay.isResultDeclared =
       true;
 
+    // marketArray.winningNumber is a STRING in the Market schema.
+    // Store a stable JSON string here. Result.winningNumber can remain
+    // the complete object because its schema accepts an object.
     marketDay.winningNumber =
-      formattedWinningNumbers;
+      JSON.stringify(formattedWinningNumbers);
 
     marketDay.resultDeclaredAt =
       new Date();

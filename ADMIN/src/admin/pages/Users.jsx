@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Crown,
   Eye,
+  EyeOff,
   X,
   Clock,
   DollarSign,
@@ -41,6 +42,7 @@ import {
   Wallet,
   Activity,
   BarChart3,
+  Key,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
@@ -477,6 +479,39 @@ const EmptyState = ({ hasFilters }) => (
   </motion.div>
 );
 
+// ✅ Password Cell Component - Hidden by default, toggle to show
+const PasswordCell = ({ password }) => {
+  const [show, setShow] = useState(false);
+  const hasPassword = password && password !== "N/A";
+
+  if (!hasPassword) {
+    return <span className="text-[10px] sm:text-xs text-gray-400 italic">N/A</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1 sm:gap-2">
+      <span className="font-mono text-[10px] sm:text-xs text-gray-700 truncate max-w-[70px] sm:max-w-[100px]">
+        {show ? password : "•".repeat(Math.min(password.length, 10))}
+      </span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShow((s) => !s);
+        }}
+        className="text-gray-400 hover:text-indigo-600 transition-colors flex-shrink-0 touch-manipulation"
+        title={show ? "Hide password" : "Show password"}
+      >
+        {show ? (
+          <EyeOff size={12} className="sm:w-3.5 sm:h-3.5" />
+        ) : (
+          <Eye size={12} className="sm:w-3.5 sm:h-3.5" />
+        )}
+      </button>
+    </div>
+  );
+};
+
 // User Card (Grid View) - Fully Responsive
 const UserCard = ({
   user,
@@ -654,6 +689,10 @@ const UserRow = ({
           <span className="hidden xs:inline">{user.mobile}</span>
         </div>
       </td>
+      {/* ✅ Password Column - hidden by default */}
+      <td className="px-2 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap">
+        <PasswordCell password={user.plainPassword} />
+      </td>
       <td className="px-2 sm:px-4 lg:px-6 py-3 sm:py-4 whitespace-nowrap">
         <div className="flex items-center gap-1 sm:gap-2">
           {user.country && (
@@ -702,6 +741,7 @@ const UserDetailsModal = ({
   formatDate,
 }) => {
   const [localStatusChangeLoading, setLocalStatusChangeLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleStatusChange = async (status) => {
     setLocalStatusChangeLoading(true);
@@ -710,6 +750,7 @@ const UserDetailsModal = ({
   };
 
   const isLoading = statusChangeLoading || localStatusChangeLoading || statusUpdateLoading;
+  const hasPassword = user.plainPassword && user.plainPassword !== "N/A";
 
   return (
     <motion.div
@@ -882,6 +923,37 @@ const UserDetailsModal = ({
                 <InfoRow label="Balance" value={formatCurrency(user.country, user.balance)} icon={<DollarSign size={12} className="sm:w-3.5 sm:h-3.5" />} highlight />
                 <InfoRow label="Role" value={getRoleBadge(user.role)} />
                 <InfoRow label="Demo Account" value={user.isDemo ? "Yes" : "No"} />
+                {/* ✅ Plain Password Row - hidden by default with toggle */}
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-gray-600 text-[10px] sm:text-sm flex items-center gap-0.5 sm:gap-1">
+                    <Key size={12} className="sm:w-3.5 sm:h-3.5" />
+                    <span className="hidden xs:inline">Plain Password</span>
+                    <span className="xs:hidden">Pwd</span>
+                  </span>
+                  <div className="flex items-center gap-1 sm:gap-2 max-w-[60%] sm:max-w-[70%]">
+                    <span className="font-mono text-[10px] sm:text-xs font-medium text-gray-900 truncate text-right">
+                      {!hasPassword
+                        ? "N/A"
+                        : showPassword
+                        ? user.plainPassword
+                        : "•".repeat(Math.min(user.plainPassword.length, 12))}
+                    </span>
+                    {hasPassword && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((p) => !p)}
+                        className="text-gray-400 hover:text-indigo-600 transition-colors flex-shrink-0 touch-manipulation"
+                        title={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff size={12} className="sm:w-3.5 sm:h-3.5" />
+                        ) : (
+                          <Eye size={12} className="sm:w-3.5 sm:h-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <InfoRow label="User ID" value={user._id} monospace />
               </div>
             </div>
@@ -1305,12 +1377,14 @@ const Users = () => {
                 ) : (
                   <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden border border-gray-100">
                     <div className="overflow-x-auto">
-                      <table className="min-w-[640px] sm:min-w-full divide-y divide-gray-200">
+                      <table className="min-w-[720px] sm:min-w-full divide-y divide-gray-200">
                         <thead className="bg-gradient-to-r from-indigo-50 to-purple-50">
                           <tr>
                             <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                             <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                             <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider hidden xs:table-cell">Mobile</th>
+                            {/* ✅ Password header */}
+                            <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Password</th>
                             <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
                             <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
