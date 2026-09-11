@@ -26,11 +26,6 @@ import {
 
 // =========================================================
 // COUNTRY NORMALIZATION
-// user.country can come in different shapes from the backend
-// ("uae", "UAE", "ae", "AE", "United Arab Emirates", etc.)
-// while the currencyRate collection always stores a clean
-// 2-letter countryCode ("AE", "IN", "AU", "PK", "BD", "NP").
-// This maps any of those variants to the canonical code.
 // =========================================================
 const COUNTRY_ALIASES = {
   in: "IN",
@@ -57,24 +52,29 @@ const normalizeCountryCode = (country) => {
 
 const getCurrencySymbol = (country) => {
   const symbols = {
-    IN: "₹", // India - Indian Rupee
-    AU: "$", // Australia - Australian Dollar
-    PK: "₨", // Pakistan - Pakistani Rupee
-    BD: "৳", // Bangladesh - Bangladeshi Taka
-    NP: "रू", // Nepal - Nepalese Rupee
-    AE: "د.إ", // Dubai/UAE - UAE Dirham
+    IN: "₹",
+    AU: "$",
+    PK: "₨",
+    BD: "৳",
+    NP: "रू",
+    AE: "د.إ",
     default: "₹",
   };
-
   return symbols[normalizeCountryCode(country)] || symbols.default;
 };
 
 // =========================================================
-// GAME TYPE MAPPING - CRITICAL FIX
-// Frontend uses lowercase, backend expects PascalCase
+// ACTIVE SESSION HELPER  ← KEY FIX
+// =========================================================
+const getActiveSession = (market) => {
+  if (!market?.marketArray?.length) return null;
+  return market.marketArray.find((s) => s.isActive) || market.marketArray[0];
+};
+
+// =========================================================
+// GAME TYPE MAPPING
 // =========================================================
 const GAME_TYPE_MAP = {
-  // Frontend key -> Backend value
   single: "single",
   jodi: "jodi",
   panna: "panna",
@@ -87,7 +87,6 @@ const GAME_TYPE_MAP = {
   "first-digit": "first-digit",
 };
 
-// Reverse map for display purposes
 const GAME_TYPE_DISPLAY = {
   single: "Single",
   jodi: "Jodi",
@@ -101,23 +100,21 @@ const GAME_TYPE_DISPLAY = {
   "first-digit": "First Digit",
 };
 
-// Get backend game type from frontend type
-const getBackendGameType = (frontendType) => {
-  return GAME_TYPE_MAP[frontendType] || frontendType;
-};
+const getBackendGameType = (frontendType) =>
+  GAME_TYPE_MAP[frontendType] || frontendType;
 
-// Get display name for game type
-const getGameTypeDisplayName = (type) => {
-  return GAME_TYPE_DISPLAY[type] || type;
-};
+// =========================================================
+// NORMALIZE API gameTypes  ("single-Patti" → "single-patti")
+// =========================================================
+const normalizeGameKey = (key) =>
+  String(key || "")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-");
 
-// Get display name from frontend type
-const getDisplayFromFrontend = (frontendType) => {
-  const backendType = getBackendGameType(frontendType);
-  return GAME_TYPE_DISPLAY[backendType] || frontendType;
-};
-
-// Generates round, human-friendly bid amounts between minBid and maxBid.
+// =========================================================
+// BID AMOUNT GENERATOR
+// =========================================================
 const generateBidAmounts = (min, max, maxButtons = 9) => {
   if (!min || !max || min >= max) return [min || 0];
 
@@ -150,7 +147,9 @@ const generateBidAmounts = (min, max, maxButtons = 9) => {
   return amounts;
 };
 
-// Returns a YYYY-MM-DD key for a date string, normalized to IST
+// =========================================================
+// IST DATE HELPERS
+// =========================================================
 const toISTDateKey = (dateStr) =>
   new Date(dateStr).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
@@ -165,7 +164,6 @@ const formatShortDate = (dateKey) => {
 // =========================================================
 // PATTI HELPERS
 // =========================================================
-
 const isSinglePatti = (num) => {
   const digits = num.toString().padStart(3, "0").split("");
   return (
@@ -189,43 +187,6 @@ const isTriplePatti = (num) => {
   return digits[0] === digits[1] && digits[1] === digits[2];
 };
 
-const getPattiType = (num) => {
-  const str = num.toString().padStart(3, "0");
-  if (isTriplePatti(num)) return "triple";
-  if (isDoublePatti(num)) return "double";
-  if (isSinglePatti(num)) return "single";
-  return "unknown";
-};
-
-const buildPattiNumber = (digits, pattiType) => {
-  const str = digits.join("");
-
-  if (pattiType === "single-patti") {
-    const unique = [...new Set(digits)];
-    if (unique.length !== 3) return null;
-    return str;
-  }
-
-  if (pattiType === "double-patti") {
-    const counts = {};
-    digits.forEach((d) => (counts[d] = (counts[d] || 0) + 1));
-    const values = Object.values(counts);
-    if (values.includes(2) && values.includes(1) && values.length === 2) {
-      return str;
-    }
-    return null;
-  }
-
-  if (pattiType === "triple-patti") {
-    if (digits[0] === digits[1] && digits[1] === digits[2]) {
-      return str;
-    }
-    return null;
-  }
-
-  return str;
-};
-
 const getPattiTypeLabel = (type) => {
   const labels = {
     "single-patti": "Single Patti",
@@ -233,35 +194,6 @@ const getPattiTypeLabel = (type) => {
     "triple-patti": "Triple Patti",
   };
   return labels[type] || type;
-};
-
-const getPattiTypeShort = (type) => {
-  const labels = {
-    "single-patti": "Single",
-    "double-patti": "Double",
-    "triple-patti": "Triple",
-  };
-  return labels[type] || type;
-};
-
-const getPattiTypeIcon = (type) => {
-  const icons = {
-    "single-patti": "🔢",
-    "double-patti": "🔢",
-    "triple-patti": "🔢",
-  };
-  return icons[type] || "🎲";
-};
-
-const isValidPattiNumber = (digits, pattiType) => {
-  const str = digits.join("");
-  if (str.length !== 3) return false;
-  const num = parseInt(str, 10);
-
-  if (pattiType === "single-patti") return isSinglePatti(num);
-  if (pattiType === "double-patti") return isDoublePatti(num);
-  if (pattiType === "triple-patti") return isTriplePatti(num);
-  return true;
 };
 
 const getPattiDescription = (type) => {
@@ -285,7 +217,6 @@ const getPattiExample = (type) => {
 // =========================================================
 // MAIN COMPONENT
 // =========================================================
-
 const PlaceBid = () => {
   const { marketId } = useParams();
   const dispatch = useDispatch();
@@ -308,26 +239,49 @@ const PlaceBid = () => {
     selectPublicBidResults,
   );
 
-  // Currency rates (used to display amounts in the user's own currency)
   const currencies = useSelector((state) => state.currencyRate?.currencies);
 
   const { gameType: autoGameType, digitType: autoDigitType } =
     location.state || {};
 
+  // =========================================================
+  // FLATTEN SESSION DATA FROM marketArray  ← KEY FIX
+  // =========================================================
+  const activeSession = useMemo(
+    () => getActiveSession(currentMarket),
+    [currentMarket],
+  );
+
+  const marketData = useMemo(() => {
+    if (!currentMarket) return null;
+    const s = activeSession;
+    return {
+      ...currentMarket,
+      openTime: s?.openTime || currentMarket.openTime || "--:--",
+      closeTime: s?.closeTime || currentMarket.closeTime || "--:--",
+      resultTime: s?.resultTime || currentMarket.resultTime || "--:--",
+      minBid: s?.minBid ?? currentMarket.minBid ?? 0,
+      maxBid: s?.maxBid ?? currentMarket.maxBid ?? 0,
+      isActive: s?.isActive ?? false,
+      winningNumber: s?.winningNumber ?? null,
+      isResultDeclared: s?.isResultDeclared ?? false,
+      marketDate: s?.marketDate || null,
+    };
+  }, [currentMarket, activeSession]);
+
   const marketDigitType =
-    currentMarket?.digitType ||
-    currentMarket?.marketType ||
-    autoDigitType ||
-    "";
+    marketData?.digitType || marketData?.marketType || autoDigitType || "";
 
-  // FRONTEND GAME TYPES (lowercase for UI)
+  // =========================================================
+  // ALLOWED GAME TYPES  ← uses digitType ∩ API gameTypes
+  // =========================================================
   const allowedGameTypesByDigitType = useMemo(() => {
-    if (marketDigitType === "2-digit") {
-      return ["single", "jodi", "last-digit", "first-digit"];
-    }
+    let byDigitType = [];
 
-    if (marketDigitType === "3-digit") {
-      return [
+    if (marketDigitType === "2-digit") {
+      byDigitType = ["single", "jodi", "last-digit", "first-digit"];
+    } else if (marketDigitType === "3-digit") {
+      byDigitType = [
         "single",
         "single-patti",
         "double-patti",
@@ -339,10 +293,16 @@ const PlaceBid = () => {
         "last-digit",
         "first-digit",
       ];
+    } else {
+      return [];
     }
 
-    return [];
-  }, [marketDigitType]);
+    // Intersect with API gameTypes (if provided)
+    const apiKeys = (marketData?.gameTypes || []).map(normalizeGameKey);
+    return apiKeys.length
+      ? byDigitType.filter((k) => apiKeys.includes(k))
+      : byDigitType;
+  }, [marketDigitType, marketData?.gameTypes]);
 
   const isGameTypeAllowed = (gameType) =>
     allowedGameTypesByDigitType.includes(gameType);
@@ -351,14 +311,6 @@ const PlaceBid = () => {
 
   // =========================================================
   // CURRENCY CONVERSION
-  // rate = "1 unit of that currency = X INR" (INR/IN has rate 1)
-  // So: convertedAmount = amountInINR / rate
-  // All amounts entered/validated/sent to backend stay in INR.
-  // Only the DISPLAY is converted to the user's local currency.
-  //
-  // user.country can arrive as "uae", "UAE", "ae", etc. while the
-  // currencyRate collection stores a clean 2-letter countryCode
-  // ("AE"). We normalize both sides before comparing.
   // =========================================================
   const userCountryCode = useMemo(
     () => normalizeCountryCode(user?.country),
@@ -379,7 +331,6 @@ const PlaceBid = () => {
   const formatCurrency = (amount) => {
     const amt = Number(amount) || 0;
 
-    // If we know the user's currency and it isn't INR, show converted value
     if (userCurrencyRate && userCurrencyRate.countryCode !== "IN") {
       const converted = amt / userCurrencyRate.rate;
       return `${converted.toLocaleString("en-IN", {
@@ -388,14 +339,15 @@ const PlaceBid = () => {
       })} ${userCurrencyRate.currencyCode}`;
     }
 
-    // Fallback: INR (default/original behavior)
     return `${currencySymbol}${amt.toLocaleString("en-IN")}`;
   };
 
+  // =========================================================
+  // LOCAL STATE
+  // =========================================================
   const [selectedDigits, setSelectedDigits] = useState([]);
   const [currentDigitIndex, setCurrentDigitIndex] = useState(0);
 
-  // formData uses FRONTEND game types (lowercase)
   const [formData, setFormData] = useState({
     number: "",
     bidAmount: "",
@@ -409,10 +361,13 @@ const PlaceBid = () => {
   const [customAmountError, setCustomAmountError] = useState("");
 
   const bidAmountOptions = useMemo(
-    () => generateBidAmounts(currentMarket?.minBid, currentMarket?.maxBid),
-    [currentMarket?.minBid, currentMarket?.maxBid],
+    () => generateBidAmounts(marketData?.minBid, marketData?.maxBid),
+    [marketData?.minBid, marketData?.maxBid],
   );
 
+  // =========================================================
+  // FETCHES
+  // =========================================================
   useEffect(() => {
     dispatch(
       fetchPublicBidResults({
@@ -422,11 +377,21 @@ const PlaceBid = () => {
     );
   }, [dispatch]);
 
-  // Fetch currency rates once on mount
   useEffect(() => {
     dispatch(getCurrencyRates());
   }, [dispatch]);
 
+  useEffect(() => {
+    dispatch(getMarketById(marketId));
+    return () => {
+      dispatch(clearCurrentMarket());
+      dispatch(clearBidError());
+    };
+  }, [dispatch, marketId]);
+
+  // =========================================================
+  // PUBLIC RESULTS → TODAY / LAST
+  // =========================================================
   const { todayResult, lastResult, lastResultDateKey } = useMemo(() => {
     if (!publicResults || publicResults.length === 0) {
       return { todayResult: [], lastResult: [], lastResultDateKey: null };
@@ -461,14 +426,12 @@ const PlaceBid = () => {
     };
   }, [publicResults]);
 
+  // =========================================================
+  // GAME HELPERS
+  // =========================================================
   const getDigitsCount = (gameType) => {
-    if (gameType === "half-sangam") {
-      return 4;
-    }
-
-    if (gameType === "full-sangam") {
-      return 6;
-    }
+    if (gameType === "half-sangam") return 4;
+    if (gameType === "full-sangam") return 6;
 
     const counts = {
       jodi: 2,
@@ -507,22 +470,19 @@ const PlaceBid = () => {
     return labels[gameType] || ["Digit"];
   };
 
-  const buildGameNumber = (gameType, digits) => {
-    const values = digits.map((d) => d ?? "");
+  const buildGameNumber = (gameType, digitsArr) => {
+    const values = digitsArr.map((d) => d ?? "");
 
     if (["single-patti", "double-patti", "triple-patti"].includes(gameType)) {
       const number = values.join("");
       if (number.length !== 3) return "";
 
-      if (gameType === "single-patti" && !isSinglePatti(parseInt(number, 10))) {
+      if (gameType === "single-patti" && !isSinglePatti(parseInt(number, 10)))
         return "";
-      }
-      if (gameType === "double-patti" && !isDoublePatti(parseInt(number, 10))) {
+      if (gameType === "double-patti" && !isDoublePatti(parseInt(number, 10)))
         return "";
-      }
-      if (gameType === "triple-patti" && !isTriplePatti(parseInt(number, 10))) {
+      if (gameType === "triple-patti" && !isTriplePatti(parseInt(number, 10)))
         return "";
-      }
       return number;
     }
 
@@ -552,22 +512,32 @@ const PlaceBid = () => {
       "last-digit": "00-99",
       "first-digit": "00-99",
     };
-
     return hints[gameType] || "";
+  };
+
+  const getGameTypeDisplay = (type) => {
+    const display = {
+      single: "Single",
+      jodi: "Jodi",
+      panna: "Panna",
+      "single-patti": "Single Patti",
+      "double-patti": "Double Patti",
+      "triple-patti": "Triple Patti",
+      "half-sangam": "Half-Sangam",
+      "full-sangam": "Full-Sangam",
+      "last-digit": "Last Digit",
+      "first-digit": "First Digit",
+    };
+    return display[type] || type;
   };
 
   const digitCount = getDigitsCount(formData.gameType);
   const digitLabels = getDigitLabels(formData.gameType);
   const digits = Array.from({ length: 10 }, (_, i) => i.toString());
 
-  useEffect(() => {
-    dispatch(getMarketById(marketId));
-    return () => {
-      dispatch(clearCurrentMarket());
-      dispatch(clearBidError());
-    };
-  }, [dispatch, marketId]);
-
+  // =========================================================
+  // AUTO GAME TYPE FROM NAVIGATION
+  // =========================================================
   useEffect(() => {
     if (!autoGameType) return;
 
@@ -590,6 +560,9 @@ const PlaceBid = () => {
     }
   }, [autoGameType, marketDigitType, allowedGameTypesByDigitType]);
 
+  // =========================================================
+  // ERROR FROM REDUX
+  // =========================================================
   useEffect(() => {
     if (error) {
       setLocalError(error);
@@ -600,10 +573,14 @@ const PlaceBid = () => {
     }
   }, [error, dispatch]);
 
+  // =========================================================
+  // DIGIT SELECTION
+  // =========================================================
   const handleDigitSelect = (digit) => {
     const newSelected = [...selectedDigits];
     newSelected[currentDigitIndex] = digit;
     setSelectedDigits(newSelected);
+
     const count = getDigitsCount(formData.gameType);
     if (currentDigitIndex < count - 1) {
       setCurrentDigitIndex(currentDigitIndex + 1);
@@ -700,8 +677,8 @@ const PlaceBid = () => {
     }
 
     const amount = parseInt(value, 10);
-    const min = currentMarket?.minBid;
-    const max = currentMarket?.maxBid;
+    const min = marketData?.minBid;
+    const max = marketData?.maxBid;
 
     if (min && amount < min) {
       setCustomAmountError(`Minimum bid is ${formatCurrency(min)}`);
@@ -712,6 +689,9 @@ const PlaceBid = () => {
     }
   };
 
+  // =========================================================
+  // SUBMIT
+  // =========================================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError("");
@@ -737,20 +717,20 @@ const PlaceBid = () => {
       return setLocalError(customAmountError);
 
     const bidAmount = parseFloat(formData.bidAmount);
-    if (bidAmount < currentMarket?.minBid)
-      return setLocalError(`Min: ${formatCurrency(currentMarket?.minBid)}`);
-    if (bidAmount > currentMarket?.maxBid)
-      return setLocalError(`Max: ${formatCurrency(currentMarket?.maxBid)}`);
-    if (bidAmount > user?.balance.local)
-      return setLocalError(`Insufficient balance`);
+    if (bidAmount < marketData?.minBid)
+      return setLocalError(`Min: ${formatCurrency(marketData?.minBid)}`);
+    if (bidAmount > marketData?.maxBid)
+      return setLocalError(`Max: ${formatCurrency(marketData?.maxBid)}`);
 
-    // CRITICAL FIX: Convert frontend game type to backend game type
+    const userBalance = user?.balance?.local ?? user?.balance ?? 0;
+    if (bidAmount > userBalance) return setLocalError(`Insufficient balance`);
+
     const backendGameType = getBackendGameType(formData.gameType);
 
     const result = await dispatch(
       placeBid({
         marketId,
-        gameType: backendGameType, // Send the correct backend format
+        gameType: backendGameType,
         number: formData.number,
         bidAmount,
       }),
@@ -766,38 +746,9 @@ const PlaceBid = () => {
     }
   };
 
-  const gameTypes = allowedGameTypesByDigitType;
-
-  const getGameTypeDisplay = (type) => {
-    const display = {
-      jodi: "Jodi",
-      panna: "Panna",
-      "single-patti": "Single Patti",
-      "double-patti": "Double Patti",
-      "triple-patti": "Triple Patti",
-      "half-sangam": "Half-Sangam",
-      "full-sangam": "Full-Sangam",
-      "last-digit": "Last Digit",
-      "first-digit": "First Digit",
-    };
-    return display[type] || type;
-  };
-
-  const getGameTypeIcon = (type) => {
-    const icons = {
-      jodi: "🔢",
-      panna: "🎲",
-      "single-patti": "🔢",
-      "double-patti": "🔢",
-      "triple-patti": "🔢",
-      "half-sangam": "🌓",
-      "full-sangam": "🌕",
-      "last-digit": "🔚",
-      "first-digit": "🔛",
-    };
-    return icons[type] || "⭐";
-  };
-
+  // =========================================================
+  // WIN CALC
+  // =========================================================
   const calculateWinAmount = () => {
     if (!formData.bidAmount || !formData.gameType) return 0;
     const multipliers = {
@@ -829,23 +780,6 @@ const PlaceBid = () => {
       "first-digit": "9x",
     };
     return multipliers[gameType] || "9x";
-  };
-
-  const getWinDescription = (gameType) => {
-    const descriptions = {
-      jodi: "Match the exact two-digit number",
-      panna: "Match the exact three-digit number",
-      "single-patti":
-        "Match the exact three-digit number with all different digits",
-      "double-patti":
-        "Match the exact three-digit number with exactly two same digits",
-      "triple-patti": "Match the exact three-digit number with all same digits",
-      "half-sangam": "Match 1-digit or 3-digit combination",
-      "full-sangam": "Match the exact two-digit number",
-      "last-digit": "Match the last digit of winning number",
-      "first-digit": "Match the first digit of winning number",
-    };
-    return descriptions[gameType] || "";
   };
 
   const getAboutText = (gameType) => {
@@ -907,69 +841,9 @@ const PlaceBid = () => {
     return abouts[gameType] || abouts.jodi;
   };
 
-  const renderDigitSelection = () => {
-    if (!formData.gameType) {
-      return (
-        <div className="text-center py-10">
-          <div className="text-5xl mb-3 opacity-30">👆</div>
-          <p className="text-gray-400 font-medium">Select a game type</p>
-          <p className="text-xs text-gray-300">Then choose your digits</p>
-        </div>
-      );
-    }
-
-    if (formData.gameType === "half-sangam") {
-      return (
-        <div>
-          <div className="flex gap-2 mb-4">
-            <button
-              type="button"
-              onClick={() => {
-                setIsHalfSangamMode("triple");
-                setSelectedDigits([]);
-                setCurrentDigitIndex(0);
-                setFormData((prev) => ({ ...prev, number: "" }));
-              }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
-                isHalfSangamMode === "triple"
-                  ? "bg-amber-50 border-amber-400 text-amber-700"
-                  : "bg-white border-gray-200 text-gray-500"
-              }`}
-            >
-              Panna + Digit
-              <span className="block text-[10px] font-normal mt-0.5">
-                123-5
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsHalfSangamMode("single");
-                setSelectedDigits([]);
-                setCurrentDigitIndex(0);
-                setFormData((prev) => ({ ...prev, number: "" }));
-              }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
-                isHalfSangamMode === "single"
-                  ? "bg-amber-50 border-amber-400 text-amber-700"
-                  : "bg-white border-gray-200 text-gray-500"
-              }`}
-            >
-              Digit + Panna
-              <span className="block text-[10px] font-normal mt-0.5">
-                5-123
-              </span>
-            </button>
-          </div>
-
-          {renderDigitsGrid()}
-        </div>
-      );
-    }
-
-    return renderDigitsGrid();
-  };
-
+  // =========================================================
+  // RENDER: DIGIT SELECTION
+  // =========================================================
   const renderDigitsGrid = () => {
     const count = getDigitsCount(formData.gameType);
     const labels = getDigitLabels(formData.gameType);
@@ -1125,6 +999,72 @@ const PlaceBid = () => {
     );
   };
 
+  const renderDigitSelection = () => {
+    if (!formData.gameType) {
+      return (
+        <div className="text-center py-10">
+          <div className="text-5xl mb-3 opacity-30">👆</div>
+          <p className="text-gray-400 font-medium">Select a game type</p>
+          <p className="text-xs text-gray-300">Then choose your digits</p>
+        </div>
+      );
+    }
+
+    if (formData.gameType === "half-sangam") {
+      return (
+        <div>
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setIsHalfSangamMode("triple");
+                setSelectedDigits([]);
+                setCurrentDigitIndex(0);
+                setFormData((prev) => ({ ...prev, number: "" }));
+              }}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
+                isHalfSangamMode === "triple"
+                  ? "bg-amber-50 border-amber-400 text-amber-700"
+                  : "bg-white border-gray-200 text-gray-500"
+              }`}
+            >
+              Panna + Digit
+              <span className="block text-[10px] font-normal mt-0.5">
+                123-5
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsHalfSangamMode("single");
+                setSelectedDigits([]);
+                setCurrentDigitIndex(0);
+                setFormData((prev) => ({ ...prev, number: "" }));
+              }}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
+                isHalfSangamMode === "single"
+                  ? "bg-amber-50 border-amber-400 text-amber-700"
+                  : "bg-white border-gray-200 text-gray-500"
+              }`}
+            >
+              Digit + Panna
+              <span className="block text-[10px] font-normal mt-0.5">
+                5-123
+              </span>
+            </button>
+          </div>
+
+          {renderDigitsGrid()}
+        </div>
+      );
+    }
+
+    return renderDigitsGrid();
+  };
+
+  // =========================================================
+  // LOADING / NOT FOUND
+  // =========================================================
   if (marketLoading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -1133,7 +1073,7 @@ const PlaceBid = () => {
     );
   }
 
-  if (!currentMarket) {
+  if (!marketData) {
     return (
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
@@ -1150,6 +1090,9 @@ const PlaceBid = () => {
     );
   }
 
+  // =========================================================
+  // RENDER
+  // =========================================================
   return (
     <div className="min-h-screen bg-gray-50/80 px-4 py-4">
       <div className="max-w-6xl mx-auto">
@@ -1166,20 +1109,21 @@ const PlaceBid = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
           <div className="lg:col-span-3 space-y-4">
+            {/* MARKET HEADER CARD */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-stretch">
                 <div className="relative w-28 flex-shrink-0 bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex flex-col items-center justify-center gap-2 py-5 overflow-hidden">
                   <div className="w-16 h-16 rounded-2xl flex items-center justify-center">
                     <img
-                      src={currentMarket.image}
+                      src={marketData.image}
                       alt=""
-                      className="h-full w-full rounded-full"
+                      className="h-full w-full rounded-full object-cover"
                     />
                   </div>
                   <h1 className="text-white font-extrabold text-base tracking-wide text-center leading-tight">
-                    {currentMarket.name}
+                    {marketData.name}
                   </h1>
-                  {currentMarket.isActive && (
+                  {marketData.isActive && (
                     <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-green-500/90 text-white flex items-center gap-1">
                       <span className="w-1 h-1 rounded-full bg-white animate-pulse"></span>
                       LIVE
@@ -1196,7 +1140,7 @@ const PlaceBid = () => {
                       <div className="flex items-center gap-1">
                         <Clock size={11} className="text-green-500" />
                         <span className="text-[11px] font-bold text-gray-700">
-                          {currentMarket.openTime}
+                          {marketData.openTime}
                         </span>
                       </div>
                     </div>
@@ -1210,7 +1154,7 @@ const PlaceBid = () => {
                       <div className="flex items-center gap-1">
                         <Clock size={11} className="text-red-400" />
                         <span className="text-[11px] font-bold text-gray-700">
-                          {currentMarket.closeTime}
+                          {marketData.closeTime}
                         </span>
                       </div>
                     </div>
@@ -1224,7 +1168,7 @@ const PlaceBid = () => {
                       <div className="flex items-center gap-1">
                         <Clock size={11} className="text-amber-500" />
                         <span className="text-[11px] font-bold text-gray-700">
-                          {currentMarket.resultTime}
+                          {marketData.resultTime}
                         </span>
                       </div>
                     </div>
@@ -1247,6 +1191,17 @@ const PlaceBid = () => {
                               {digit}
                             </div>
                           ))
+                        ) : marketData.winningNumber ? (
+                          String(marketData.winningNumber)
+                            .split("")
+                            .map((digit, index) => (
+                              <div
+                                key={index}
+                                className="w-7 h-7 rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center text-white font-extrabold text-base"
+                              >
+                                {digit}
+                              </div>
+                            ))
                         ) : (
                           <span className="text-xs text-gray-300 font-semibold">
                             Awaited
@@ -1307,6 +1262,7 @@ const PlaceBid = () => {
               </div>
             </div>
 
+            {/* DIGIT SELECTION CARD */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
               {!marketDigitType ? (
                 <div className="py-10 text-center">
@@ -1333,6 +1289,7 @@ const PlaceBid = () => {
             </div>
           </div>
 
+          {/* RIGHT COLUMN — BID FORM */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm sticky top-4">
               <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
@@ -1343,8 +1300,8 @@ const PlaceBid = () => {
                 Choose how many coins you want to play
               </p>
               <p className="text-[10px] text-gray-400 mb-3">
-                Range: {formatCurrency(currentMarket.minBid)} —{" "}
-                {formatCurrency(currentMarket.maxBid)}
+                Range: {formatCurrency(marketData.minBid)} —{" "}
+                {formatCurrency(marketData.maxBid)}
               </p>
 
               <form onSubmit={handleSubmit}>
@@ -1396,7 +1353,7 @@ const PlaceBid = () => {
                               autoFocus
                               value={formData.bidAmount}
                               onChange={handleCustomAmountChange}
-                              placeholder={`${currentMarket.minBid} - ${currentMarket.maxBid}`}
+                              placeholder={`${marketData.minBid} - ${marketData.maxBid}`}
                               className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${
                                 customAmountError
                                   ? "border-red-300 focus:border-red-400 text-red-600"
@@ -1422,8 +1379,8 @@ const PlaceBid = () => {
                           </p>
                         ) : (
                           <p className="text-[10px] text-gray-400 mt-1.5">
-                            Min {formatCurrency(currentMarket.minBid)} · Max{" "}
-                            {formatCurrency(currentMarket.maxBid)}
+                            Min {formatCurrency(marketData.minBid)} · Max{" "}
+                            {formatCurrency(marketData.maxBid)}
                           </p>
                         )}
                       </div>
@@ -1481,10 +1438,12 @@ const PlaceBid = () => {
                       <div className="flex justify-between text-sm">
                         <div>
                           <p className="text-[10px] text-gray-400">
-                            YOUR COINS
+                            YOUR Balance
                           </p>
                           <p className="font-bold text-gray-700">
-                            {formatCurrency(user?.balance || 0)}
+                            {formatCurrency(
+                              user?.balance?.local ?? user?.balance ?? 0,
+                            )}
                           </p>
                         </div>
                         <div>
@@ -1541,14 +1500,10 @@ const PlaceBid = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes spin-slow {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
         .animate-spin-slow {
           animation: spin-slow 2s linear infinite;
