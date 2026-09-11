@@ -23,6 +23,7 @@ import AdminMarkets from "./admin/pages/AdminMarkets";
 import AdminBids from "./admin/pages/AdminBids";
 import AdminResults from "./admin/pages/AdminResults";
 import AdminCurrencyRates from "./admin/pages/AdminCurrencyRates";
+import AdminBets from "./admin/pages/AdminBets";
 
 // ========================================
 // AUSTRALIA
@@ -77,6 +78,7 @@ import AdminBettingBonus from "./admin/pages/AdminBettingBonus";
 import AdminWinMultipliers from "./admin/pages/AdminWinMultipliers";
 import MinesAdmin from "./admin/pages/MinesAdmin";
 import BetAdmin from "./admin/pages/BetAdmin";
+import AdminCommission from "./admin/pages/AdminCommission";
 
 function App() {
   return (
@@ -353,6 +355,16 @@ function App() {
           <Route
             path="/admin/referral-levels"
             element={<ReferralLevels />}
+          />
+
+          <Route
+            path="/admin/wingo-commission"
+            element={<AdminCommission />}
+          />
+
+          <Route
+            path="/admin/admin-wingo-bets"
+            element={<AdminBets />}
           />
 
           <Route

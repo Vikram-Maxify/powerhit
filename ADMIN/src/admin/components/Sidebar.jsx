@@ -75,6 +75,9 @@ const MENUS = [
   },
   { name: "Mines", path: "/admin/mines", icon: <Gamepad2 size={20} />, color: "red" },
   { name: "Bet Admin", path: "/admin/bet-admin", icon: <BarChart3 size={20} />, color: "cyan" },
+  { name: "wingo Bets", path: "/admin/admin-wingo-bets", icon: <BarChart3 size={20} />, color: "cyan" },
+  { name: "Wingo Commission", path: "/admin/wingo-commission", icon: <Globe size={20} />, color: "gray" },
+
   {
     name: "Powerhit",
     key: "powerhit",
@@ -129,7 +132,7 @@ function collectExpandKeys(nodes, pathname) {
   return keys;
 }
 
-const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
+const Sidebar = ({ isOpen = false, onClose = () => { } }) => {
   const location = useLocation();
   const [expandedMenus, setExpandedMenus] = useState({ matka: true, powerhit: true, settings: false });
 

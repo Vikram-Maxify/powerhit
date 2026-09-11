@@ -327,6 +327,8 @@ app.use(
 
 app.use("/api/admin/referral-levels", require("./routes/referralLevelRoutes"));
 
+app.use('/api/admin/bet-admin/', require('./routes/TradeadminRoute'));
+
 // =====================================================
 // HEALTH CHECK
 // =====================================================
