@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const betController = require("../controllers/betController");
-const { protect } = require("../middleware/authMiddleware");
+const { protect ,adminProtect} = require("../middleware/authMiddleware");
 
 // Agar admin middleware available hai:
 // const { adminProtect } = require("../middleware/adminMiddleware");
@@ -53,17 +53,26 @@ router.post(
 // In dono par adminProtect lagao.
 // Normal protect enough nahi hai.
 
-// router.post(
-//   "/commission-admin",
-//   adminProtect,
-//   betController.tradeCommissionadmin
-// );
+router.post(
+  "/commission-admin",
+  protect,
+  adminProtect,
+  betController.tradeCommissionadmin
+);
 
-// router.get(
-//   "/commission-get",
-//   adminProtect,
-//   betController.tradeCommissionGet
-// );
+router.get(
+  "/commission-get",
+  protect,
+  adminProtect,
+  betController.tradeCommissionGet
+);
+
+router.get(
+  "/bets-admin",
+  protect,
+  adminProtect,
+  betController.getAdminBets
+);
 
 
 module.exports = router;

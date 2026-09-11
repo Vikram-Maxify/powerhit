@@ -1128,6 +1128,293 @@ const addWinGo_11 = async () => {
   }
 };
 
+
+// ============================================
+// ADMIN - GET ALL BETS
+// ============================================
+
+const getAdminBets = async (req, res) => {
+  try {
+    let {
+      page = 1,
+      limit = 50,
+      game,
+      status,
+      bet,
+      mobile,
+      period,
+    } = req.query;
+
+    page = Math.max(Number(page) || 1, 1);
+    limit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+
+    // =========================
+    // FILTER
+    // =========================
+    const filter = {};
+
+    // Game filter
+    if (game && game !== "all") {
+      const validGames = [
+        "wingo",
+        "wingo3",
+        "wingo5",
+        "wingo10",
+        "trx",
+        "trx3",
+        "trx5",
+        "trx10",
+      ];
+
+      if (!validGames.includes(game)) {
+        return res.status(400).json({
+          message: "Invalid game",
+          status: false,
+        });
+      }
+
+      filter.game = game;
+    }
+
+    // Status filter
+    if (
+      status !== undefined &&
+      status !== "" &&
+      status !== "all"
+    ) {
+      const numericStatus = Number(status);
+
+      if (![0, 1, 2].includes(numericStatus)) {
+        return res.status(400).json({
+          message: "Invalid status",
+          status: false,
+        });
+      }
+
+      filter.status = numericStatus;
+    }
+
+    // Bet type / number filter
+    if (bet && bet !== "all") {
+      filter.bet = String(bet);
+    }
+
+    // Mobile filter
+    if (mobile && mobile.trim() !== "") {
+      filter.mobile = {
+        $regex: mobile.trim(),
+        $options: "i",
+      };
+    }
+
+    // Period / Timer filter
+    if (period && period.trim() !== "") {
+      filter.stage = {
+        $regex: period.trim(),
+        $options: "i",
+      };
+    }
+
+    // =========================
+    // PAGINATION
+    // =========================
+    const skip = (page - 1) * limit;
+
+    const [bets, total] = await Promise.all([
+      Bet.find(filter)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      Bet.countDocuments(filter),
+    ]);
+
+    // =========================
+    // FORMAT BET DATA
+    // =========================
+    const formattedBets = bets.map((item) => {
+      const statusMap = {
+        0: "Pending",
+        1: "Won",
+        2: "Lost",
+      };
+
+      const betTypeMap = {
+        l: "Big",
+        n: "Small",
+        d: "Red",
+        x: "Green",
+        t: "Violet",
+
+        "0": "Number 0",
+        "1": "Number 1",
+        "2": "Number 2",
+        "3": "Number 3",
+        "4": "Number 4",
+        "5": "Number 5",
+        "6": "Number 6",
+        "7": "Number 7",
+        "8": "Number 8",
+        "9": "Number 9",
+      };
+
+      const money = Number(item.money || 0);
+      const winningAmount = Number(item.get || 0);
+
+      let netResult = 0;
+
+      if (item.status === 1) {
+        netResult = winningAmount - money;
+      } else if (item.status === 2) {
+        netResult = -money;
+      }
+
+      return {
+        _id: item._id,
+        id_product: item.id_product,
+
+        // USER
+        mobile: item.mobile,
+        code: item.code,
+        invite: item.invite,
+
+        // GAME
+        game: item.game,
+        period: item.stage,
+        timer: item.stage,
+
+        // BET
+        bet: item.bet,
+        betType: betTypeMap[item.bet] || item.bet,
+
+        // MONEY
+        money,
+        amount: Number(item.amount || 0),
+        fee: Number(item.fee || 0),
+
+        // RESULT
+        result:
+          item.result !== null &&
+          item.result !== undefined
+            ? Number(item.result)
+            : null,
+
+        // WIN
+        winningAmount,
+
+        // STATUS
+        status: item.status,
+        statusText: statusMap[item.status] || "Unknown",
+
+        // PROFIT / LOSS
+        netResult,
+
+        // OTHER
+        level: item.level,
+        isdemo: item.isdemo,
+
+        today: item.today,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      };
+    });
+
+    // =========================
+    // SUMMARY
+    // =========================
+    const summary = await Bet.aggregate([
+      {
+        $match: filter,
+      },
+      {
+        $group: {
+          _id: null,
+
+          totalBets: {
+            $sum: 1,
+          },
+
+          totalBetAmount: {
+            $sum: "$money",
+          },
+
+          totalFee: {
+            $sum: "$fee",
+          },
+
+          totalWinningAmount: {
+            $sum: "$get",
+          },
+
+          pendingBets: {
+            $sum: {
+              $cond: [{ $eq: ["$status", 0] }, 1, 0],
+            },
+          },
+
+          wonBets: {
+            $sum: {
+              $cond: [{ $eq: ["$status", 1] }, 1, 0],
+            },
+          },
+
+          lostBets: {
+            $sum: {
+              $cond: [{ $eq: ["$status", 2] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    const stats = summary[0] || {
+      totalBets: 0,
+      totalBetAmount: 0,
+      totalFee: 0,
+      totalWinningAmount: 0,
+      pendingBets: 0,
+      wonBets: 0,
+      lostBets: 0,
+    };
+
+    return res.status(200).json({
+      message: "Admin bets fetched successfully",
+      status: true,
+
+      data: formattedBets,
+
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+
+      stats: {
+        totalBets: stats.totalBets || 0,
+        totalBetAmount: Number(stats.totalBetAmount || 0),
+        totalFee: Number(stats.totalFee || 0),
+        totalWinningAmount: Number(
+          stats.totalWinningAmount || 0
+        ),
+        pendingBets: stats.pendingBets || 0,
+        wonBets: stats.wonBets || 0,
+        lostBets: stats.lostBets || 0,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getAdminBets:", error);
+
+    return res.status(500).json({
+      message: "Internal server error!",
+      status: false,
+      error: error.message,
+    });
+  }
+};
+
+
 // ============================================
 // EXPORT
 // ============================================
@@ -1150,6 +1437,7 @@ module.exports = {
   addWinGo_5,
   addWinGo_11,
   setIo,
+  getAdminBets,
   generateRandomResult,
   defineresult,
   calculateTimer,
