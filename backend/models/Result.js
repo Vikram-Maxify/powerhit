@@ -116,6 +116,20 @@ const resultSchema = new mongoose.Schema(
       index: true,
     },
 
+    marketDayId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      index: true,
+    },
+
+    marketDate: {
+      type: String,
+      required: true,
+      trim: true,
+      match: /^\\d{4}-\\d{2}-\\d{2}$/,
+      index: true,
+    },
+
     marketName: {
       type: String,
       required: true,
@@ -199,7 +213,7 @@ const resultSchema = new mongoose.Schema(
 resultSchema.index(
   {
     marketId: 1,
-    resultDate: 1,
+    marketDate: 1,
   },
   {
     unique: true,
@@ -909,10 +923,19 @@ resultSchema.methods.checkBidWin =
     const winning =
       this.winningNumber || {};
 
-    const gameType =
+    const rawGameType =
       String(
         bidGameType ?? ""
       ).trim();
+
+    const gameType =
+      rawGameType === "single-patti"
+        ? "single-Patti"
+        : rawGameType === "double-patti"
+        ? "double-Patti"
+        : rawGameType === "triple-patti"
+        ? "triple-Patti"
+        : rawGameType;
 
     const bidText =
       String(

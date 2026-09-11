@@ -4,6 +4,35 @@ const Market = require("../models/Market");
 const User = require("../models/authmodel");
 const mongoose = require("mongoose");
 
+const normalizeMarketDate = (value) => {
+  if (value === undefined || value === null || String(value).trim() === "") return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+};
+
+const findMarketDay = (market, { marketDayId, marketDate, resultDate } = {}) => {
+  if (!Array.isArray(market.marketArray) || market.marketArray.length === 0) return null;
+
+  if (marketDayId) {
+    const day = market.marketArray.id(marketDayId);
+    if (day) return day;
+  }
+
+  const wantedDate =
+    normalizeMarketDate(marketDate) ||
+    normalizeMarketDate(resultDate);
+
+  if (wantedDate) {
+    const day = market.marketArray.find(
+      (item) => normalizeMarketDate(item.marketDate) === wantedDate
+    );
+    if (day) return day;
+  }
+
+  return null;
+};
+
 // ============================================================
 // GAME TYPES
 // ============================================================
@@ -753,6 +782,8 @@ exports.declareResult = async (req, res) => {
 
     const {
       marketId,
+      marketDayId,
+      marketDate,
       winningNumbers,
       resultDate,
       nextOpenDate,
@@ -814,6 +845,8 @@ exports.declareResult = async (req, res) => {
     const parsedResultDate =
       resultDate
         ? new Date(resultDate)
+        : marketDate
+        ? new Date(`${marketDate}T00:00:00`)
         : new Date();
 
     const parsedNextOpenDate =
@@ -879,6 +912,35 @@ exports.declareResult = async (req, res) => {
         message: "Market not found",
       });
     }
+
+    // ============================================================
+    // MARKET DAY (marketArray)
+    // ============================================================
+
+    const marketDay = findMarketDay(market, {
+      marketDayId,
+      marketDate,
+      resultDate: parsedResultDate,
+    });
+
+    if (!marketDay) {
+      await session.abortTransaction();
+      await session.endSession();
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Market day not found. Provide a valid marketDayId or marketDate matching marketArray.",
+        marketDayId: marketDayId || null,
+        marketDate: marketDate || normalizeMarketDate(parsedResultDate),
+        availableDates: Array.isArray(market.marketArray)
+          ? market.marketArray.map((day) => day.marketDate)
+          : [],
+      });
+    }
+
+    const resolvedMarketDayId = marketDay._id;
+    const resolvedMarketDate = normalizeMarketDate(marketDay.marketDate);
 
     // ============================================================
     // DIGIT TYPE
@@ -957,7 +1019,7 @@ exports.declareResult = async (req, res) => {
     // RESULT ALREADY DECLARED
     // ============================================================
 
-    if (market.isResultDeclared) {
+    if (marketDay.isResultDeclared) {
       await session.abortTransaction();
       await session.endSession();
 
@@ -1548,6 +1610,7 @@ exports.declareResult = async (req, res) => {
     const pendingBids =
       await Bid.find({
         marketId,
+        marketDayId: resolvedMarketDayId,
         status: "pending",
       }).session(session);
 
@@ -1788,6 +1851,12 @@ exports.declareResult = async (req, res) => {
       marketId:
         market._id,
 
+      marketDayId:
+        resolvedMarketDayId,
+
+      marketDate:
+        resolvedMarketDate,
+
       marketName:
         market.name,
 
@@ -1837,6 +1906,8 @@ exports.declareResult = async (req, res) => {
       {
         marketId:
           market._id,
+        marketDayId:
+          resolvedMarketDayId,
       },
       {
         $set: {
@@ -1853,11 +1924,17 @@ exports.declareResult = async (req, res) => {
     // UPDATE MARKET
     // ============================================================
 
-    market.isResultDeclared =
+    marketDay.isResultDeclared =
       true;
 
-    market.resultDeclaredAt =
+    marketDay.winningNumber =
+      formattedWinningNumbers;
+
+    marketDay.resultDeclaredAt =
       new Date();
+
+    marketDay.declaredGameType =
+      null;
 
     await market.save({
       session,

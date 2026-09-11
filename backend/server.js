@@ -32,6 +32,8 @@ const Subordinate = require("./models/Subordinate");
 const Admin = require("./models/Admin");
 const Level = require("./models/Level");
 const Recharge = require("./models/Recharge");
+require("./cron");
+
 
 // =====================================================
 // BET CONTROLLER
