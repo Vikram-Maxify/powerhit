@@ -81,6 +81,14 @@ const BidsHistory = () => {
 
   const { user } = useSelector((state) => state.auth);
 
+  const formatWinAmount = (amount) => {
+    const value = Number(amount) || 0;
+
+    return `${value.toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+    })} ${userCurrencyRate?.currencyCode || "INR"}`;
+  };
+
   // Currency rates (used to display amounts in the user's own currency)
   const currencies = useSelector((state) => state.currencyRate?.currencies);
 
@@ -565,7 +573,7 @@ const BidsHistory = () => {
                 icon: Trophy,
                 gradient: "from-amber-500 to-orange-600",
                 label: "Won",
-                value: formatCurrency(totalWinAmount),
+                value: formatWinAmount(totalWinAmount),
               },
               {
                 icon: BarChart3,
@@ -762,12 +770,14 @@ const BidsHistory = () => {
                         <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                           Amount
                         </p>
+
                         <p className="text-sm font-bold text-gray-700">
                           {formatCurrency(bid.bidAmount)}
                         </p>
+
                         {bid.winAmount > 0 && (
                           <p className="text-[10px] font-extrabold text-green-500">
-                            +{formatCurrency(bid.winAmount)}
+                            {formatWinAmount(totalWinAmount)}
                           </p>
                         )}
                       </div>
