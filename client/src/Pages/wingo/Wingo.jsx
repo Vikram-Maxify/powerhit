@@ -841,7 +841,7 @@ const Wingo = () => {
 
   // 👇 Yahan apna imgbb wala Win Go banner URL paste karo (Image 1)
   const WINGO_BANNER_BG =
-    "https://i.ibb.co/Fk1Wgj2P/Chat-GPT-Image-Sep-3-2026-04-52-17-PM.png";
+    "https://i.ibb.co/0ycw4GQp/Chat-GPT-Image-Sep-3-2026-04-52-17-PM-100kb.jpg";
 
   const renderPeriodSection = () => (
     <section

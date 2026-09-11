@@ -21,6 +21,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import matkabg from "../../assets/Home/matkabg.jpeg";
 import { getActiveMarkets } from "../../redux/slices/marketSlice";
 
 /* ============================================================
@@ -661,7 +662,7 @@ const MatkaMarkets = () => {
           >
             <div className="relative w-full aspect-[16/9]">
               <img
-                src="https://i.ibb.co/Y7sP4Bvk/Chat-GPT-Image-Aug-29-2026-11-42-31-AM.png"
+                src={matkabg}
                 alt="Matka"
                 className="absolute inset-0 h-full w-full object-cover"
                 loading="lazy"
