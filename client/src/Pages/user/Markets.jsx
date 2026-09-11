@@ -28,11 +28,9 @@ import { getActiveMarkets } from "../../redux/slices/marketSlice";
    IMAGE HELPERS
    ============================================================ */
 
-// Default market image
 const DEFAULT_MARKET_IMAGE =
   "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=600&q=80";
 
-// Game type images
 const GAME_TYPE_IMAGES = {
   single:
     "https://i.ibb.co/JwYrJyVn/Chat-GPT-Image-Aug-29-2026-11-07-30-AM.png",
@@ -63,42 +61,45 @@ const MOCK_AVATARS = [Crown, Landmark, Gem, Sparkles];
 
 const seededDigit = (seed) => {
   let hash = 0;
-
   for (let i = 0; i < seed.length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
-
   return hash % 10;
 };
 
 const mockTriplet = (marketId, salt = "") =>
   [0, 1, 2].map((i) => seededDigit(`${marketId}-${salt}-${i}`));
 
+/* ============================================================
+   TIME HELPERS
+   ============================================================ */
+
 const toMinutes = (t) => {
   if (!t) return 0;
-
-  const [h, m] = t.split(":").map(Number);
-
-  return h * 60 + (m || 0);
+  const [h, m] = String(t).split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
 };
 
 const formatTime12 = (t) => {
   if (!t) return "--:--";
-
-  const [h, m] = t.split(":").map(Number);
-
+  const [h, m] = String(t).split(":").map(Number);
   const period = h >= 12 ? "PM" : "AM";
-
   let hour12 = h % 12;
-
-  if (hour12 === 0) {
-    hour12 = 12;
-  }
-
-  return `${String(hour12).padStart(
+  if (hour12 === 0) hour12 = 12;
+  return `${String(hour12).padStart(2, "0")}:${String(m || 0).padStart(
     2,
     "0",
-  )}:${String(m).padStart(2, "0")} ${period}`;
+  )} ${period}`;
+};
+
+/* ============================================================
+   ACTIVE SESSION HELPER  ← KEY FIX
+   ============================================================ */
+
+// Returns the currently active marketArray entry (or the first one)
+const getActiveSession = (market) => {
+  if (!market?.marketArray?.length) return null;
+  return market.marketArray.find((s) => s.isActive) || market.marketArray[0];
 };
 
 /* ============================================================
@@ -106,29 +107,21 @@ const formatTime12 = (t) => {
    ============================================================ */
 
 const getMarketStatus = (openTime, closeTime) => {
+  if (!openTime || !closeTime) return "closed";
+
   const now = new Date();
-
   const nowMin = now.getHours() * 60 + now.getMinutes();
-
   const openMin = toMinutes(openTime);
   const closeMin = toMinutes(closeTime);
 
+  // Overnight market (close < open)
   if (closeMin < openMin) {
-    if (nowMin >= openMin || nowMin <= closeMin) {
-      return "live";
-    }
-
+    if (nowMin >= openMin || nowMin <= closeMin) return "live";
     return "upcoming";
   }
 
-  if (nowMin < openMin) {
-    return "upcoming";
-  }
-
-  if (nowMin <= closeMin) {
-    return "live";
-  }
-
+  if (nowMin < openMin) return "upcoming";
+  if (nowMin <= closeMin) return "live";
   return "closed";
 };
 
@@ -143,14 +136,12 @@ const STATUS_STYLES = {
     bg: "bg-amber-50 border-amber-200",
     label: "LIVE",
   },
-
   upcoming: {
     dot: "bg-amber-300",
     text: "text-amber-600",
     bg: "bg-amber-50/60 border-amber-100",
     label: "UPCOMING",
   },
-
   closed: {
     dot: "bg-gray-300",
     text: "text-gray-400",
@@ -173,7 +164,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES.single,
     icon: Dice5,
   },
-
   {
     key: "single-patti",
     label: "SINGLE PATTI",
@@ -182,7 +172,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES["single-patti"],
     icon: Dice5,
   },
-
   {
     key: "double-patti",
     label: "DOUBLE PATTI",
@@ -191,7 +180,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES["double-patti"],
     icon: Dice5,
   },
-
   {
     key: "triple-patti",
     label: "TRIPLE PATTI",
@@ -200,7 +188,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES["triple-patti"],
     icon: Dice5,
   },
-
   {
     key: "jodi",
     label: "JODI",
@@ -210,7 +197,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES.jodi,
     icon: Grid3x3,
   },
-
   {
     key: "panna",
     label: "PANNA",
@@ -219,7 +205,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES.panna,
     icon: Dice5,
   },
-
   {
     key: "spot",
     label: "SPOT",
@@ -229,7 +214,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES.spot,
     icon: Gem,
   },
-
   {
     key: "half-sangam",
     label: "HALF-SANGAM",
@@ -238,7 +222,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES["half-sangam"],
     icon: Moon,
   },
-
   {
     key: "full-sangam",
     label: "FULL-SANGAM",
@@ -247,7 +230,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES["full-sangam"],
     icon: Sun,
   },
-
   {
     key: "last-digit",
     label: "LAST DIGIT",
@@ -256,7 +238,6 @@ const GAME_TYPES = [
     image: GAME_TYPE_IMAGES["last-digit"],
     icon: ArrowRightFromLine,
   },
-
   {
     key: "first-digit",
     label: "FIRST DIGIT",
@@ -267,31 +248,52 @@ const GAME_TYPES = [
   },
 ];
 
-// ✅ FIXED: Removed "open" and "close" from allowed game types
+/* ============================================================
+   GAME TYPE NORMALIZER  ← handles "single-Patti" → "single-patti"
+   ============================================================ */
+
+const normalizeGameKey = (key) =>
+  String(key || "")
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, "-");
+
+/* ============================================================
+   ALLOWED GAME TYPES  ← uses BOTH digitType AND API gameTypes
+   ============================================================ */
+
 const getAllowedGameTypes = (market) => {
   if (!market) return [];
+
+  // 1) Base list from digitType
+  let byDigitType = [];
   if (market.digitType === "2-digit") {
-    return GAME_TYPES.filter((game) =>
-      ["jodi", "last-digit", "first-digit"].includes(game.key),
-    );
+    byDigitType = ["jodi", "last-digit", "first-digit"];
+  } else if (market.digitType === "3-digit") {
+    byDigitType = [
+      "single",
+      "single-patti",
+      "double-patti",
+      "triple-patti",
+      "jodi",
+      "panna",
+      "half-sangam",
+      "full-sangam",
+      "last-digit",
+      "first-digit",
+    ];
+  } else {
+    return [];
   }
-  if (market.digitType === "3-digit") {
-    return GAME_TYPES.filter((game) =>
-      [
-        "single",
-        "single-patti",
-        "double-patti",
-        "triple-patti",
-        "jodi",
-        "panna",
-        "half-sangam",
-        "full-sangam",
-        "last-digit",
-        "first-digit",
-      ].includes(game.key),
-    );
-  }
-  return [];
+
+  // 2) Intersect with API-provided gameTypes (if present)
+  const apiKeys = (market.gameTypes || []).map(normalizeGameKey);
+  const allowed = apiKeys.length
+    ? byDigitType.filter((k) => apiKeys.includes(k))
+    : byDigitType;
+
+  // 3) Map to full GAME_TYPES objects, preserving GAME_TYPES order
+  return GAME_TYPES.filter((g) => allowed.includes(g.key));
 };
 
 const DEFAULT_VISIBLE_GAME_TYPES = 6;
@@ -299,6 +301,7 @@ const DEFAULT_VISIBLE_GAME_TYPES = 6;
 /* ============================================================
    SAFE IMAGE
    ============================================================ */
+
 const SafeImage = ({
   src,
   alt,
@@ -306,6 +309,10 @@ const SafeImage = ({
   fallbackIcon: FallbackIcon = Gem,
 }) => {
   const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [src]);
 
   if (!src || imageError) {
     return (
@@ -359,14 +366,44 @@ const MatkaMarkets = () => {
   }, [dispatch]);
 
   /* ============================================================
+     MARKETS WITH SESSION + STATUS  ← KEY FIX
+     ============================================================ */
+
+  const marketsWithStatus = useMemo(
+    () =>
+      (activeMarkets || []).map((m) => {
+        const session = getActiveSession(m);
+
+        return {
+          // Spread market root (name, image, digitType, gameTypes, etc.)
+          ...m,
+
+          // Flatten session fields to top level so rest of UI works
+          openTime: session?.openTime || m.openTime,
+          closeTime: session?.closeTime || m.closeTime,
+          resultTime: session?.resultTime || m.resultTime,
+          minBid: session?.minBid ?? m.minBid,
+          maxBid: session?.maxBid ?? m.maxBid,
+          winningNumber: session?.winningNumber ?? null,
+          isResultDeclared: session?.isResultDeclared ?? false,
+          marketDate: session?.marketDate || null,
+
+          // Compute status from the session times
+          status: getMarketStatus(session?.openTime, session?.closeTime),
+        };
+      }),
+    [activeMarkets],
+  );
+
+  /* ============================================================
      DEFAULT MARKET
      ============================================================ */
 
   useEffect(() => {
-    if (activeMarkets?.length && !selectedMarketId) {
-      setSelectedMarketId(activeMarkets[0]._id);
+    if (marketsWithStatus.length && !selectedMarketId) {
+      setSelectedMarketId(marketsWithStatus[0]._id);
     }
-  }, [activeMarkets, selectedMarketId]);
+  }, [marketsWithStatus, selectedMarketId]);
 
   /* ============================================================
      CLEANUP
@@ -377,36 +414,21 @@ const MatkaMarkets = () => {
   }, []);
 
   /* ============================================================
-     MARKET STATUS
-     ============================================================ */
-
-  const marketsWithStatus = useMemo(
-    () =>
-      (activeMarkets || []).map((m) => ({
-        ...m,
-        status: getMarketStatus(m.openTime, m.closeTime),
-      })),
-    [activeMarkets],
-  );
-
-  /* ============================================================
-     FILTERED MARKETS
+     FILTERED MARKETS  ← "open" tab treated like "live"
      ============================================================ */
 
   const filteredMarkets = useMemo(() => {
-    if (activeTab === "live") {
+    if (activeTab === "live" || activeTab === "open") {
       return marketsWithStatus.filter((m) => m.status === "live");
     }
-
     if (activeTab === "upcoming") {
       return marketsWithStatus.filter((m) => m.status === "upcoming");
     }
-
     return marketsWithStatus.filter((m) => m.status !== "closed");
   }, [marketsWithStatus, activeTab]);
 
   /* ============================================================
-     SELECTED MARKET - THIS WAS MISSING!
+     SELECTED MARKET
      ============================================================ */
 
   const selectedMarket = marketsWithStatus.find(
@@ -419,7 +441,6 @@ const MatkaMarkets = () => {
 
   const openMarket = (marketId) => {
     setSelectedMarketId(marketId);
-
     setJustOpened(true);
 
     requestAnimationFrame(() => {
@@ -430,7 +451,6 @@ const MatkaMarkets = () => {
     });
 
     clearTimeout(openedTimeoutRef.current);
-
     openedTimeoutRef.current = setTimeout(() => setJustOpened(false), 1200);
   };
 
@@ -476,7 +496,6 @@ const MatkaMarkets = () => {
       <div className="flex min-h-[60vh] items-center justify-center bg-white">
         <div className="relative text-center">
           <div className="mx-auto h-16 w-16 animate-spin rounded-full border-t-4 border-b-4 border-amber-500" />
-
           <p className="mt-4 text-sm font-medium text-gray-500">
             Loading markets...
           </p>
@@ -489,23 +508,17 @@ const MatkaMarkets = () => {
      UI
      ============================================================ */
 
+  const allowedGameTypes = getAllowedGameTypes(selectedMarket);
+
   return (
     <div className="scrollbar-hide relative h-screen overflow-y-auto bg-white pb-10">
       <style>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
       `}</style>
 
       <div className="mx-auto max-w-6xl space-y-5 px-4 pt-4 sm:px-6">
-        {/* ======================================================
-           HEADER
-        ====================================================== */}
+        {/* ================= HEADER ================= */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
@@ -520,9 +533,8 @@ const MatkaMarkets = () => {
             </h2>
           </div>
         </div>
-        {/* ======================================================
-           CHOOSE MARKET
-        ====================================================== */}
+
+        {/* ================= CHOOSE MARKET ================= */}
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex overflow-hidden rounded-full border border-amber-100 bg-amber-50/40 p-1 text-xs font-bold">
@@ -620,11 +632,7 @@ const MatkaMarkets = () => {
                           e.stopPropagation();
                           openMarket(market._id);
                         }}
-                        className={`mt-3 w-full rounded-lg py-1.5 text-center text-xs font-bold text-black shadow ${
-                          market.status === "live"
-                            ? "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
-                            : "bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)]"
-                        }`}
+                        className="mt-3 w-full rounded-lg bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200] border border-[#FFD75A] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] py-1.5 text-center text-xs font-bold text-black"
                       >
                         {market.status === "live" ? "PLAY →" : "VIEW →"}
                       </button>
@@ -649,10 +657,8 @@ const MatkaMarkets = () => {
             </div>
           )}
         </div>
-        {/* ======================================================
-          SELECTED MARKET DETAIL
-        ====================================================== */}
 
+        {/* ================= SELECTED MARKET DETAIL ================= */}
         {selectedMarket && (
           <div
             ref={detailRef}
@@ -668,7 +674,6 @@ const MatkaMarkets = () => {
                 loading="lazy"
               />
 
-              {/* Market Opened toast - unchanged */}
               <div
                 className={`pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-bold text-white shadow transition-opacity duration-500 ${
                   justOpened ? "opacity-100" : "opacity-0"
@@ -677,14 +682,14 @@ const MatkaMarkets = () => {
                 {selectedMarket.name} opened
               </div>
 
-              {/* Market Name — top-right ribbon box */}
+              {/* Market Name */}
               <div className="absolute left-[42%] top-[21%] flex h-[16%] w-[54%] items-center justify-center px-2">
                 <h3 className="truncate text-center text-sm font-extrabold text-amber-900 sm:text-2xl">
                   {selectedMarket.name}
                 </h3>
               </div>
 
-              {/* Wallet Balance box */}
+              {/* Wallet Balance */}
               <div className="absolute left-[70%] top-[51%] flex h-[10%] w-[30%] items-center justify-center px-1">
                 <span className="text-[10px] font-bold text-gray-800 sm:text-base">
                   ₹
@@ -703,7 +708,7 @@ const MatkaMarkets = () => {
                   </span>
                 </div>
 
-                {/* Box 2: Timing (open=green dot, close=red dot) */}
+                {/* Box 2: Timing */}
                 <div className="flex w-[23%] flex-col items-center justify-center gap-0.5 ml-2">
                   <div className="flex items-center gap-1">
                     <span className="text-[7px] font-bold text-gray-700 sm:text-[10px]">
@@ -717,11 +722,14 @@ const MatkaMarkets = () => {
                   </div>
                 </div>
 
-                {/* Box 3: Today's Result balls */}
+                {/* Box 3: Today's Result — use real winningNumber if declared, else mock */}
                 <div className="flex w-[23%] items-center justify-center gap-1">
-                  {mockTriplet(
-                    selectedMarket.marketId || selectedMarket._id,
-                    "today",
+                  {(selectedMarket.winningNumber
+                    ? String(selectedMarket.winningNumber).split("")
+                    : mockTriplet(
+                        selectedMarket.marketId || selectedMarket._id,
+                        "today",
+                      )
                   ).map((d, i) => (
                     <span
                       key={i}
@@ -732,10 +740,13 @@ const MatkaMarkets = () => {
                   ))}
                 </div>
 
-                {/* Box 4: Last result date */}
+                {/* Box 4: Date — use marketDate if available */}
                 <div className="flex w-[23%] items-center justify-center">
                   <span className="text-[12px] font-bold text-amber-900 sm:text-[10px]">
-                    {new Date(Date.now() - 86400000)
+                    {(selectedMarket.marketDate
+                      ? new Date(selectedMarket.marketDate)
+                      : new Date(Date.now() - 86400000)
+                    )
                       .toLocaleDateString("en-GB", {
                         day: "2-digit",
                         month: "short",
@@ -747,21 +758,18 @@ const MatkaMarkets = () => {
             </div>
           </div>
         )}
-        {/* ======================================================
-           GAME TYPES
-        ====================================================== */}
+
+        {/* ================= GAME TYPES ================= */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Grid3x3 size={16} className="text-amber-600" />
-
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
                 Choose Game Type
               </h2>
             </div>
 
-            {getAllowedGameTypes(selectedMarket).length >
-              DEFAULT_VISIBLE_GAME_TYPES && (
+            {allowedGameTypes.length > DEFAULT_VISIBLE_GAME_TYPES && (
               <button
                 onClick={() => setShowAllGameTypes((prev) => !prev)}
                 className="flex items-center gap-0.5 text-xs font-bold text-amber-700"
@@ -778,16 +786,15 @@ const MatkaMarkets = () => {
           </div>
 
           <div className="grid grid-cols-3 gap-1 sm:gap-3">
-            {getAllowedGameTypes(selectedMarket)
+            {allowedGameTypes
               .slice(
                 0,
                 showAllGameTypes
-                  ? getAllowedGameTypes(selectedMarket).length
+                  ? allowedGameTypes.length
                   : DEFAULT_VISIBLE_GAME_TYPES,
               )
               .map((gt) => {
                 const Icon = gt.icon;
-
                 const isSelected = selectedGameType === gt.key;
 
                 return (
@@ -799,14 +806,11 @@ const MatkaMarkets = () => {
                         : "border-amber-100"
                     }`}
                   >
-                    {/* GAME IMAGE */}
-
                     <div className="relative h-24 w-full overflow-hidden sm:h-32">
                       <SafeImage
                         src={gt.image}
                         alt={gt.label}
                         fallbackIcon={Icon}
-                        loading="lazy"
                         className="h-full w-full object-cover"
                       />
                     </div>
@@ -831,13 +835,11 @@ const MatkaMarkets = () => {
               })}
           </div>
         </div>
-        {/* ======================================================
-           QUICK ACCESS
-        ====================================================== */}
+
+        {/* ================= QUICK ACCESS ================= */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-amber-500" />
-
             <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
               Quick Access
             </h2>
@@ -845,42 +847,27 @@ const MatkaMarkets = () => {
 
           <div className="grid grid-cols-4 gap-3">
             {[
-              {
-                label: "Today's Result",
-                icon: Trophy,
-              },
-              {
-                label: "Previous Results",
-                icon: History,
-              },
-              {
-                label: "Detailed Chart",
-                icon: BarChart3,
-              },
-              {
-                label: "My Plays",
-                icon: User,
-              },
+              { label: "Today's Result", icon: Trophy },
+              { label: "Previous Results", icon: History },
+              { label: "Detailed Chart", icon: BarChart3 },
+              { label: "My Plays", icon: User },
             ].map((item) => (
               <button
                 key={item.label}
                 className="flex items-center justify-center gap-1 rounded-xl border border-amber-100 bg-white py-2 text-[9px] font-medium text-gray-700 shadow-sm"
               >
                 <item.icon size={10} className="text-amber-500" />
-
                 {item.label}
               </button>
             ))}
           </div>
         </div>
-        {/* ======================================================
-           RECENT RESULTS
-        ====================================================== */}
+
+        {/* ================= RECENT RESULTS ================= */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-amber-600" />
-
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-gray-800">
                 Recent Results
               </h2>
@@ -893,40 +880,48 @@ const MatkaMarkets = () => {
           </div>
 
           <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-2">
-            {filteredMarkets.map((market) => (
-              <div
-                key={market._id}
-                className="w-36 flex-shrink-0 overflow-hidden rounded-xl border border-amber-100 bg-white text-center shadow-sm"
-              >
-                <div className="p-2">
-                  <p className="text-[9px] font-semibold text-gray-400">
-                    {new Date()
-                      .toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                      })
-                      .toUpperCase()}
-                  </p>
+            {filteredMarkets.map((market) => {
+              const digits = market.winningNumber
+                ? String(market.winningNumber).split("")
+                : mockTriplet(market.marketId || market._id, "recent");
 
-                  <p className="mb-2 truncate text-[11px] font-extrabold text-amber-800">
-                    {market.name?.toUpperCase()}
-                  </p>
+              const dateLabel = (
+                market.marketDate ? new Date(market.marketDate) : new Date()
+              )
+                .toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                })
+                .toUpperCase();
 
-                  <div className="flex justify-center gap-1">
-                    {mockTriplet(market.marketId || market._id, "recent").map(
-                      (d, i) => (
+              return (
+                <div
+                  key={market._id}
+                  className="w-36 flex-shrink-0 overflow-hidden rounded-xl border border-amber-100 bg-white text-center shadow-sm"
+                >
+                  <div className="p-2">
+                    <p className="text-[9px] font-semibold text-gray-400">
+                      {dateLabel}
+                    </p>
+
+                    <p className="mb-2 truncate text-[11px] font-extrabold text-amber-800">
+                      {market.name?.toUpperCase()}
+                    </p>
+
+                    <div className="flex justify-center gap-1">
+                      {digits.map((d, i) => (
                         <span
                           key={i}
                           className="flex h-6 w-6 items-center justify-center rounded bg-amber-50 text-xs font-bold text-amber-800"
                         >
                           {d}
                         </span>
-                      ),
-                    )}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
