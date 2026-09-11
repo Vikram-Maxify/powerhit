@@ -707,7 +707,7 @@ exports.getMarketById = async (req, res) => {
 // ======================================================
 exports.getActiveMarkets = async (req, res) => {
   try {
-    const markets = await Market.find({ isActive: true })
+    const markets = await Market.find()
       .select("name marketId digitType gameTypes image description marketArray")
       .sort({ createdAt: -1 });
 
