@@ -26,19 +26,23 @@ const findMarketDay = (market, marketDayId = null, marketDate = null) => {
 
   if (marketDate) {
     const key = toDateKey(marketDate);
-    const found = market.marketArray.find((d) => toDateKey(d.marketDate) === key);
+    const found = market.marketArray.find(
+      (d) => toDateKey(d.marketDate) === key,
+    );
     if (found) return found;
   }
 
   const todayKey = toDateKey(new Date());
-  return market.marketArray.find((d) => toDateKey(d.marketDate) === todayKey) || null;
+  return (
+    market.marketArray.find((d) => toDateKey(d.marketDate) === todayKey) || null
+  );
 };
 
 const requireMarketDay = (market, marketDayId = null, marketDate = null) => {
   const day = findMarketDay(market, marketDayId, marketDate);
   if (!day) {
     const err = new Error(
-      "Market day not found. Send a valid marketDayId or marketDate for a marketArray entry."
+      "Market day not found. Send a valid marketDayId or marketDate for a marketArray entry.",
     );
     err.statusCode = 404;
     throw err;
@@ -50,15 +54,31 @@ const attachMarketDayCompatibility = (market, day) => {
   if (!market || !day) return market;
   Object.defineProperties(market, {
     isActive: { value: day.isActive, writable: true, configurable: true },
-    isResultDeclared: { value: day.isResultDeclared, writable: true, configurable: true },
+    isResultDeclared: {
+      value: day.isResultDeclared,
+      writable: true,
+      configurable: true,
+    },
     minBid: { value: day.minBid, writable: true, configurable: true },
     maxBid: { value: day.maxBid, writable: true, configurable: true },
     openTime: { value: day.openTime, writable: true, configurable: true },
     closeTime: { value: day.closeTime, writable: true, configurable: true },
     resultTime: { value: day.resultTime, writable: true, configurable: true },
-    winningNumber: { value: day.winningNumber, writable: true, configurable: true },
-    resultDeclaredAt: { value: day.resultDeclaredAt, writable: true, configurable: true },
-    declaredGameType: { value: day.declaredGameType || null, writable: true, configurable: true },
+    winningNumber: {
+      value: day.winningNumber,
+      writable: true,
+      configurable: true,
+    },
+    resultDeclaredAt: {
+      value: day.resultDeclaredAt,
+      writable: true,
+      configurable: true,
+    },
+    declaredGameType: {
+      value: day.declaredGameType || null,
+      writable: true,
+      configurable: true,
+    },
   });
   return market;
 };
@@ -76,12 +96,7 @@ const decorateBidMarketDay = (bid) => {
 // ============================================================
 // MARKET DIGIT TYPE / GAME TYPE CONFIG
 // ============================================================
-const TWO_DIGIT_GAME_TYPES = [
-  "single",
-  "jodi",
-  "last-digit",
-  "first-digit",
-];
+const TWO_DIGIT_GAME_TYPES = ["single", "jodi", "last-digit", "first-digit"];
 
 const THREE_DIGIT_GAME_TYPES = [
   "single",
@@ -97,10 +112,7 @@ const THREE_DIGIT_GAME_TYPES = [
 ];
 
 const ALL_GAME_TYPES = [
-  ...new Set([
-    ...TWO_DIGIT_GAME_TYPES,
-    ...THREE_DIGIT_GAME_TYPES,
-  ]),
+  ...new Set([...TWO_DIGIT_GAME_TYPES, ...THREE_DIGIT_GAME_TYPES]),
 ];
 
 // ============================================================
@@ -110,10 +122,7 @@ const normalizeDigitType = (market) => {
   if (!market) return null;
 
   const raw = String(
-    market.digitType ||
-    market.numberType ||
-    market.digitsType ||
-    ""
+    market.digitType || market.numberType || market.digitsType || "",
   )
     .trim()
     .toLowerCase()
@@ -161,7 +170,9 @@ const formatGameNumber = (gameType, number) => {
 
   if (gameType === "single") return value.padStart(1, "0");
 
-  if (["single-Patti", "double-Patti", "triple-Patti", "panna"].includes(gameType)) {
+  if (
+    ["single-Patti", "double-Patti", "triple-Patti", "panna"].includes(gameType)
+  ) {
     return value.padStart(3, "0");
   }
 
@@ -231,7 +242,9 @@ const COUNTRY_CURRENCY_MAP = {
 const getUserCurrency = async (user, session = null) => {
   if (!user) return null;
 
-  const rawCountry = String(user.country || "IN").trim().toUpperCase();
+  const rawCountry = String(user.country || "IN")
+    .trim()
+    .toUpperCase();
 
   // 1) Find by countryCode
   let query = CurrencyRate.findOne({
@@ -329,12 +342,11 @@ const calculateWinAmount = async (
   gameType,
   bidAmount,
   user,
-  session = null
+  session = null,
 ) => {
   try {
     if (!user) return 0;
 
-    // --- Multiplier (stored in INR space) ---
     const multiplierQuery = WinMultiplier.findOne();
     if (session) multiplierQuery.session(session);
     const settings = await multiplierQuery;
@@ -350,20 +362,19 @@ const calculateWinAmount = async (
     if (!Number.isFinite(multiplier) || multiplier < 0) return 0;
     if (!Number.isFinite(amount) || amount <= 0) return 0;
 
-    // --- User currency ---
-    const { rate } = await getUserCurrency(user, session);
+    const currencyInfo = await getUserCurrency(user, session);
+    if (!currencyInfo) return 0;
+
+    const rate = Number(currencyInfo.rate);
     if (!Number.isFinite(rate) || rate <= 0) return 0;
 
-    // Step 1: user currency -> INR
+    // Win calculation is performed through INR, but the final amount
+    // returned/saved is ALWAYS in the user's own currency.
     const bidAmountInINR = userCurrencyToINR(amount, rate);
-
-    // Step 2: apply multiplier on INR amount
     const winAmountInINR = bidAmountInINR * multiplier;
+    const winAmountUserCurrency = inrToUserCurrency(winAmountInINR, rate);
 
-    // Step 3: INR -> user currency
-    const finalWinAmount = inrToUserCurrency(winAmountInINR, rate);
-
-    return finalWinAmount;
+    return Number(winAmountUserCurrency.toFixed(2));
   } catch (error) {
     console.error("Calculate Win Amount Error:", error);
     return 0;
@@ -518,14 +529,8 @@ const checkBidWin = (bid, winningNumber) => {
 // ============================================================
 exports.placeBid = async (req, res) => {
   try {
-    const {
-      marketId,
-      marketDayId,
-      marketDate,
-      gameType,
-      number,
-      bidAmount,
-    } = req.body;
+    const { marketId, marketDayId, marketDate, gameType, number, bidAmount } =
+      req.body;
 
     const userId = req.user.id;
 
@@ -570,7 +575,9 @@ exports.placeBid = async (req, res) => {
 
     const market = await Market.findById(marketId);
     if (!market) {
-      return res.status(404).json({ success: false, message: "Market not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Market not found" });
     }
 
     const marketDay = requireMarketDay(market, marketDayId, marketDate);
@@ -609,13 +616,16 @@ exports.placeBid = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     if (user.status === "suspended" || user.status === "blocked") {
       return res.status(403).json({
         success: false,
-        message: "Your account is suspended or blocked. Please contact support.",
+        message:
+          "Your account is suspended or blocked. Please contact support.",
       });
     }
 
@@ -629,7 +639,8 @@ exports.placeBid = async (req, res) => {
     if (!Number.isFinite(amountInINR) || amountInINR <= 0) {
       return res.status(400).json({
         success: false,
-        message: "Unable to convert bid amount to INR. Please check currency rate.",
+        message:
+          "Unable to convert bid amount to INR. Please check currency rate.",
       });
     }
 
@@ -649,15 +660,15 @@ exports.placeBid = async (req, res) => {
     }
 
     // Balance is maintained in INR
-    if (Number(user.balance) < amountInINR) {
-      const balanceUserCurrency = Number((Number(user.balance) / rate).toFixed(2));
+    if (Number(user.balance) < amount) {
+      const balanceUserCurrency = Number(user.balance);
       return res.status(400).json({
         success: false,
         message: "Insufficient balance",
         balance: user.balance,
         balanceUserCurrency,
         currencyCode,
-        required: amountInINR,
+        required: amount,
         requiredUserCurrency: amount,
       });
     }
@@ -680,17 +691,19 @@ exports.placeBid = async (req, res) => {
       marketDate: marketDay.marketDate,
       gameType,
       number: formattedNumber,
-      bidAmount: amountInINR,              // stored in INR
-      bidAmountUserCurrency: amount,       // user-currency snapshot
-      currencyCode,                        // e.g. "AUD"
-      currencyRate: rate,                  // e.g. 68.37
-      possibleWinAmount,                   // in user currency
+      bidAmount: amount, // user's actual currency amount
+      bidAmountUserCurrency: amount, // user-currency snapshot
+      currencyCode, // e.g. "AUD"
+      currencyRate: rate, // e.g. 68.37
+      possibleWinAmount, // user's currency (wallet/accounting)
       transactionId: generateTransactionId(),
       status: "pending",
       bidTime: new Date(),
     });
 
-    user.balance = Number(user.balance) - amountInINR;
+    console.log(bid);
+
+    user.balance = Number(user.balance) - amount;
     await user.save();
 
     return res.status(201).json({
@@ -710,22 +723,23 @@ exports.placeBid = async (req, res) => {
           },
           gameType: bid.gameType,
           number: bid.number,
-          bidAmount: bid.bidAmount,                           // INR
-          bidAmountUserCurrency: bid.bidAmountUserCurrency,   // user currency
+          bidAmount: bid.bidAmount, // user currency
+          bidAmountUserCurrency: bid.bidAmountUserCurrency, // user currency
           currencyCode: bid.currencyCode,
           currencyRate: bid.currencyRate,
-          possibleWinAmount: bid.possibleWinAmount,           // user currency
+          possibleWinAmount: bid.possibleWinAmount, // user currency
+          possibleWinAmountUserCurrency: Number(bid.possibleWinAmount),
           status: bid.status,
           bidTime: bid.bidTime,
           createdAt: bid.createdAt,
         },
         wallet: {
-          deducted: amount,                                   // user currency
+          deducted: amount, // user currency
           deductedINR: amountInINR,
           currencyCode,
           rate,
-          remainingBalance: user.balance,                     // INR
-          remainingBalanceUserCurrency: Number((user.balance / rate).toFixed(2)),
+          remainingBalance: user.balance, // user currency
+          remainingBalanceUserCurrency: Number(user.balance),
         },
       },
     });
@@ -771,7 +785,9 @@ exports.placeMultipleBids = async (req, res) => {
     if (!user) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     if (user.status === "suspended" || user.status === "blocked") {
@@ -779,7 +795,8 @@ exports.placeMultipleBids = async (req, res) => {
       session.endSession();
       return res.status(403).json({
         success: false,
-        message: "Your account is suspended or blocked. Please contact support.",
+        message:
+          "Your account is suspended or blocked. Please contact support.",
       });
     }
 
@@ -915,7 +932,7 @@ exports.placeMultipleBids = async (req, res) => {
         gameType,
         amount,
         user,
-        session
+        session,
       );
 
       if (possibleWinAmount === 0) {
@@ -940,20 +957,27 @@ exports.placeMultipleBids = async (req, res) => {
       });
     }
 
-    if (Number(user.balance) < totalBidAmountINR) {
-      const balanceUserCurrency = Number((Number(user.balance) / rate).toFixed(2));
+    const totalBidAmountUserCurrency = bids.reduce(
+      (sum, item) => sum + Number(item.bidAmount),
+      0,
+    );
+
+    if (Number(user.balance) < totalBidAmountUserCurrency) {
+      const balanceUserCurrency = Number(user.balance);
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
         message: "Insufficient balance for all bids",
-        required: totalBidAmountINR,
-        requiredUserCurrency: Number((totalBidAmountINR / rate).toFixed(2)),
+        required: totalBidAmountUserCurrency,
+        requiredUserCurrency: totalBidAmountUserCurrency,
         available: user.balance,
         availableUserCurrency: balanceUserCurrency,
         currencyCode,
         rate,
-        shortfall: totalBidAmountINR - Number(user.balance),
+        shortfall: Number(
+          (totalBidAmountUserCurrency - Number(user.balance)).toFixed(2),
+        ),
       });
     }
 
@@ -969,7 +993,7 @@ exports.placeMultipleBids = async (req, res) => {
             marketDate: bidData.marketDate,
             gameType: bidData.gameType,
             number: bidData.formattedNumber,
-            bidAmount: bidData.amountInINR,
+            bidAmount: bidData.amount,
             bidAmountUserCurrency: bidData.amount,
             currencyCode,
             currencyRate: rate,
@@ -979,13 +1003,13 @@ exports.placeMultipleBids = async (req, res) => {
             bidTime: new Date(),
           },
         ],
-        { session }
+        { session },
       );
 
       createdBids.push(created[0]);
     }
 
-    user.balance = Number(user.balance) - totalBidAmountINR;
+    user.balance = Number(user.balance) - totalBidAmountUserCurrency;
     await user.save({ session });
 
     await session.commitTransaction();
@@ -1012,12 +1036,12 @@ exports.placeMultipleBids = async (req, res) => {
           bidTime: bid.bidTime,
         })),
         wallet: {
-          totalDeducted: Number((totalBidAmountINR / rate).toFixed(2)),
+          totalDeducted: totalBidAmountUserCurrency,
           totalDeductedINR: totalBidAmountINR,
           currencyCode,
           rate,
           remainingBalance: user.balance,
-          remainingBalanceUserCurrency: Number((user.balance / rate).toFixed(2)),
+          remainingBalanceUserCurrency: Number(user.balance),
         },
         totalBids: createdBids.length,
       },
@@ -1093,7 +1117,9 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
     if (!market) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ success: false, message: "Market not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Market not found" });
     }
 
     const marketDay = requireMarketDay(market, marketDayId, marketDate);
@@ -1138,9 +1164,7 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
       });
     }
 
-    const uniqueNumbers = [
-      ...new Set(numbers.map((n) => String(n).trim())),
-    ];
+    const uniqueNumbers = [...new Set(numbers.map((n) => String(n).trim()))];
 
     for (const number of uniqueNumbers) {
       if (!validateNumber(gameType, number)) {
@@ -1157,7 +1181,9 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
     if (!user) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     if (user.status === "suspended" || user.status === "blocked") {
@@ -1165,7 +1191,8 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
       session.endSession();
       return res.status(403).json({
         success: false,
-        message: "Your account is suspended or blocked. Please contact support.",
+        message:
+          "Your account is suspended or blocked. Please contact support.",
       });
     }
 
@@ -1195,15 +1222,17 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
 
     const totalBidAmountINR = uniqueNumbers.length * amountInINR;
 
-    if (Number(user.balance) < totalBidAmountINR) {
-      const balanceUserCurrency = Number((Number(user.balance) / rate).toFixed(2));
+    const totalBidAmountUserCurrency = uniqueNumbers.length * amount;
+
+    if (Number(user.balance) < totalBidAmountUserCurrency) {
+      const balanceUserCurrency = Number(user.balance);
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
         message: "Insufficient balance",
         required: totalBidAmountINR,
-        requiredUserCurrency: Number((totalBidAmountINR / rate).toFixed(2)),
+        requiredUserCurrency: totalBidAmountUserCurrency,
         available: user.balance,
         availableUserCurrency: balanceUserCurrency,
         currencyCode,
@@ -1215,7 +1244,7 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
       gameType,
       amount,
       user,
-      session
+      session,
     );
 
     if (possibleWinAmount === 0) {
@@ -1239,7 +1268,7 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
             marketDate: marketDay.marketDate,
             gameType,
             number: formatGameNumber(gameType, number),
-            bidAmount: amountInINR,
+            bidAmount: amount,
             bidAmountUserCurrency: amount,
             currencyCode,
             currencyRate: rate,
@@ -1249,13 +1278,13 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
             bidTime: new Date(),
           },
         ],
-        { session }
+        { session },
       );
 
       createdBids.push(created[0]);
     }
 
-    user.balance = Number(user.balance) - totalBidAmountINR;
+    user.balance = Number(user.balance) - totalBidAmountUserCurrency;
     await user.save({ session });
 
     await session.commitTransaction();
@@ -1278,12 +1307,12 @@ exports.placeBidOnMultipleNumbers = async (req, res) => {
           bidTime: bid.bidTime,
         })),
         wallet: {
-          totalDeducted: Number((totalBidAmountINR / rate).toFixed(2)),
+          totalDeducted: totalBidAmountUserCurrency,
           totalDeductedINR: totalBidAmountINR,
           currencyCode,
           rate,
           remainingBalance: user.balance,
-          remainingBalanceUserCurrency: Number((user.balance / rate).toFixed(2)),
+          remainingBalanceUserCurrency: Number(user.balance),
         },
         totalBids: createdBids.length,
         numbersPlayed: createdBids.map((bid) => bid.number),
@@ -1327,7 +1356,9 @@ exports.getBiddingHistory = async (req, res) => {
 
     if (gameType) {
       if (!ALL_GAME_TYPES.includes(gameType)) {
-        return res.status(400).json({ success: false, message: "Invalid game type" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid game type" });
       }
       filter.gameType = gameType;
     }
@@ -1448,7 +1479,9 @@ exports.getUserBids = async (req, res) => {
 
     if (gameType) {
       if (!ALL_GAME_TYPES.includes(gameType)) {
-        return res.status(400).json({ success: false, message: "Invalid game type" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid game type" });
       }
       filter.gameType = gameType;
     }
@@ -1535,7 +1568,9 @@ exports.getTodayBidsSummary = async (req, res) => {
     const userId = req.user.id;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ success: false, message: "Invalid user id" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid user id" });
     }
 
     const objectUserId = new mongoose.Types.ObjectId(userId);
@@ -1685,12 +1720,14 @@ exports.cancelBid = async (req, res) => {
     if (!user) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
-    // Refund in INR (balance stored in INR)
-    const refundINR = Number(bid.bidAmount);
-    user.balance = Number(user.balance) + refundINR;
+    // Refund in the user's country currency.
+    const refundAmount = Number(bid.bidAmount);
+    user.balance = Number(user.balance) + refundAmount;
     await user.save({ session });
 
     bid.status = "cancelled";
@@ -1701,9 +1738,7 @@ exports.cancelBid = async (req, res) => {
     session.endSession();
 
     const currencyInfo = await getUserCurrency(user);
-    const refundUserCurrency = Number(
-      (refundINR / currencyInfo.rate).toFixed(2)
-    );
+    const refundUserCurrency = refundAmount;
 
     return res.json({
       success: true,
@@ -1711,14 +1746,12 @@ exports.cancelBid = async (req, res) => {
       data: {
         bidId: bid._id,
         transactionId: bid.transactionId,
-        refundAmount: refundINR,
+        refundAmount: refundAmount,
         refundAmountUserCurrency: refundUserCurrency,
         currencyCode: currencyInfo.currencyCode,
         rate: currencyInfo.rate,
         balance: user.balance,
-        balanceUserCurrency: Number(
-          (Number(user.balance) / currencyInfo.rate).toFixed(2)
-        ),
+        balanceUserCurrency: Number(user.balance),
       },
     });
   } catch (error) {
@@ -1780,19 +1813,21 @@ exports.cancelMultipleBids = async (req, res) => {
     if (!user) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
-    let totalRefundINR = 0;
+    let totalRefundUserCurrency = 0;
 
     for (const bid of bids) {
-      totalRefundINR += Number(bid.bidAmount);
+      totalRefundUserCurrency += Number(bid.bidAmount);
       bid.status = "cancelled";
       bid.cancelledAt = new Date();
       await bid.save({ session });
     }
 
-    user.balance = Number(user.balance) + totalRefundINR;
+    user.balance = Number(user.balance) + totalRefundUserCurrency;
     await user.save({ session });
 
     await session.commitTransaction();
@@ -1805,21 +1840,20 @@ exports.cancelMultipleBids = async (req, res) => {
       message: `${bids.length} bids cancelled successfully`,
       data: {
         cancelledCount: bids.length,
-        totalRefund: Number((totalRefundINR / currencyInfo.rate).toFixed(2)),
-        totalRefundINR,
+        totalRefund: totalRefundUserCurrency,
+        totalRefundINR: userCurrencyToINR(
+          totalRefundUserCurrency,
+          currencyInfo.rate,
+        ),
         currencyCode: currencyInfo.currencyCode,
         rate: currencyInfo.rate,
         balance: user.balance,
-        balanceUserCurrency: Number(
-          (Number(user.balance) / currencyInfo.rate).toFixed(2)
-        ),
+        balanceUserCurrency: Number(user.balance),
         cancelledBids: bids.map((bid) => ({
           id: bid._id,
           transactionId: bid.transactionId,
           refundAmount: bid.bidAmount,
-          refundAmountUserCurrency: Number(
-            (Number(bid.bidAmount) / currencyInfo.rate).toFixed(2)
-          ),
+          refundAmountUserCurrency: Number(bid.bidAmount),
         })),
       },
     });
@@ -1862,7 +1896,9 @@ exports.adminGetAllBids = async (req, res) => {
 
     if (gameType) {
       if (!ALL_GAME_TYPES.includes(gameType)) {
-        return res.status(400).json({ success: false, message: "Invalid game type" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid game type" });
       }
       filter.gameType = gameType;
     }
@@ -2248,7 +2284,7 @@ exports.adminUpdateBidStatus = async (req, res) => {
     if (status === "won" && bid.status !== "won") {
       const user = await User.findById(bid.userId).session(session);
       if (user) {
-        // winAmount stored in INR; balance stored in INR
+        // winAmount and balance are stored in the user's country currency.
         user.balance += Number(bid.possibleWinAmount);
         await user.save({ session });
         bid.winAmount = bid.possibleWinAmount;
@@ -2429,13 +2465,15 @@ exports.declareResult = async (req, res) => {
     if (!market) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ success: false, message: "Market not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Market not found" });
     }
 
     const marketDay = requireMarketDay(
       market,
       marketDayId,
-      marketDate || resultDate
+      marketDate || resultDate,
     );
     attachMarketDayCompatibility(market, marketDay);
 
@@ -2514,24 +2552,22 @@ exports.declareResult = async (req, res) => {
 
       if (isWin) {
         bid.status = "won";
-        bid.winAmount = bid.possibleWinAmount; // stored in INR
+        bid.winAmount = bid.possibleWinAmount; // stored in user's currency
         bid.wonAt = new Date();
         bid.resultNumber = formattedWinningNumber;
 
         const user = await User.findById(bid.userId).session(session);
         if (user) {
-          // Credit in INR (balance stored in INR)
+          // Wallet balance is maintained in the user's own country currency.
           user.balance += Number(bid.possibleWinAmount);
           await user.save({ session });
 
-          totalPayoutINR += Number(bid.possibleWinAmount);
-
-          // Compute user-currency payout for reporting
           const cur = await getUserCurrency(user, session);
-          const userCurrencyAmount = Number(
-            (Number(bid.possibleWinAmount) / cur.rate).toFixed(2)
-          );
+          const payoutRate = Number(bid.currencyRate || cur.rate || 1);
+          const userCurrencyAmount = Number(bid.possibleWinAmount);
           totalPayoutUserCurrency += userCurrencyAmount;
+          // Keep INR total only as an informational/reporting value.
+          totalPayoutINR += userCurrencyToINR(userCurrencyAmount, payoutRate);
 
           winningBidsList.push({
             id: bid._id,
@@ -2541,8 +2577,8 @@ exports.declareResult = async (req, res) => {
             bidAmountUserCurrency: bid.bidAmountUserCurrency,
             winAmount: bid.winAmount,
             winAmountUserCurrency: userCurrencyAmount,
-            currencyCode: cur.currencyCode,
-            currencyRate: cur.rate,
+            currencyCode: bid.currencyCode || cur.currencyCode,
+            currencyRate: payoutRate,
           });
         }
 
@@ -2571,7 +2607,7 @@ exports.declareResult = async (req, res) => {
       declaredBy: req.user.id,
       totalBids: pendingBids.length,
       totalWinningBids: totalWon,
-      totalPayout: totalPayoutINR, // stored in INR
+      totalPayout: totalPayoutINR, // stored in user currency
       status: "declared",
     };
 
@@ -2718,19 +2754,25 @@ exports.getLowestBidNumber = async (req, res) => {
     const { marketId, marketDayId, marketDate } = req.params;
 
     if (!marketId) {
-      return res.status(400).json({ success: false, message: "Market ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Market ID is required" });
     }
 
     if (!mongoose.Types.ObjectId.isValid(marketId)) {
-      return res.status(400).json({ success: false, message: "Invalid Market ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid Market ID" });
     }
 
     const market = await Market.findById(marketId).select(
-      "name marketId digitType numberType gameTypes marketArray"
+      "name marketId digitType numberType gameTypes marketArray",
     );
 
     if (!market) {
-      return res.status(404).json({ success: false, message: "Market not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Market not found" });
     }
 
     const marketDay = requireMarketDay(market, marketDayId, marketDate);
@@ -2792,7 +2834,9 @@ exports.getLowestBidNumber = async (req, res) => {
         .filter((item) => item.betCount === minimumBetCount)
         .map((item) => item.number);
 
-      const numbersWithBet = candidates.filter((item) => item.betCount > 0).length;
+      const numbersWithBet = candidates.filter(
+        (item) => item.betCount > 0,
+      ).length;
 
       const allNumbersHaveBets =
         candidates.length > 0 && numbersWithBet === candidates.length;
@@ -2835,11 +2879,13 @@ exports.getMarketResults = async (req, res) => {
     const { marketDayId, marketDate } = req.query;
 
     const market = await Market.findById(marketId).select(
-      "name marketId digitType gameTypes marketArray"
+      "name marketId digitType gameTypes marketArray",
     );
 
     if (!market) {
-      return res.status(404).json({ success: false, message: "Market not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Market not found" });
     }
 
     const marketDay = requireMarketDay(market, marketDayId, marketDate);
@@ -2851,7 +2897,9 @@ exports.getMarketResults = async (req, res) => {
       status: "won",
     })
       .populate("userId", "name email country")
-      .select("userId gameType number bidAmount winAmount wonAt currencyCode bidAmountUserCurrency");
+      .select(
+        "userId gameType number bidAmount winAmount wonAt currencyCode bidAmountUserCurrency",
+      );
 
     const summary = await Bid.aggregate([
       {
@@ -2892,19 +2940,25 @@ exports.getBidsByMarketId = async (req, res) => {
     const { marketDayId, marketDate } = req.query;
 
     if (!marketId) {
-      return res.status(400).json({ success: false, message: "Market ID is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Market ID is required" });
     }
 
     if (!mongoose.Types.ObjectId.isValid(marketId)) {
-      return res.status(400).json({ success: false, message: "Invalid Market ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid Market ID" });
     }
 
     const market = await Market.findById(marketId).select(
-      "name marketId digitType gameTypes marketArray"
+      "name marketId digitType gameTypes marketArray",
     );
 
     if (!market) {
-      return res.status(404).json({ success: false, message: "Market not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Market not found" });
     }
 
     const marketDay = requireMarketDay(market, marketDayId, marketDate);
@@ -2949,11 +3003,13 @@ exports.getAllowedGameTypesForMarket = async (req, res) => {
     }
 
     const market = await Market.findById(marketId).select(
-      "name marketId digitType numberType gameTypes marketArray"
+      "name marketId digitType numberType gameTypes marketArray",
     );
 
     if (!market) {
-      return res.status(404).json({ success: false, message: "Market not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Market not found" });
     }
 
     const marketDay = requireMarketDay(market, marketDayId, marketDate);

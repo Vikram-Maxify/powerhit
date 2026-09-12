@@ -19,12 +19,7 @@ import { clearBidError, getBiddingHistory } from "../../redux/slices/bidSlice";
 import { getCurrencyRates } from "../../redux/slices/currencyRateSlice";
 
 // =========================================================
-// COUNTRY NORMALIZATION - Same as PlaceBid
-// user.country can come in different shapes from the backend
-// ("uae", "UAE", "ae", "AE", "United Arab Emirates", etc.)
-// while the currencyRate collection always stores a clean
-// 2-letter countryCode ("AE", "IN", "AU", "PK", "BD", "NP").
-// This maps any of those variants to the canonical code.
+// COUNTRY NORMALIZATION
 // =========================================================
 const COUNTRY_ALIASES = {
   in: "IN",
@@ -49,22 +44,38 @@ const normalizeCountryCode = (country) => {
   return COUNTRY_ALIASES[key] || key.toUpperCase();
 };
 
-const getCurrencySymbol = (country) => {
-  const symbols = {
-    IN: "₹",
-    AU: "$",
-    PK: "₨",
-    BD: "৳",
-    NP: "रू",
-    AE: "د.إ",
-    default: "₹",
-  };
-
-  return symbols[normalizeCountryCode(country)] || symbols.default;
+// =========================================================
+// CURRENCY SYMBOL MAP
+// Amount kabhi convert nahi hota — sirf symbol badalta hai.
+// =========================================================
+const COUNTRY_TO_CURRENCY = {
+  IN: "INR",
+  AU: "AUD",
+  PK: "PKR",
+  BD: "BDT",
+  NP: "NPR",
+  AE: "AED",
 };
 
-// =========================================================
-// END OF COUNTRY NORMALIZATION
+const CURRENCY_SYMBOLS = {
+  INR: "₹",
+  AUD: "A$",
+  PKR: "₨",
+  BDT: "৳",
+  NPR: "रू",
+  AED: "د.إ",
+  USD: "$",
+};
+
+const getCurrencySymbol = (country) => {
+  const code = normalizeCountryCode(country);
+  const currency = COUNTRY_TO_CURRENCY[code] || "INR";
+  return CURRENCY_SYMBOLS[currency] || "₹";
+};
+
+const getCurrencySymbolByCode = (currencyCode) =>
+  CURRENCY_SYMBOLS[(currencyCode || "INR").toUpperCase()] || "₹";
+
 // =========================================================
 
 const BidsHistory = () => {
@@ -81,15 +92,7 @@ const BidsHistory = () => {
 
   const { user } = useSelector((state) => state.auth);
 
-  const formatWinAmount = (amount) => {
-    const value = Number(amount) || 0;
-
-    return `${value.toLocaleString("en-IN", {
-      maximumFractionDigits: 2,
-    })} ${userCurrencyRate?.currencyCode || "INR"}`;
-  };
-
-  // Currency rates (used to display amounts in the user's own currency)
+  // Currency rates (fetch ki ja rahi hain, par conversion nahi hogi)
   const currencies = useSelector((state) => state.currencyRate?.currencies);
 
   const [filter, setFilter] = useState({
@@ -103,7 +106,6 @@ const BidsHistory = () => {
     dispatch(getBiddingHistory(filter));
   }, [dispatch, filter]);
 
-  // Fetch currency rates once on mount
   useEffect(() => {
     dispatch(getCurrencyRates());
   }, [dispatch]);
@@ -121,6 +123,48 @@ const BidsHistory = () => {
       setTimeout(() => setActionMessage(null), 3000);
     }
   }, [error, message, dispatch]);
+
+  // =========================================================
+  // USER CURRENCY SYMBOL
+  // =========================================================
+  const userCountryCode = useMemo(
+    () => normalizeCountryCode(user?.country),
+    [user?.country],
+  );
+
+  const currencySymbol = useMemo(
+    () => getCurrencySymbol(user?.country),
+    [user?.country],
+  );
+
+  // Currency rate object (sirf reference ke liye — conversion nahi)
+  const userCurrencyRate = useMemo(() => {
+    if (!currencies || currencies.length === 0 || !userCountryCode) return null;
+    return (
+      currencies.find(
+        (c) =>
+          String(c.countryCode).trim().toUpperCase() === userCountryCode &&
+          c.status,
+      ) || null
+    );
+  }, [currencies, userCountryCode]);
+
+  // =========================================================
+  // FORMAT HELPERS — amount as-is, sirf symbol user ka
+  // =========================================================
+  const formatCurrency = (amount) => {
+    const amt = Number(amount) || 0;
+    return `${currencySymbol}${amt.toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const formatWinAmount = (amount) => {
+    const value = Number(amount) || 0;
+    return `${currencySymbol}${value.toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+    })}`;
+  };
 
   const getStatusConfig = (status) => {
     const configs = {
@@ -184,109 +228,17 @@ const BidsHistory = () => {
   };
 
   const getDigitType = (bid) => {
-    if (bid?.digitType === "2-digit") {
-      return "2-digit";
-    }
-
-    if (bid?.digitType === "3-digit") {
-      return "3-digit";
-    }
-
-    // Some APIs return digitType through populated marketId.
-    if (bid?.marketId?.digitType === "2-digit") {
-      return "2-digit";
-    }
-
-    if (bid?.marketId?.digitType === "3-digit") {
-      return "3-digit";
-    }
-
-    // Fallback based on game type.
-    if (["panna", "half-sangam"].includes(bid?.gameType)) {
-      return "3-digit";
-    }
-
+    if (bid?.digitType === "2-digit") return "2-digit";
+    if (bid?.digitType === "3-digit") return "3-digit";
+    if (bid?.marketId?.digitType === "2-digit") return "2-digit";
+    if (bid?.marketId?.digitType === "3-digit") return "3-digit";
+    if (["panna", "half-sangam"].includes(bid?.gameType)) return "3-digit";
     return "";
-  };
-
-  const getGameTypeLabel = (type) => {
-    type = normalizeGameType(type);
-    const display = {
-      single: "Single",
-      jodi: "Jodi",
-      "single-patti": "Single Patti",
-      "double-patti": "Double Patti",
-      "triple-patti": "Triple Patti",
-      panna: "Panna",
-      "half-sangam": "Half-Sangam",
-      "full-sangam": "Full-Sangam",
-      "last-digit": "Last Digit",
-      "first-digit": "First Digit",
-    };
-
-    return display[type] || type || "Game";
-  };
-
-  // =========================================================
-  // CURRENCY CONVERSION - Improved to match PlaceBid
-  // rate = "1 unit of that currency = X INR" (INR/IN has rate 1)
-  // So: convertedAmount = amountInINR / rate
-  // Bid amounts are stored/compared in INR on the backend.
-  // Only the DISPLAY is converted to the user's local currency.
-  //
-  // user.country can arrive as "uae", "UAE", "ae", etc. while the
-  // currencyRate collection stores a clean 2-letter countryCode
-  // ("AE"). We normalize both sides before comparing.
-  // =========================================================
-  const userCountryCode = useMemo(
-    () => normalizeCountryCode(user?.country),
-    [user?.country],
-  );
-
-  const currencySymbol = getCurrencySymbol(user?.country);
-
-  const userCurrencyRate = useMemo(() => {
-    if (!currencies || currencies.length === 0 || !userCountryCode) return null;
-    return (
-      currencies.find(
-        (c) =>
-          String(c.countryCode).trim().toUpperCase() === userCountryCode &&
-          c.status,
-      ) || null
-    );
-  }, [currencies, userCountryCode]);
-
-  const formatCurrency = (amount) => {
-    const amt = Number(amount) || 0;
-
-    // If we know the user's currency and it isn't INR, show converted value
-    if (userCurrencyRate && userCurrencyRate.countryCode !== "IN") {
-      const converted = amt / userCurrencyRate.rate;
-      return `${converted.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })} ${userCurrencyRate.currencyCode}`;
-    }
-
-    // Fallback: INR (default/original behavior)
-    return `${currencySymbol}${amt.toLocaleString("en-IN")}`;
   };
 
   // ============================================================
   // NUMBER / RESULT DISPLAY
   // ============================================================
-  //
-  // Half Sangam:
-  //   123-5  = Panna + Digit
-  //   5-123  = Digit + Panna
-  //
-  // Full Sangam:
-  //   123-456 = Panna + Panna
-  //
-  // Do NOT split Sangam values into a normal 2/3 digit ball count.
-  // Keep the "-" separator visible.
-  // ============================================================
-
   const getDigitCount = (gameType) => {
     gameType = normalizeGameType(gameType);
     switch (gameType) {
@@ -326,27 +278,17 @@ const BidsHistory = () => {
     const str = normalizeNumber(number);
 
     if (!str) {
-      return {
-        first: "",
-        second: "",
-      };
+      return { first: "", second: "" };
     }
 
     if (isHalfSangam(gameType) || isFullSangam(gameType)) {
       const parts = str.split("-");
-
       if (parts.length === 2) {
-        return {
-          first: parts[0],
-          second: parts[1],
-        };
+        return { first: parts[0], second: parts[1] };
       }
     }
 
-    return {
-      first: str,
-      second: "",
-    };
+    return { first: str, second: "" };
   };
 
   const getResultDigits = (number, gameType) => {
@@ -355,10 +297,8 @@ const BidsHistory = () => {
 
     if (!str) return [];
 
-    // Sangam must remain as two separate groups.
     if (isHalfSangam(gameType) || isFullSangam(gameType)) {
       const { first, second } = getSangamParts(str, gameType);
-
       return {
         sangam: true,
         first: first.split(""),
@@ -379,10 +319,6 @@ const BidsHistory = () => {
       second: [],
     };
   };
-
-  // ============================================================
-  // RENDER NUMBER
-  // ============================================================
 
   const renderNumberBalls = (number, status, gameType, size = "md") => {
     if (!number) return null;
@@ -413,10 +349,6 @@ const BidsHistory = () => {
       }
     `;
 
-    // ----------------------------------------------------------
-    // HALF / FULL SANGAM
-    // ----------------------------------------------------------
-
     if (parsed.sangam) {
       return (
         <div className="flex items-center gap-1.5">
@@ -441,10 +373,6 @@ const BidsHistory = () => {
       );
     }
 
-    // ----------------------------------------------------------
-    // NORMAL GAME
-    // ----------------------------------------------------------
-
     return (
       <div className="flex items-center gap-1">
         {parsed.first.map((digit, index) => (
@@ -455,10 +383,6 @@ const BidsHistory = () => {
       </div>
     );
   };
-
-  // ============================================================
-  // RENDER RESULT
-  // ============================================================
 
   const renderResultNumber = (number, gameType) => {
     if (number === undefined || number === null || number === "") {
@@ -513,10 +437,8 @@ const BidsHistory = () => {
 
   const bidsArray = Array.isArray(bids) ? bids : [];
 
-  // Calculate statistics
   const totalBids = bidsArray.length;
   const totalWon = bidsArray.filter((b) => b.status === "won").length;
-  const totalPending = bidsArray.filter((b) => b.status === "pending").length;
   const totalAmount = bidsArray.reduce((sum, b) => sum + (b.bidAmount || 0), 0);
   const totalWinAmount = bidsArray.reduce(
     (sum, b) => sum + (b.winAmount || 0),
@@ -660,7 +582,6 @@ const BidsHistory = () => {
         {/* Bids list */}
         {bidsArray.length > 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {/* Cards list — no horizontal scroll on any screen size */}
             <div className="divide-y divide-gray-100">
               {bidsArray.map((bid) => {
                 const statusConfig = getStatusConfig(bid.status);
@@ -777,7 +698,7 @@ const BidsHistory = () => {
 
                         {bid.winAmount > 0 && (
                           <p className="text-[10px] font-extrabold text-green-500">
-                            {formatWinAmount(totalWinAmount)}
+                            + {formatWinAmount(bid.winAmount)}
                           </p>
                         )}
                       </div>
