@@ -1,9 +1,9 @@
 import debounce from "lodash/debounce";
 import { Crown, Gem, Shuffle, Zap } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FaCircle, FaMinus, FaPlus } from "react-icons/fa";
 import { IoIosArrowBack, IoIosArrowForward } from "react-icons/io";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import io from "socket.io-client";
 
@@ -15,6 +15,7 @@ import {
   getOrderList,
   placeBet,
 } from "../../redux/slices/betSlice.js";
+import { getCurrencyRates } from "../../redux/slices/currencyRateSlice.js";
 import "./wingo.css";
 
 // Assets
@@ -75,10 +76,125 @@ const socket = io(host, {
 });
 
 // ============================================================
+// CURRENCY - USER COUNTRY BASED
+// Backend stores bet/money values in INR.
+// Currency rate is expected as: 1 local-currency-unit = X INR.
+// Therefore INR -> local currency = INR amount / rate.
+// ============================================================
+const COUNTRY_ALIASES = {
+  in: "IN",
+  india: "IN",
+  au: "AU",
+  australia: "AU",
+  pk: "PK",
+  pakistan: "PK",
+  bd: "BD",
+  bangladesh: "BD",
+  np: "NP",
+  nepal: "NP",
+  ae: "AE",
+  uae: "AE",
+  dubai: "AE",
+  "united arab emirates": "AE",
+  ca: "CA",
+  canada: "CA",
+  us: "US",
+  usa: "US",
+  "united states": "US",
+  gb: "GB",
+  uk: "GB",
+  "united kingdom": "GB",
+  nz: "NZ",
+  "new zealand": "NZ",
+  sg: "SG",
+  singapore: "SG",
+  my: "MY",
+  malaysia: "MY",
+  ph: "PH",
+  philippines: "PH",
+  jp: "JP",
+  japan: "JP",
+  cn: "CN",
+  china: "CN",
+  th: "TH",
+  thailand: "TH",
+  id: "ID",
+  indonesia: "ID",
+  vn: "VN",
+  vietnam: "VN",
+  tr: "TR",
+  turkey: "TR",
+  sa: "SA",
+  "saudi arabia": "SA",
+  za: "ZA",
+  "south africa": "ZA",
+  ng: "NG",
+  nigeria: "NG",
+  ke: "KE",
+  kenya: "KE",
+  br: "BR",
+  brazil: "BR",
+  mx: "MX",
+  mexico: "MX",
+  de: "DE",
+  germany: "DE",
+  fr: "FR",
+  france: "FR",
+  it: "IT",
+  italy: "IT",
+  es: "ES",
+  spain: "ES",
+};
+
+const CURRENCY_CONFIG = {
+  IN: { code: "INR", symbol: "₹", locale: "en-IN" },
+  NP: { code: "NPR", symbol: "रू", locale: "en-IN" },
+  AU: { code: "AUD", symbol: "A$", locale: "en-AU" },
+  PK: { code: "PKR", symbol: "₨", locale: "en-PK" },
+  BD: { code: "BDT", symbol: "৳", locale: "en-BD" },
+  AE: { code: "AED", symbol: "د.إ", locale: "en-AE" },
+  CA: { code: "CAD", symbol: "C$", locale: "en-CA" },
+  US: { code: "USD", symbol: "$", locale: "en-US" },
+  GB: { code: "GBP", symbol: "£", locale: "en-GB" },
+  NZ: { code: "NZD", symbol: "NZ$", locale: "en-NZ" },
+  SG: { code: "SGD", symbol: "S$", locale: "en-SG" },
+  MY: { code: "MYR", symbol: "RM", locale: "en-MY" },
+  PH: { code: "PHP", symbol: "₱", locale: "en-PH" },
+  JP: { code: "JPY", symbol: "¥", locale: "ja-JP" },
+  CN: { code: "CNY", symbol: "¥", locale: "zh-CN" },
+  TH: { code: "THB", symbol: "฿", locale: "en-TH" },
+  ID: { code: "IDR", symbol: "Rp", locale: "id-ID" },
+  VN: { code: "VND", symbol: "₫", locale: "vi-VN" },
+  TR: { code: "TRY", symbol: "₺", locale: "tr-TR" },
+  SA: { code: "SAR", symbol: "﷼", locale: "en-SA" },
+  ZA: { code: "ZAR", symbol: "R", locale: "en-ZA" },
+  NG: { code: "NGN", symbol: "₦", locale: "en-NG" },
+  KE: { code: "KES", symbol: "KSh", locale: "en-KE" },
+  BR: { code: "BRL", symbol: "R$", locale: "pt-BR" },
+  MX: { code: "MXN", symbol: "MX$", locale: "es-MX" },
+  DE: { code: "EUR", symbol: "€", locale: "de-DE" },
+  FR: { code: "EUR", symbol: "€", locale: "fr-FR" },
+  IT: { code: "EUR", symbol: "€", locale: "it-IT" },
+  ES: { code: "EUR", symbol: "€", locale: "es-ES" },
+};
+
+const normalizeCountryCode = (country) => {
+  if (!country) return "IN";
+  const key = String(country).trim().toLowerCase();
+  return COUNTRY_ALIASES[key] || key.toUpperCase();
+};
+
+// ============================================================
 // MAIN COMPONENT
 // ============================================================
 const Wingo = () => {
   const dispatch = useDispatch();
+
+  // Auth user is used as a fallback because the profile API is async.
+  const authUser = useSelector((state) => state.auth?.user || null);
+  const currencyRates = useSelector(
+    (state) => state.currencyRate?.currencies || [],
+  );
 
   // ---- State ----
   const [userInfo, setUserInfo] = useState(null);
@@ -146,6 +262,62 @@ const Wingo = () => {
   // ---- Derived ----
   const totalAmount = balance * multiplier;
   const currentGameInfo = GAME_EVENT_MAP[typeid1] || GAME_EVENT_MAP[10];
+
+  // Load both profile and currency rates when Wingo opens.
+  // This guarantees user.country (for example "nepal") is available
+  // and the matching local-currency rate is loaded into Redux.
+  useEffect(() => {
+    dispatch(getCurrencyRates());
+
+    dispatch(getProfile())
+      .unwrap()
+      .then((profile) => setUserInfo(profile))
+      .catch((error) => console.error("Profile load failed:", error));
+  }, [dispatch]);
+
+  const profileUser =
+    userInfo?.user || userInfo?.data?.user || userInfo?.data || userInfo || {};
+  const currentCountry = profileUser?.country || authUser?.country || "india";
+  const userCountryCode = normalizeCountryCode(currentCountry);
+  const currencyConfig = CURRENCY_CONFIG[userCountryCode] || CURRENCY_CONFIG.IN;
+
+  const userCurrencyRate = useMemo(() => {
+    if (userCountryCode === "IN") return null;
+
+    const rates = Array.isArray(currencyRates) ? currencyRates : [];
+    return (
+      rates.find((item) => {
+        const itemCountry = String(
+          item?.countryCode ?? item?.country_code ?? item?.country ?? "",
+        )
+          .trim()
+          .toUpperCase();
+        return itemCountry === userCountryCode && item?.status !== false;
+      }) || null
+    );
+  }, [currencyRates, userCountryCode]);
+
+  const formatMoney = (amount, sign = "") => {
+    const numericAmount = Number(amount);
+    const baseAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+
+    // Backend amount is INR. Currency rate is local currency -> INR,
+    // so divide to convert INR into the user's local currency.
+    const rate = Number(userCurrencyRate?.rate);
+    const convertedAmount =
+      userCountryCode === "IN"
+        ? baseAmount
+        : Number.isFinite(rate) && rate > 0
+          ? baseAmount / rate
+          : baseAmount;
+
+    const formatted = convertedAmount.toLocaleString(currencyConfig.locale, {
+      minimumFractionDigits: currencyConfig.code === "JPY" ? 0 : 2,
+      maximumFractionDigits: currencyConfig.code === "JPY" ? 0 : 2,
+    });
+
+    return `${sign}${currencyConfig.symbol} ${formatted}`;
+  };
 
   // ============================================================
   // HELPERS
@@ -1396,13 +1568,10 @@ const Wingo = () => {
                         item.status === 1 ? "text-green-600" : "text-red-500"
                       }`}
                     >
-                      {item.status === 1 ? "+₹" : "-₹"}
-                      {Number(
+                      {formatMoney(
                         item.status === 1 ? item.get : item.money,
-                      ).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                        item.status === 1 ? "+" : "-",
+                      )}
                     </p>
                   </div>
                 )}
@@ -1414,26 +1583,20 @@ const Wingo = () => {
                     ["Period", item.stage],
                     [
                       "Purchase amount",
-                      `₹${Number(item.money) + Number(item.fee)}`,
+                      formatMoney(Number(item.money) + Number(item.fee)),
                     ],
                     ["Quantity", item.amount],
-                    [
-                      "Amount after tax",
-                      `₹${Number(item.money).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}`,
-                    ],
-                    ["Tax", `₹${item.fee}`],
+                    ["Amount after tax", formatMoney(item.money)],
+                    ["Tax", formatMoney(item.fee)],
                     ["Result", item.result],
                     ["Select", getBetLabel(item.bet)],
                     ["Status", item.status === 1 ? "Succeed" : "Failed"],
                     [
                       "Win/Loss",
-                      `${item.status === 1 ? "+" : "-"}₹${Number(
+                      formatMoney(
                         item.status === 1 ? item.get : item.money,
-                      ).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}`,
+                        item.status === 1 ? "+" : "-",
+                      ),
                     ],
                     ["Order time", item.today],
                   ].map(([label, value], n) => (
@@ -1562,7 +1725,7 @@ const Wingo = () => {
                       }`}
                       onClick={() => setBalance(val)}
                     >
-                      ₹{val}
+                      {formatMoney(val)}
                     </button>
                   ))}
                 </div>
