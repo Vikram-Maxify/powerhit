@@ -1929,3 +1929,32 @@ exports.getResultStats = async (req, res) => {
     });
   }
 };
+
+exports.getAllPublicResults = async (req, res) => {
+  try {
+    const results = await Results.find({
+      status: "declared",
+    })
+      .select(
+        "marketId marketName marketDate digitType winningNumber resultDate nextOpenDate status",
+      )
+      .sort({
+        resultDate: -1,
+        createdAt: -1,
+      })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      count: results.length,
+      data: results,
+    });
+  } catch (error) {
+    console.error("Get All Public Results Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch results",
+    });
+  }
+};

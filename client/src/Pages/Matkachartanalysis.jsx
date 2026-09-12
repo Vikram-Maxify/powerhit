@@ -12,18 +12,24 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-// 👇 adjust this path to wherever publicBidSlice actually lives in your project
-import {
-  fetchPublicBidResults,
-  selectPublicBidResults,
-} from "../redux/slices/publicBidSlice";
+import { getAllResults } from "../redux/slices/publicmatkaResult";
+
+const GAME_TYPES = [
+  ["single", "Single"],
+  ["single-Patti", "Single Patti"],
+  ["double-Patti", "Double Patti"],
+  ["triple-Patti", "Triple Patti"],
+  ["jodi", "Jodi"],
+  ["panna", "Panna"],
+  ["half-sangam", "Half Sangam"],
+  ["full-sangam", "Full Sangam"],
+  ["last-digit", "Last Digit"],
+  ["first-digit", "First Digit"],
+];
 
 const CHART_TABS = [
-  "Chart",
-  "Jodi Chart",
-  "Weekly Chart",
-  "Trend Chart",
-  "Head to Head",
+  ["Chart", "Chart"],
+  ...GAME_TYPES.map(([key, label]) => [key, label]),
 ];
 
 function ResultBall({ n, size = "md" }) {
@@ -84,6 +90,26 @@ function formatGameType(gt = "") {
   return gt.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function getGameTypeValue(row, key) {
+  const value = row?.winningNumber?.[key];
+  return value === null || value === undefined || value === ""
+    ? null
+    : String(value);
+}
+
+function groupResultsByDate(rows) {
+  const map = new Map();
+  rows.forEach((row) => {
+    const dateValue = row?.resultDate || row?.marketDate || row?.createdAt;
+    const key = dateValue
+      ? new Date(dateValue).toISOString().slice(0, 10)
+      : "unknown";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(row);
+  });
+  return [...map.entries()].sort((a, b) => new Date(b[0]) - new Date(a[0]));
+}
+
 // resultNumber can legitimately be null (bid still "pending", result not
 // declared yet) — never String(null) that, it prints "null" and renders
 // N/U/L/L balls. Use this everywhere resultNumber is rendered.
@@ -137,26 +163,35 @@ export default function MatkaChartAnalysis() {
   const [activeChartTab, setActiveChartTab] = useState("Chart");
 
   const dispatch = useDispatch();
-  const { results, markets, gameTypeStats, loading, error } = useSelector(
-    selectPublicBidResults,
+  const { results, loading, error } = useSelector(
+    (state) => state.publicmatkaResult,
   );
 
   useEffect(() => {
-    // status: 'all' here (not 'won') — a chart/analysis view needs every
-    // declared result, not just the bids that won.
-    dispatch(
-      fetchPublicBidResults({ marketId: activeMarketId, status: "all" }),
-    );
-  }, [activeMarketId, dispatch]);
+    dispatch(getAllResults());
+  }, [dispatch]);
 
-  const marketFilters = useMemo(
-    () => [{ _id: "all", name: "All Markets" }, ...(markets || [])],
-    [markets],
-  );
+  const marketFilters = useMemo(() => {
+    const unique = new Map();
+    (results || []).forEach((row) => {
+      const id = row?.marketId?._id || row?.marketId || row?.id || row?._id;
+      const name = row?.marketName || row?.marketId?.name || "Market";
+      if (id) unique.set(String(id), { _id: String(id), name });
+    });
+    return [{ _id: "all", name: "All Markets" }, ...unique.values()];
+  }, [results]);
   const activeMarketName =
     marketFilters.find((m) => m._id === activeMarketId)?.name || "All Markets";
 
-  const rows = results || [];
+  const rows = useMemo(() => {
+    const allRows = results || [];
+    if (activeMarketId === "all") return allRows;
+    return allRows.filter(
+      (row) =>
+        String(row?.marketId?._id || row?.marketId || row?.id || row?._id) ===
+        String(activeMarketId),
+    );
+  }, [results, activeMarketId]);
 
   // Most recent rows first — API already scopes this to the selected market.
   const sortedRows = useMemo(
@@ -166,12 +201,38 @@ export default function MatkaChartAnalysis() {
   );
 
   const latestRow = sortedRows[0];
-  // 2-digit result = jodi-style number, 3-digit = pana-style number.
-  const latestJodiRow = sortedRows.find(
-    (r) => String(r.resultNumber).length === 2,
+  const latestJodiRow = sortedRows.find((r) => getGameTypeValue(r, "jodi"));
+  const latestPanaRow = sortedRows.find((r) => getGameTypeValue(r, "panna"));
+
+  const dateGroups = useMemo(
+    () => groupResultsByDate(sortedRows),
+    [sortedRows],
   );
-  const latestPanaRow = sortedRows.find(
-    (r) => String(r.resultNumber).length === 3,
+
+  // Game type statistics are derived directly from winningNumber in /api/results.
+  // Count only game types that actually have a declared value.
+  const effectiveGameTypeStats = useMemo(() => {
+    const counts = new Map();
+
+    (rows || []).forEach((row) => {
+      GAME_TYPES.forEach(([key, label]) => {
+        const value = getGameTypeValue(row, key);
+        if (value !== null) {
+          counts.set(key, {
+            _id: key,
+            label,
+            count: (counts.get(key)?.count || 0) + 1,
+          });
+        }
+      });
+    });
+
+    return [...counts.values()].sort((a, b) => b.count - a.count);
+  }, [rows]);
+
+  const maxGameTypeCount = Math.max(
+    1,
+    ...effectiveGameTypeStats.map((g) => g.count),
   );
 
   // NUMBER FREQUENCY — real count of each digit (0-9) across every
@@ -208,13 +269,14 @@ export default function MatkaChartAnalysis() {
   const jodiTopOpen = useMemo(() => buildTopOpen(2), [rows]);
   const panaTopOpen = useMemo(() => buildTopOpen(3), [rows]);
 
-  const maxGameTypeCount = Math.max(
-    1,
-    ...(gameTypeStats || []).map((g) => g.count),
-  );
-
-  const latestResultDigits = latestRow
-    ? resultDigits(latestRow.resultNumber)
+  const latestResultValue = latestRow
+    ? getGameTypeValue(latestRow, "triple-Patti") ||
+      getGameTypeValue(latestRow, "panna") ||
+      getGameTypeValue(latestRow, "jodi") ||
+      getGameTypeValue(latestRow, "single")
+    : null;
+  const latestResultDigits = latestResultValue
+    ? resultDigits(latestResultValue)
     : null;
 
   return (
@@ -334,7 +396,10 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
               </span>
               <div className="flex gap-1.5 mt-2">
                 {latestJodiRow ? (
-                  <ResultBall n={latestJodiRow.resultNumber} size="lg" />
+                  <ResultBall
+                    n={getGameTypeValue(latestJodiRow, "jodi")}
+                    size="lg"
+                  />
                 ) : (
                   <span className="text-xs text-gray-400">—</span>
                 )}
@@ -347,7 +412,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
 border border-[#FFD75A]
 shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black text-xs font-extrabold min-w-[2.75rem] text-center"
               >
-                {latestPanaRow ? latestPanaRow.resultNumber : "—"}
+                {latestPanaRow ? getGameTypeValue(latestPanaRow, "panna") : "—"}
               </div>
             </div>
 
@@ -360,12 +425,12 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                 GAME TYPE
               </span>
               <div className="mt-2 flex-1 flex flex-col justify-center gap-2">
-                {(gameTypeStats || []).length === 0 && (
+                {(effectiveGameTypeStats || []).length === 0 && (
                   <span className="text-[10px] text-gray-400 text-center">
                     No data
                   </span>
                 )}
-                {(gameTypeStats || []).slice(0, 3).map((g) => {
+                {(effectiveGameTypeStats || []).slice(0, 3).map((g) => {
                   const isMax = g.count === maxGameTypeCount;
                   return (
                     <div
@@ -373,7 +438,7 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                       className="flex items-center justify-between text-[10px] gap-1"
                     >
                       <span className="text-gray-500 font-semibold truncate">
-                        {formatGameType(g._id)}
+                        {g.label || formatGameType(g._id)}
                       </span>
                       <span
                         className={`font-extrabold shrink-0 ${isMax ? "text-red-500" : "text-gray-900"}`}
@@ -390,24 +455,134 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
 
         {/* ===== Chart tabs (was declared but never rendered before) ===== */}
         <div className="flex items-center gap-4 overflow-x-auto -mx-3 px-3 border-b border-gray-100">
-          {CHART_TABS.map((tab) => (
+          {CHART_TABS.map(([value, label]) => (
             <button
-              key={tab}
-              onClick={() => setActiveChartTab(tab)}
+              key={value}
+              onClick={() => setActiveChartTab(value)}
               className={`shrink-0 pb-2.5 pt-1 text-xs font-bold whitespace-nowrap border-b-2 transition ${
-                activeChartTab === tab
+                activeChartTab === value
                   ? "border-amber-500 text-amber-600"
                   : "border-transparent text-gray-400"
               }`}
             >
-              {tab}
+              {label}
             </button>
           ))}
         </div>
 
-        {activeChartTab !== "Chart" ? (
+        {GAME_TYPES.some(([key]) => key === activeChartTab) ? (
+          (() => {
+            const activeGameType = GAME_TYPES.find(
+              ([key]) => key === activeChartTab,
+            );
+            const activeGameTypeKey = activeGameType?.[0];
+            const activeGameTypeLabel = activeGameType?.[1] || "Game Type";
+            const filteredGameTypeRows = rows.filter((row) =>
+              getGameTypeValue(row, activeGameTypeKey),
+            );
+            const groupedRows = groupResultsByDate(filteredGameTypeRows);
+
+            return (
+              <div className="rounded-2xl border border-gray-100 shadow-sm p-3">
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <div>
+                    <p className="text-xs font-extrabold text-gray-900">
+                      {activeGameTypeLabel.toUpperCase()} RESULTS
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      Date Wise Results
+                    </p>
+                  </div>
+                  <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full shrink-0">
+                    {filteredGameTypeRows.length} Results
+                  </span>
+                </div>
+
+                {groupedRows.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-gray-400">
+                    No {activeGameTypeLabel.toLowerCase()} results yet
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {groupedRows.map(([dateKey, dateRows]) => (
+                      <div
+                        key={dateKey}
+                        className="rounded-xl border border-gray-100 overflow-hidden"
+                      >
+                        <div className="px-3 py-2 bg-gradient-to-r from-amber-50 to-white border-b border-amber-100 flex items-center justify-between">
+                          <p className="text-[11px] font-extrabold text-gray-800">
+                            {formatDate(
+                              dateRows[0]?.resultDate ||
+                                dateRows[0]?.marketDate ||
+                                dateRows[0]?.createdAt,
+                            )}
+                          </p>
+                          <span className="text-[9px] text-gray-400">
+                            {dateRows.length} Result
+                            {dateRows.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+
+                        {dateRows.map((row) => {
+                          const value = getGameTypeValue(
+                            row,
+                            activeGameTypeKey,
+                          );
+                          return (
+                            <div
+                              key={row._id}
+                              className="p-3 border-b border-gray-50 last:border-0"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-extrabold text-gray-800 truncate">
+                                    {row.marketName ||
+                                      row.marketId?.name ||
+                                      "Market"}
+                                  </p>
+                                  <p className="text-[9px] text-gray-400 mt-0.5">
+                                    {row.marketId?.marketId ||
+                                      row.digitType ||
+                                      ""}
+                                    {row.resultDate
+                                      ? ` · ${formatTime(row.resultDate)}`
+                                      : ""}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {String(value).includes("-") ? (
+                                    <ResultCell resultNumber={value} />
+                                  ) : (
+                                    <div className="flex gap-1">
+                                      {resultDigits(value)?.map(
+                                        (digit, index) => (
+                                          <ResultBall
+                                            key={index}
+                                            n={digit}
+                                            size="sm"
+                                          />
+                                        ),
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()
+        ) : activeChartTab !== "Chart" ? (
           <div className="rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
-            <p className="text-sm font-bold text-gray-700">{activeChartTab}</p>
+            <p className="text-sm font-bold text-gray-700">
+              {CHART_TABS.find(([value]) => value === activeChartTab)?.[1] ||
+                activeChartTab}
+            </p>
             <p className="text-xs text-gray-400 mt-1">Coming soon</p>
           </div>
         ) : (
@@ -443,42 +618,70 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
                 </div>
               )}
               {!loading && !error && sortedRows.length > 0 && (
-                <table className="w-full table-fixed border-collapse">
-                  <thead>
-                    <tr className="text-[9px] font-bold text-gray-400 tracking-wide border-b border-gray-100">
-                      <th className="py-2 pr-1 text-left font-bold w-[34%]">
-                        DATE
-                      </th>
-                      <th className="py-2 pr-1 text-left font-bold">RESULT</th>
-                      <th className="py-2 text-right font-bold w-[24%]">WIN</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedRows.map((row) => (
-                      <tr
-                        key={row._id}
-                        className="border-b border-gray-50 last:border-0 align-top"
-                      >
-                        <td className="py-2.5 pr-1">
-                          <p className="text-[11px] font-semibold text-gray-700 leading-tight">
-                            {formatDate(row.createdAt)}
-                          </p>
-                          <p className="text-[10px] text-gray-400 leading-tight truncate">
-                            {formatTime(row.createdAt)} · No.{row.number}
-                          </p>
-                        </td>
-                        <td className="py-2.5 pr-1">
-                          <ResultCell resultNumber={row.resultNumber} />
-                        </td>
-                        <td className="py-2.5 text-right">
-                          <span className="text-[11px] font-extrabold text-emerald-600 leading-tight break-words">
-                            {row.winAmount ? formatINR(row.winAmount) : "—"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="space-y-3">
+                  {dateGroups.map(([dateKey, dateRows]) => (
+                    <div
+                      key={dateKey}
+                      className="rounded-xl border border-gray-100 overflow-hidden"
+                    >
+                      <div className="px-3 py-2 bg-amber-50 flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-extrabold text-gray-800">
+                          {formatDate(
+                            dateRows[0]?.resultDate ||
+                              dateRows[0]?.marketDate ||
+                              dateRows[0]?.createdAt,
+                          )}
+                        </p>
+                        <span className="text-[9px] font-bold text-gray-400">
+                          {dateRows.length} RESULT
+                          {dateRows.length > 1 ? "S" : ""}
+                        </span>
+                      </div>
+                      {dateRows.map((row) => (
+                        <div
+                          key={row._id}
+                          className="p-3 border-t border-gray-50"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-extrabold text-gray-800 truncate">
+                                {row.marketName ||
+                                  row.marketId?.name ||
+                                  "Market"}
+                              </p>
+                              <p className="text-[9px] text-gray-400">
+                                {row.marketId?.marketId || ""} ·{" "}
+                                {row.digitType || ""}
+                              </p>
+                            </div>
+                            <span className="text-[9px] text-gray-400 shrink-0">
+                              {formatTime(row.resultDate || row.createdAt)}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                            {GAME_TYPES.map(([key, label]) => {
+                              const value = getGameTypeValue(row, key);
+                              if (!value) return null;
+                              return (
+                                <div
+                                  key={key}
+                                  className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-2 py-1.5"
+                                >
+                                  <span className="text-[9px] font-semibold text-gray-500">
+                                    {label}
+                                  </span>
+                                  <span className="text-[11px] font-extrabold text-gray-900">
+                                    {value}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 

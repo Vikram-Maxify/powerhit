@@ -55,6 +55,7 @@ import mineGameReducer from "./slices/mineGameSlice";
 import minesReducer from "./slices/minesSlice";
 import powerballResultReducer from "./slices/powerballResultSlice";
 import publicBidReducer from "./slices/publicBidSlice";
+import publicmatkaResultReducer from "./slices/publicmatkaResult";
 import resultReducer from "./slices/resultSlice";
 import tradingReducer from "./slices/tradingReducer";
 
@@ -74,6 +75,7 @@ export const store = configureStore({
     mines: minesReducer,
     bet: betReducer,
     trading: tradingReducer,
+    publicmatkaResult: publicmatkaResultReducer,
 
     // ========================================
     // AUSTRALIA
