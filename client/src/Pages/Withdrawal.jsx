@@ -210,11 +210,11 @@ const Withdrawal = () => {
     if (!formData.amount) {
       errors.amount = "Please enter withdrawal amount";
     } else if (parseFloat(formData.amount) < settings?.minWithdrawal) {
-      errors.amount = `Minimum withdrawal amount is ${settings?.currencySymbol}${settings?.minWithdrawal}`;
+      errors.amount = `Minimum withdrawal amount is ${currencySymbol}${settings?.minWithdrawal}`;
     } else if (parseFloat(formData.amount) > settings?.maxWithdrawal) {
-      errors.amount = `Maximum withdrawal amount is ${settings?.currencySymbol}${settings?.maxWithdrawal}`;
+      errors.amount = `Maximum withdrawal amount is ${currencySymbol}${settings?.maxWithdrawal}`;
     } else if (parseFloat(formData.amount) > user?.balance) {
-      errors.amount = `Insufficient balance. Available: ${settings?.currencySymbol}${user?.balance}`;
+      errors.amount = `Insufficient balance. Available: ${currencySymbol}${user?.balance}`;
     }
 
     if (!formData.paymentMethod) {
@@ -340,10 +340,129 @@ const Withdrawal = () => {
     return names[method] || method;
   };
 
+  // ======================================================
+  // CURRENCY SYMBOL
+  // Same country-based currency logic used by WalletDashboard
+  // ======================================================
+
+  const getCurrencySymbol = () => {
+    const country = String(user?.country || "")
+      .trim()
+      .toLowerCase();
+
+    const countryAliases = {
+      in: "IN",
+      india: "IN",
+      au: "AU",
+      australia: "AU",
+      pk: "PK",
+      pakistan: "PK",
+      bd: "BD",
+      bangladesh: "BD",
+      np: "NP",
+      nepal: "NP",
+      ae: "AE",
+      uae: "AE",
+      dubai: "AE",
+      "united arab emirates": "AE",
+      ca: "CA",
+      canada: "CA",
+      us: "US",
+      usa: "US",
+      "united states": "US",
+      gb: "GB",
+      uk: "GB",
+      "united kingdom": "GB",
+      nz: "NZ",
+      "new zealand": "NZ",
+      sg: "SG",
+      singapore: "SG",
+      my: "MY",
+      malaysia: "MY",
+      ph: "PH",
+      philippines: "PH",
+      jp: "JP",
+      japan: "JP",
+      cn: "CN",
+      china: "CN",
+      th: "TH",
+      thailand: "TH",
+      id: "ID",
+      indonesia: "ID",
+      vn: "VN",
+      vietnam: "VN",
+      tr: "TR",
+      turkey: "TR",
+      sa: "SA",
+      "saudi arabia": "SA",
+      za: "ZA",
+      "south africa": "ZA",
+      ng: "NG",
+      nigeria: "NG",
+      ke: "KE",
+      kenya: "KE",
+      br: "BR",
+      brazil: "BR",
+      mx: "MX",
+      mexico: "MX",
+      de: "DE",
+      germany: "DE",
+      fr: "FR",
+      france: "FR",
+      it: "IT",
+      italy: "IT",
+      es: "ES",
+      spain: "ES",
+    };
+
+    const countryCode = countryAliases[country] || country.toUpperCase();
+
+    const currencyMap = {
+      IN: "₹",
+      NP: "रू",
+      AU: "A$",
+      PK: "₨",
+      BD: "৳",
+      AE: "د.إ",
+      CA: "C$",
+      US: "$",
+      GB: "£",
+      NZ: "NZ$",
+      SG: "S$",
+      MY: "RM",
+      PH: "₱",
+      JP: "¥",
+      CN: "¥",
+      TH: "฿",
+      ID: "Rp",
+      VN: "₫",
+      TR: "₺",
+      SA: "﷼",
+      ZA: "R",
+      NG: "₦",
+      KE: "KSh",
+      BR: "R$",
+      MX: "MX$",
+      DE: "€",
+      FR: "€",
+      IT: "€",
+      ES: "€",
+    };
+
+    return currencyMap[countryCode] || "₹";
+  };
+
+  const currencySymbol = getCurrencySymbol();
+
   // Format currency
   const formatCurrency = (amount) => {
-    if (!settings) return `₹${amount}`;
-    return `${settings.currencySymbol}${amount?.toFixed(2) || "0.00"}`;
+    const numericAmount = Number(amount);
+
+    if (!Number.isFinite(numericAmount)) {
+      return `${currencySymbol}0.00`;
+    }
+
+    return `${currencySymbol}${numericAmount.toFixed(2)}`;
   };
 
   // Format date
@@ -509,7 +628,7 @@ const Withdrawal = () => {
                   </label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">
-                      {settings?.currencySymbol || "₹"}
+                      {currencySymbol}
                     </div>
                     <input
                       type="number"

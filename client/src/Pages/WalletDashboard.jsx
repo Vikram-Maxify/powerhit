@@ -21,23 +21,6 @@ import { getMyDeposits } from "../redux/slices/depositSlice";
 import { fetchWithdrawalHistory } from "../redux/slices/withdrawalSlice";
 
 // ======================================================
-// CURRENCY CONFIG
-// ======================================================
-
-const getCurrencyConfig = (countryCode) => {
-  const config = {
-    IN: { symbol: "₹", code: "INR", locale: "en-IN" },
-    NP: { symbol: "रु", code: "NPR", locale: "ne-NP" },
-    PK: { symbol: "Rs", code: "PKR", locale: "en-PK" },
-    AU: { symbol: "$", code: "AUD", locale: "en-AU" },
-    CA: { symbol: "$", code: "CAD", locale: "en-CA" },
-    AE: { symbol: "د.إ", code: "AED", locale: "ar-AE" },
-    default: { symbol: "₹", code: "INR", locale: "en-IN" },
-  };
-  return config[countryCode] || config.default;
-};
-
-// ======================================================
 // COMPONENT
 // ======================================================
 
@@ -48,11 +31,117 @@ export default function WalletDashboard() {
   const [showBalance, setShowBalance] = useState(true);
 
   // ======================================================
-  // CURRENCY
+  // CURRENCY SYMBOL
   // ======================================================
 
-  const currencyConfig = getCurrencyConfig(user?.country);
-  const currencySymbol = currencyConfig.symbol;
+  const getCurrencySymbol = () => {
+    const country = String(user?.country || "")
+      .trim()
+      .toLowerCase();
+
+    const countryAliases = {
+      in: "IN",
+      india: "IN",
+      au: "AU",
+      australia: "AU",
+      pk: "PK",
+      pakistan: "PK",
+      bd: "BD",
+      bangladesh: "BD",
+      np: "NP",
+      nepal: "NP",
+      ae: "AE",
+      uae: "AE",
+      dubai: "AE",
+      "united arab emirates": "AE",
+      ca: "CA",
+      canada: "CA",
+      us: "US",
+      usa: "US",
+      "united states": "US",
+      gb: "GB",
+      uk: "GB",
+      "united kingdom": "GB",
+      nz: "NZ",
+      "new zealand": "NZ",
+      sg: "SG",
+      singapore: "SG",
+      my: "MY",
+      malaysia: "MY",
+      ph: "PH",
+      philippines: "PH",
+      jp: "JP",
+      japan: "JP",
+      cn: "CN",
+      china: "CN",
+      th: "TH",
+      thailand: "TH",
+      id: "ID",
+      indonesia: "ID",
+      vn: "VN",
+      vietnam: "VN",
+      tr: "TR",
+      turkey: "TR",
+      sa: "SA",
+      "saudi arabia": "SA",
+      za: "ZA",
+      "south africa": "ZA",
+      ng: "NG",
+      nigeria: "NG",
+      ke: "KE",
+      kenya: "KE",
+      br: "BR",
+      brazil: "BR",
+      mx: "MX",
+      mexico: "MX",
+      de: "DE",
+      germany: "DE",
+      fr: "FR",
+      france: "FR",
+      it: "IT",
+      italy: "IT",
+      es: "ES",
+      spain: "ES",
+    };
+
+    const countryCode = countryAliases[country] || country.toUpperCase();
+
+    const currencyMap = {
+      IN: "₹",
+      NP: "रू",
+      AU: "A$",
+      PK: "₨",
+      BD: "৳",
+      AE: "د.إ",
+      CA: "C$",
+      US: "$",
+      GB: "£",
+      NZ: "NZ$",
+      SG: "S$",
+      MY: "RM",
+      PH: "₱",
+      JP: "¥",
+      CN: "¥",
+      TH: "฿",
+      ID: "Rp",
+      VN: "₫",
+      TR: "₺",
+      SA: "﷼",
+      ZA: "R",
+      NG: "₦",
+      KE: "KSh",
+      BR: "R$",
+      MX: "MX$",
+      DE: "€",
+      FR: "€",
+      IT: "€",
+      ES: "€",
+    };
+
+    return currencyMap[countryCode] || "₹";
+  };
+
+  const currencySymbol = getCurrencySymbol();
 
   // ======================================================
   // REDUX STATE

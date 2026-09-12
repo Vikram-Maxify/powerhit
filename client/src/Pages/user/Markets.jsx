@@ -348,6 +348,115 @@ const MatkaMarkets = () => {
 
   const walletBalance = user?.balance;
 
+  // Country-wise currency SYMBOL only.
+  // Balance value remains exactly as received from backend.
+  const getCurrencySymbol = () => {
+    const country = String(user?.country || "")
+      .trim()
+      .toLowerCase();
+
+    const countryAliases = {
+      in: "IN",
+      india: "IN",
+      au: "AU",
+      australia: "AU",
+      pk: "PK",
+      pakistan: "PK",
+      bd: "BD",
+      bangladesh: "BD",
+      np: "NP",
+      nepal: "NP",
+      ae: "AE",
+      uae: "AE",
+      dubai: "AE",
+      "united arab emirates": "AE",
+      ca: "CA",
+      canada: "CA",
+      us: "US",
+      usa: "US",
+      "united states": "US",
+      gb: "GB",
+      uk: "GB",
+      "united kingdom": "GB",
+      nz: "NZ",
+      "new zealand": "NZ",
+      sg: "SG",
+      singapore: "SG",
+      my: "MY",
+      malaysia: "MY",
+      ph: "PH",
+      philippines: "PH",
+      jp: "JP",
+      japan: "JP",
+      cn: "CN",
+      china: "CN",
+      th: "TH",
+      thailand: "TH",
+      id: "ID",
+      indonesia: "ID",
+      vn: "VN",
+      vietnam: "VN",
+      tr: "TR",
+      turkey: "TR",
+      sa: "SA",
+      "saudi arabia": "SA",
+      za: "ZA",
+      "south africa": "ZA",
+      ng: "NG",
+      nigeria: "NG",
+      ke: "KE",
+      kenya: "KE",
+      br: "BR",
+      brazil: "BR",
+      mx: "MX",
+      mexico: "MX",
+      de: "DE",
+      germany: "DE",
+      fr: "FR",
+      france: "FR",
+      it: "IT",
+      italy: "IT",
+      es: "ES",
+      spain: "ES",
+    };
+
+    const countryCode = countryAliases[country] || country.toUpperCase();
+
+    const currencyMap = {
+      IN: "₹",
+      NP: "रू",
+      AU: "A$",
+      PK: "₨",
+      BD: "৳",
+      AE: "د.إ",
+      CA: "C$",
+      US: "$",
+      GB: "£",
+      NZ: "NZ$",
+      SG: "S$",
+      MY: "RM",
+      PH: "₱",
+      JP: "¥",
+      CN: "¥",
+      TH: "฿",
+      ID: "Rp",
+      VN: "₫",
+      TR: "₺",
+      SA: "﷼",
+      ZA: "R",
+      NG: "₦",
+      KE: "KSh",
+      BR: "R$",
+      MX: "MX$",
+      DE: "€",
+      FR: "€",
+      IT: "€",
+      ES: "€",
+    };
+
+    return currencyMap[countryCode] || "₹";
+  };
+
   const [activeTab, setActiveTab] = useState("live");
   const [selectedMarketId, setSelectedMarketId] = useState(null);
   const [justOpened, setJustOpened] = useState(false);
@@ -692,7 +801,7 @@ const MatkaMarkets = () => {
               {/* Wallet Balance */}
               <div className="absolute left-[70%] top-[51%] flex h-[10%] w-[30%] items-center justify-center px-1">
                 <span className="text-[10px] font-bold text-gray-800 sm:text-base">
-                  ₹
+                  {getCurrencySymbol()}
                   {walletBalance?.toLocaleString("en-IN", {
                     maximumFractionDigits: 2,
                   }) || "0.00"}

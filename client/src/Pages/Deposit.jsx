@@ -14,50 +14,191 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { getDepositMethods } from "../redux/slices/depositSlice";
 
-const PRESET_AMOUNTS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+const normalizeCountryCode = (country) => {
+  const value = String(country || "")
+    .trim()
+    .toLowerCase();
+
+  const countryAliases = {
+    in: "IN",
+    india: "IN",
+    au: "AU",
+    australia: "AU",
+    pk: "PK",
+    pakistan: "PK",
+    bd: "BD",
+    bangladesh: "BD",
+    np: "NP",
+    nepal: "NP",
+    ae: "AE",
+    uae: "AE",
+    dubai: "AE",
+    "united arab emirates": "AE",
+    ca: "CA",
+    canada: "CA",
+    us: "US",
+    usa: "US",
+    "united states": "US",
+    gb: "GB",
+    uk: "GB",
+    "united kingdom": "GB",
+    nz: "NZ",
+    "new zealand": "NZ",
+    sg: "SG",
+    singapore: "SG",
+    my: "MY",
+    malaysia: "MY",
+    ph: "PH",
+    philippines: "PH",
+    jp: "JP",
+    japan: "JP",
+    cn: "CN",
+    china: "CN",
+    th: "TH",
+    thailand: "TH",
+    id: "ID",
+    indonesia: "ID",
+    vn: "VN",
+    vietnam: "VN",
+    tr: "TR",
+    turkey: "TR",
+    sa: "SA",
+    "saudi arabia": "SA",
+    za: "ZA",
+    "south africa": "ZA",
+    ng: "NG",
+    nigeria: "NG",
+    ke: "KE",
+    kenya: "KE",
+    br: "BR",
+    brazil: "BR",
+    mx: "MX",
+    mexico: "MX",
+    de: "DE",
+    germany: "DE",
+    fr: "FR",
+    france: "FR",
+    it: "IT",
+    italy: "IT",
+    es: "ES",
+    spain: "ES",
+  };
+
+  return countryAliases[value] || value.toUpperCase() || "IN";
+};
+
+const getPresetAmounts = (countryCode) => {
+  const presets = {
+    IN: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    NP: [200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
+    PK: [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000],
+    BD: [200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
+    AU: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    CA: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    US: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    GB: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    NZ: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    SG: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    MY: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    PH: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
+    JP: [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000],
+    CN: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    TH: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
+    ID: [
+      20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000,
+    ],
+    VN: [
+      50000, 100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000,
+      20000000,
+    ],
+    TR: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
+    AE: [10, 20, 50, 100, 200, 500, 1000, 2000, 5000],
+    SA: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    ZA: [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000],
+    NG: [5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000],
+    KE: [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000],
+    BR: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    MX: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    DE: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    FR: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    IT: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+    ES: [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000],
+  };
+
+  return presets[countryCode] || presets.IN;
+};
 
 // ======================================================
 // CURRENCY SYMBOL CONFIGURATION
 // ======================================================
 
 const getCurrencyConfig = (countryCode) => {
+  const normalizedCountryCode = normalizeCountryCode(countryCode);
   const config = {
-    IN: {
-      symbol: "₹",
-      code: "INR",
-      locale: "en-IN",
-      name: "Indian Rupee",
-    },
-    NP: {
-      symbol: "रु",
-      code: "NPR",
-      locale: "ne-NP",
-      name: "Nepali Rupee",
-    },
-    PK: {
-      symbol: "Rs",
-      code: "PKR",
-      locale: "en-PK",
-      name: "Pakistani Rupee",
-    },
+    IN: { symbol: "₹", code: "INR", locale: "en-IN", name: "Indian Rupee" },
+    NP: { symbol: "रू", code: "NPR", locale: "ne-NP", name: "Nepali Rupee" },
     AU: {
-      symbol: "$",
+      symbol: "A$",
       code: "AUD",
       locale: "en-AU",
       name: "Australian Dollar",
     },
-    CA: {
-      symbol: "$",
-      code: "CAD",
-      locale: "en-CA",
-      name: "Canadian Dollar",
+    PK: { symbol: "₨", code: "PKR", locale: "en-PK", name: "Pakistani Rupee" },
+    BD: { symbol: "৳", code: "BDT", locale: "en-BD", name: "Bangladeshi Taka" },
+    AE: { symbol: "د.إ", code: "AED", locale: "ar-AE", name: "UAE Dirham" },
+    CA: { symbol: "C$", code: "CAD", locale: "en-CA", name: "Canadian Dollar" },
+    US: { symbol: "$", code: "USD", locale: "en-US", name: "US Dollar" },
+    GB: { symbol: "£", code: "GBP", locale: "en-GB", name: "British Pound" },
+    NZ: {
+      symbol: "NZ$",
+      code: "NZD",
+      locale: "en-NZ",
+      name: "New Zealand Dollar",
     },
-    AE: {
-      symbol: "د.إ",
-      code: "AED",
-      locale: "ar-AE",
-      name: "UAE Dirham",
+    SG: {
+      symbol: "S$",
+      code: "SGD",
+      locale: "en-SG",
+      name: "Singapore Dollar",
     },
+    MY: {
+      symbol: "RM",
+      code: "MYR",
+      locale: "ms-MY",
+      name: "Malaysian Ringgit",
+    },
+    PH: { symbol: "₱", code: "PHP", locale: "en-PH", name: "Philippine Peso" },
+    JP: { symbol: "¥", code: "JPY", locale: "ja-JP", name: "Japanese Yen" },
+    CN: { symbol: "¥", code: "CNY", locale: "zh-CN", name: "Chinese Yuan" },
+    TH: { symbol: "฿", code: "THB", locale: "th-TH", name: "Thai Baht" },
+    ID: {
+      symbol: "Rp",
+      code: "IDR",
+      locale: "id-ID",
+      name: "Indonesian Rupiah",
+    },
+    VN: { symbol: "₫", code: "VND", locale: "vi-VN", name: "Vietnamese Dong" },
+    TR: { symbol: "₺", code: "TRY", locale: "tr-TR", name: "Turkish Lira" },
+    SA: { symbol: "﷼", code: "SAR", locale: "ar-SA", name: "Saudi Riyal" },
+    ZA: {
+      symbol: "R",
+      code: "ZAR",
+      locale: "en-ZA",
+      name: "South African Rand",
+    },
+    NG: { symbol: "₦", code: "NGN", locale: "en-NG", name: "Nigerian Naira" },
+    KE: {
+      symbol: "KSh",
+      code: "KES",
+      locale: "en-KE",
+      name: "Kenyan Shilling",
+    },
+    BR: { symbol: "R$", code: "BRL", locale: "pt-BR", name: "Brazilian Real" },
+    MX: { symbol: "MX$", code: "MXN", locale: "es-MX", name: "Mexican Peso" },
+    DE: { symbol: "€", code: "EUR", locale: "de-DE", name: "Euro" },
+    FR: { symbol: "€", code: "EUR", locale: "fr-FR", name: "Euro" },
+    IT: { symbol: "€", code: "EUR", locale: "it-IT", name: "Euro" },
+    ES: { symbol: "€", code: "EUR", locale: "es-ES", name: "Euro" },
     default: {
       symbol: "₹",
       code: "INR",
@@ -66,7 +207,7 @@ const getCurrencyConfig = (countryCode) => {
     },
   };
 
-  return config[countryCode] || config.default;
+  return config[normalizedCountryCode] || config.default;
 };
 
 // ======================================================
@@ -84,9 +225,11 @@ const Deposit = () => {
   // CURRENCY CONFIG
   // ======================================================
 
-  const currencyConfig = getCurrencyConfig(user?.country || "IN");
+  const countryCode = normalizeCountryCode(user?.country || "IN");
+  const currencyConfig = getCurrencyConfig(countryCode);
   const currencySymbol = currencyConfig.symbol;
   const locale = currencyConfig.locale;
+  const presetAmounts = getPresetAmounts(countryCode);
 
   // ======================================================
   // STATE
@@ -298,7 +441,7 @@ const Deposit = () => {
             </h3>
 
             <div className="grid grid-cols-3 gap-2.5 mb-5">
-              {PRESET_AMOUNTS.map((val) => (
+              {presetAmounts.map((val) => (
                 <button
                   type="button"
                   key={val}
