@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import mineBlastSound from "../assets/faah.mp3";
+import { getProfile } from "../redux/slices/authSlice";
+import { getCurrencyRates } from "../redux/slices/currencyRateSlice";
 import {
   cashoutMines,
   resetMinesGame,
@@ -11,19 +13,146 @@ import {
 } from "../redux/slices/minesSlice";
 import { socket } from "../services/socket";
 
+// ============================================================
+// CURRENCY - USER COUNTRY BASED
+// Same currency behavior as Wingo.
+// Backend amounts remain in INR; displayed amounts are converted
+// to the user's local currency using the same currency-rate logic.
+// ============================================================
+const COUNTRY_ALIASES = {
+  in: "IN",
+  india: "IN",
+  au: "AU",
+  australia: "AU",
+  pk: "PK",
+  pakistan: "PK",
+  bd: "BD",
+  bangladesh: "BD",
+  np: "NP",
+  nepal: "NP",
+  ae: "AE",
+  uae: "AE",
+  dubai: "AE",
+  "united arab emirates": "AE",
+  ca: "CA",
+  canada: "CA",
+  us: "US",
+  usa: "US",
+  "united states": "US",
+  gb: "GB",
+  uk: "GB",
+  "united kingdom": "GB",
+  nz: "NZ",
+  "new zealand": "NZ",
+  sg: "SG",
+  singapore: "SG",
+  my: "MY",
+  malaysia: "MY",
+  ph: "PH",
+  philippines: "PH",
+  jp: "JP",
+  japan: "JP",
+  cn: "CN",
+  china: "CN",
+  th: "TH",
+  thailand: "TH",
+  id: "ID",
+  indonesia: "ID",
+  vn: "VN",
+  vietnam: "VN",
+  tr: "TR",
+  turkey: "TR",
+  sa: "SA",
+  "saudi arabia": "SA",
+  za: "ZA",
+  "south africa": "ZA",
+  ng: "NG",
+  nigeria: "NG",
+  ke: "KE",
+  kenya: "KE",
+  br: "BR",
+  brazil: "BR",
+  mx: "MX",
+  mexico: "MX",
+  de: "DE",
+  germany: "DE",
+  fr: "FR",
+  france: "FR",
+  it: "IT",
+  italy: "IT",
+  es: "ES",
+  spain: "ES",
+};
+
+const CURRENCY_CONFIG = {
+  IN: { code: "INR", symbol: "₹", locale: "en-IN" },
+  NP: { code: "NPR", symbol: "रू", locale: "en-IN" },
+  AU: { code: "AUD", symbol: "A$", locale: "en-AU" },
+  PK: { code: "PKR", symbol: "₨", locale: "en-PK" },
+  BD: { code: "BDT", symbol: "৳", locale: "en-BD" },
+  AE: { code: "AED", symbol: "د.إ", locale: "en-AE" },
+  CA: { code: "CAD", symbol: "C$", locale: "en-CA" },
+  US: { code: "USD", symbol: "$", locale: "en-US" },
+  GB: { code: "GBP", symbol: "£", locale: "en-GB" },
+  NZ: { code: "NZD", symbol: "NZ$", locale: "en-NZ" },
+  SG: { code: "SGD", symbol: "S$", locale: "en-SG" },
+  MY: { code: "MYR", symbol: "RM", locale: "en-MY" },
+  PH: { code: "PHP", symbol: "₱", locale: "en-PH" },
+  JP: { code: "JPY", symbol: "¥", locale: "ja-JP" },
+  CN: { code: "CNY", symbol: "¥", locale: "zh-CN" },
+  TH: { code: "THB", symbol: "฿", locale: "en-TH" },
+  ID: { code: "IDR", symbol: "Rp", locale: "id-ID" },
+  VN: { code: "VND", symbol: "₫", locale: "vi-VN" },
+  TR: { code: "TRY", symbol: "₺", locale: "tr-TR" },
+  SA: { code: "SAR", symbol: "﷼", locale: "en-SA" },
+  ZA: { code: "ZAR", symbol: "R", locale: "en-ZA" },
+  NG: { code: "NGN", symbol: "₦", locale: "en-NG" },
+  KE: { code: "KES", symbol: "KSh", locale: "en-KE" },
+  BR: { code: "BRL", symbol: "R$", locale: "pt-BR" },
+  MX: { code: "MXN", symbol: "MX$", locale: "es-MX" },
+  DE: { code: "EUR", symbol: "€", locale: "de-DE" },
+  FR: { code: "EUR", symbol: "€", locale: "fr-FR" },
+  IT: { code: "EUR", symbol: "€", locale: "it-IT" },
+  ES: { code: "EUR", symbol: "€", locale: "es-ES" },
+};
+
+const normalizeCountryCode = (country) => {
+  if (!country) return "IN";
+  const key = String(country).trim().toLowerCase();
+  return COUNTRY_ALIASES[key] || key.toUpperCase();
+};
+
 const TOTAL_CELLS = 36;
 
 export default function MinesGame() {
   const dispatch = useDispatch();
 
   const { game, loading, message } = useSelector((state) => state.mines);
+  const authUser = useSelector((state) => state.auth?.user || null);
+  const currencyRates = useSelector(
+    (state) => state.currencyRate?.currencies || [],
+  );
 
+  // betAmount stays in INR internally (same backend behavior as Wingo).
+  // betAmountInput is only the value shown to the user in their local currency.
   const [betAmount, setBetAmount] = useState("50");
+  const [betAmountInput, setBetAmountInput] = useState("50");
   const [amountError, setAmountError] = useState("");
   const [explosion, setExplosion] = useState(false);
   const [explosionCell, setExplosionCell] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
 
   const userId = localStorage.getItem("userId");
+
+  // Same profile + currency-rate loading behavior as Wingo.
+  useEffect(() => {
+    dispatch(getCurrencyRates());
+
+    dispatch(getProfile())
+      .unwrap()
+      .then((profile) => setUserInfo(profile))
+      .catch((error) => console.error("Profile load failed:", error));
+  }, [dispatch]);
 
   useEffect(() => {
     if (!userId) return;
@@ -61,6 +190,7 @@ export default function MinesGame() {
       return;
     }
 
+    // betAmount is already stored in INR internally.
     const amount = Number(betAmount);
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -144,7 +274,78 @@ export default function MinesGame() {
     Number(game?.entryAmount ?? game?.virtualStake ?? 0) *
     Number(game?.multiplier || 1);
 
-  const money = (value) => `₹${Number(value || 0).toFixed(2)}`;
+  // Same country -> currency -> rate resolution as Wingo.
+  const profileUser =
+    userInfo?.user || userInfo?.data?.user || userInfo?.data || userInfo || {};
+  const currentCountry = profileUser?.country || authUser?.country || "india";
+  const userCountryCode = normalizeCountryCode(currentCountry);
+  const currencyConfig = CURRENCY_CONFIG[userCountryCode] || CURRENCY_CONFIG.IN;
+
+  const userCurrencyRate = useMemo(() => {
+    if (userCountryCode === "IN") return null;
+
+    const rates = Array.isArray(currencyRates) ? currencyRates : [];
+    return (
+      rates.find((item) => {
+        const itemCountry = String(
+          item?.countryCode ?? item?.country_code ?? item?.country ?? "",
+        )
+          .trim()
+          .toUpperCase();
+
+        return itemCountry === userCountryCode && item?.status !== false;
+      }) || null
+    );
+  }, [currencyRates, userCountryCode]);
+
+  const convertToLocalAmount = (value) => {
+    const numericAmount = Number(value);
+    const baseAmount = Number.isFinite(numericAmount) ? numericAmount : 0;
+    const rate = Number(userCurrencyRate?.rate);
+
+    return userCountryCode === "IN"
+      ? baseAmount
+      : Number.isFinite(rate) && rate > 0
+        ? baseAmount / rate
+        : baseAmount;
+  };
+
+  const money = (value, sign = "") => {
+    const convertedAmount = convertToLocalAmount(value);
+
+    const formatted = convertedAmount.toLocaleString(currencyConfig.locale, {
+      minimumFractionDigits: currencyConfig.code === "JPY" ? 0 : 2,
+      maximumFractionDigits: currencyConfig.code === "JPY" ? 0 : 2,
+    });
+
+    return `${sign}${currencyConfig.symbol} ${formatted}`;
+  };
+
+  // Numeric value for the editable amount field (without the currency symbol).
+  // This keeps the input clean while showing the same converted amount as Wingo.
+  const formatInputAmount = (value) => {
+    const convertedAmount = convertToLocalAmount(value);
+    const decimals = currencyConfig.code === "JPY" ? 0 : 2;
+
+    if (!Number.isFinite(convertedAmount)) return "";
+    return convertedAmount.toFixed(decimals);
+  };
+
+  const currencySymbol = currencyConfig.symbol;
+
+  // Once the profile/rate is available, show the default INR 50 in local currency.
+  // Do not overwrite a value the user has already started typing.
+  useEffect(() => {
+    if (betAmount === "50" && betAmountInput === "50") {
+      setBetAmountInput(formatInputAmount(50));
+    }
+  }, [
+    betAmount,
+    betAmountInput,
+    userCountryCode,
+    userCurrencyRate?.rate,
+    currencyConfig.code,
+  ]);
 
   const coveredTile =
     "group relative aspect-square overflow-hidden rounded-[13px] " +
@@ -731,6 +932,7 @@ export default function MinesGame() {
                       type="button"
                       onClick={() => {
                         setBetAmount(amount);
+                        setBetAmountInput(formatInputAmount(amount));
                         setAmountError("");
                       }}
                       className={`rounded-xl border py-2.5 text-sm font-black transition ${
@@ -739,7 +941,7 @@ export default function MinesGame() {
                           : "border-[#d7bf8a] bg-[#fffaf0] text-[#6b5837] hover:border-[#b78a32]"
                       }`}
                     >
-                      ₹{amount}
+                      {money(amount)}
                     </button>
                   ))}
                 </div>
@@ -750,20 +952,37 @@ export default function MinesGame() {
 
                 <div className="mb-3 flex items-center overflow-hidden rounded-xl border-2 border-[#c79532] bg-[#fffdf7] shadow-inner">
                   <span className="px-4 text-lg font-black text-[#a36b08]">
-                    ₹
+                    {currencySymbol}
                   </span>
                   <input
                     type="number"
                     min="1"
                     step="0.01"
-                    value={betAmount}
+                    value={betAmountInput}
                     onChange={(e) => {
-                      // Allow the user to completely clear the field.
-                      // Do not convert "" to 0 while typing.
+                      // The user types in local currency; convert it back to INR
+                      // for the backend while keeping the displayed value local.
                       const value = e.target.value;
-                      setBetAmount(value);
+                      setBetAmountInput(value);
 
-                      if (value !== "" && Number(value) > 0) {
+                      if (value === "") {
+                        setBetAmount("");
+                        setAmountError("");
+                        return;
+                      }
+
+                      const localAmount = Number(value);
+                      const rate = Number(userCurrencyRate?.rate);
+                      const baseAmount =
+                        userCountryCode === "IN"
+                          ? localAmount
+                          : Number.isFinite(rate) && rate > 0
+                            ? localAmount * rate
+                            : localAmount;
+
+                      setBetAmount(String(baseAmount));
+
+                      if (Number.isFinite(localAmount) && localAmount > 0) {
                         setAmountError("");
                       }
                     }}
@@ -771,11 +990,12 @@ export default function MinesGame() {
                       // Keep an intentionally empty field empty.
                       // Start Mining handles the required-field validation.
                       if (
-                        betAmount !== "" &&
-                        (!Number.isFinite(Number(betAmount)) ||
-                          Number(betAmount) < 1)
+                        betAmountInput !== "" &&
+                        (!Number.isFinite(Number(betAmountInput)) ||
+                          Number(betAmountInput) <= 0)
                       ) {
                         setBetAmount("");
+                        setBetAmountInput("");
                       }
                     }}
                     className="min-w-0 flex-1 bg-transparent py-3 pr-3 text-lg font-black text-[#4f3507] outline-none"
