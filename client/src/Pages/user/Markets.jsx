@@ -831,22 +831,35 @@ const MatkaMarkets = () => {
                   </div>
                 </div>
 
-                {/* Box 3: Today's Result — use real winningNumber if declared, else mock */}
+                {/* Box 3: Today's Result — show Full Sangam result */}
                 <div className="flex w-[23%] items-center justify-center gap-1">
-                  {(selectedMarket.winningNumber
-                    ? String(selectedMarket.winningNumber).split("")
-                    : mockTriplet(
+                  {(() => {
+                    let fullSangamResult = null;
+
+                    try {
+                      const parsedWinningNumber =
+                        typeof selectedMarket.winningNumber === "string"
+                          ? JSON.parse(selectedMarket.winningNumber)
+                          : selectedMarket.winningNumber;
+
+                      fullSangamResult = parsedWinningNumber?.["full-sangam"];
+                    } catch {
+                      fullSangamResult = null;
+                    }
+
+                    const result =
+                      fullSangamResult ||
+                      mockTriplet(
                         selectedMarket.marketId || selectedMarket._id,
                         "today",
-                      )
-                  ).map((d, i) => (
-                    <span
-                      key={i}
-                      className="text-sm font-extrabold text-red-700 sm:text-base"
-                    >
-                      {d}
-                    </span>
-                  ))}
+                      ).join("");
+
+                    return (
+                      <span className="text-[10px] font-extrabold text-red-700 -ml-2">
+                        {result}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {/* Box 4: Date — use marketDate if available */}
@@ -990,9 +1003,22 @@ const MatkaMarkets = () => {
 
           <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-2">
             {filteredMarkets.map((market) => {
-              const digits = market.winningNumber
-                ? String(market.winningNumber).split("")
-                : mockTriplet(market.marketId || market._id, "recent");
+              let fullSangamResult = null;
+
+              try {
+                const parsedWinningNumber =
+                  typeof market.winningNumber === "string"
+                    ? JSON.parse(market.winningNumber)
+                    : market.winningNumber;
+
+                fullSangamResult = parsedWinningNumber?.["full-sangam"];
+              } catch {
+                fullSangamResult = null;
+              }
+
+              const result =
+                fullSangamResult ||
+                mockTriplet(market.marketId || market._id, "recent").join("");
 
               const dateLabel = (
                 market.marketDate ? new Date(market.marketDate) : new Date()
@@ -1018,14 +1044,9 @@ const MatkaMarkets = () => {
                     </p>
 
                     <div className="flex justify-center gap-1">
-                      {digits.map((d, i) => (
-                        <span
-                          key={i}
-                          className="flex h-6 w-6 items-center justify-center rounded bg-amber-50 text-xs font-bold text-amber-800"
-                        >
-                          {d}
-                        </span>
-                      ))}
+                      <span className="flex h-6 w-6 items-center justify-center rounded bg-amber-50 text-xs font-bold text-amber-800">
+                        {result}
+                      </span>
                     </div>
                   </div>
                 </div>
