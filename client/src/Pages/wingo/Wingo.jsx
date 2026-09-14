@@ -190,14 +190,17 @@ const normalizeCountryCode = (country) => {
 const Wingo = () => {
   const dispatch = useDispatch();
 
-  // Auth user is used as a fallback because the profile API is async.
+  // ✅ FIX: authUser Redux se live update rehta h — jab bhi getProfile()
+  // kahi bhi (socket handler, refresh button, bet ke baad) dispatch hota h,
+  // ye value khud-ba-khud update ho jaati h. Isliye alag se local `userInfo`
+  // state rakhne/set karne ki zaroorat nahi thi — wahi extra complexity
+  // thi jisne pehle confusion badhaya.
   const authUser = useSelector((state) => state.auth?.user || null);
   const currencyRates = useSelector(
     (state) => state.currencyRate?.currencies || [],
   );
 
   // ---- State ----
-  const [userInfo, setUserInfo] = useState(null);
   const [wingoPeriodListData, setWingoPeriodListData] = useState(null);
   const [wingoHistoryData, setWingoHistoryData] = useState(null);
   const [loader, setLoader] = useState(false);
@@ -263,21 +266,20 @@ const Wingo = () => {
   const totalAmount = balance * multiplier;
   const currentGameInfo = GAME_EVENT_MAP[typeid1] || GAME_EVENT_MAP[10];
 
-  // Load both profile and currency rates when Wingo opens.
-  // This guarantees user.country (for example "nepal") is available
-  // and the matching local-currency rate is loaded into Redux.
+  // ✅ FIX: getProfile() yahan se hata diya.
+  // Profile pehle se hi App-level (AppInitializer) se load ho chuki hoti h
+  // aur authUser us data ko live reflect karta h. Isko dobara mount pe
+  // dispatch karna auth.loading flip karta tha, jisse ProtectedRoute
+  // is page ko unmount/remount kar deta tha -> mount effect fir chalta
+  // tha -> infinite request loop. Currency rates sirf ek baar load karo
+  // agar already Redux me nahi h.
   useEffect(() => {
-    dispatch(getCurrencyRates());
+    if (currencyRates.length === 0) {
+      dispatch(getCurrencyRates());
+    }
+  }, [dispatch, currencyRates.length]);
 
-    dispatch(getProfile())
-      .unwrap()
-      .then((profile) => setUserInfo(profile))
-      .catch((error) => console.error("Profile load failed:", error));
-  }, [dispatch]);
-
-  const profileUser =
-    userInfo?.user || userInfo?.data?.user || userInfo?.data || userInfo || {};
-  const currentCountry = profileUser?.country || authUser?.country || "india";
+  const currentCountry = authUser?.country || "india";
   const userCountryCode = normalizeCountryCode(currentCountry);
   const currencyConfig = CURRENCY_CONFIG[userCountryCode] || CURRENCY_CONFIG.IN;
 
@@ -676,11 +678,10 @@ const Wingo = () => {
           }
 
           // Refresh balance only after processing the current duration.
+          // authUser (Redux) updates automatically once this resolves —
+          // no need to store the response separately.
           try {
-            const profile = await dispatch(getProfile()).unwrap();
-            if (Number(typeid1) === Number(typeid)) {
-              setUserInfo(profile);
-            }
+            await dispatch(getProfile()).unwrap();
           } catch (err) {
             console.error("Profile refresh failed:", err);
           }
@@ -751,9 +752,8 @@ const Wingo = () => {
 
   const handleRefersh = async () => {
     try {
-      const profile = await dispatch(getProfile()).unwrap();
+      await dispatch(getProfile()).unwrap();
       setRefeshPopup(true);
-      setUserInfo(profile);
       setTimeout(() => setRefeshPopup(false), 2000);
     } catch (err) {
       console.error("Refresh failed:", err);
@@ -808,8 +808,7 @@ const Wingo = () => {
       await fetchHistory();
 
       try {
-        const profile = await dispatch(getProfile()).unwrap();
-        setUserInfo(profile);
+        await dispatch(getProfile()).unwrap();
       } catch (err) {
         console.error("Profile refresh after bet failed:", err);
       }

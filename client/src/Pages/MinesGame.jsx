@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import mineBlastSound from "../assets/faah.mp3";
-import { getProfile } from "../redux/slices/authSlice";
 import { getCurrencyRates } from "../redux/slices/currencyRateSlice";
 import {
   cashoutMines,
@@ -140,19 +139,20 @@ export default function MinesGame() {
   const [amountError, setAmountError] = useState("");
   const [explosion, setExplosion] = useState(false);
   const [explosionCell, setExplosionCell] = useState(null);
-  const [userInfo, setUserInfo] = useState(null);
 
   const userId = localStorage.getItem("userId");
 
-  // Same profile + currency-rate loading behavior as Wingo.
+  // ✅ FIX: Profile ProtectedRoute/AppInitializer se already load ho chuki hoti h.
+  // Isse dobara getProfile() dispatch karna auth.loading ko flip karta h,
+  // jisse ProtectedRoute ka isLoading true ho jaata h aur ye page hi unmount ho jaata h
+  // (kyunki ProtectedRoute isLoading=true pe spinner return karta h, children nahi).
+  // Jab profile call complete hoti h, isLoading fir false, page remount, effect fir chalta h -> infinite loop.
+  // Currency rates ke liye bhi duplicate fetch avoid kiya (agar already loaded h to skip).
   useEffect(() => {
-    dispatch(getCurrencyRates());
-
-    dispatch(getProfile())
-      .unwrap()
-      .then((profile) => setUserInfo(profile))
-      .catch((error) => console.error("Profile load failed:", error));
-  }, [dispatch]);
+    if (currencyRates.length === 0) {
+      dispatch(getCurrencyRates());
+    }
+  }, [dispatch, currencyRates.length]);
 
   useEffect(() => {
     if (!userId) return;
@@ -274,10 +274,10 @@ export default function MinesGame() {
     Number(game?.entryAmount ?? game?.virtualStake ?? 0) *
     Number(game?.multiplier || 1);
 
-  // Same country -> currency -> rate resolution as Wingo.
-  const profileUser =
-    userInfo?.user || userInfo?.data?.user || userInfo?.data || userInfo || {};
-  const currentCountry = profileUser?.country || authUser?.country || "india";
+  // ✅ FIX: seedha Redux authUser use karo, alag se local userInfo fetch/state
+  // maintain karne ki zaroorat nahi.
+  const profileUser = authUser || {};
+  const currentCountry = profileUser?.country || "india";
   const userCountryCode = normalizeCountryCode(currentCountry);
   const currencyConfig = CURRENCY_CONFIG[userCountryCode] || CURRENCY_CONFIG.IN;
 

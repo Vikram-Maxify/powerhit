@@ -4,26 +4,22 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, isReady, isLoading, user } = useAuth();
+  const { isAuthenticated, isReady, user } = useAuth();
 
   // ========================================
-  // AUTH CHECK LOADING
-  // ========================================
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  // ========================================
-  // WAIT FOR PROFILE
+  // WAIT FOR INITIAL PROFILE CHECK ONLY
+  // isReady already becomes true once profileLoaded (or user is a guest).
+  // We NO LONGER gate on isLoading here — isLoading also flips true
+  // for background thunks (getProfile refresh, updateProfile, logout, etc.)
+  // that fire from WITHIN already-mounted protected pages.
+  // Unmounting children on every such flip was causing pages like
+  // Wingo/Mines to remount repeatedly, re-running their mount effects
+  // and re-dispatching the same calls — an infinite request loop.
   // ========================================
   if (!isReady) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="text-gray-600">Loading profile...</div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
   }
