@@ -142,8 +142,8 @@ const initialState = {
   error: null,
   message: "",
   user: null,
-  token: localStorage.getItem("token") || null,
-  isAuthenticated: !!localStorage.getItem("token"),
+  token: localStorage.getItem("powerhit") || null,
+  isAuthenticated: !!localStorage.getItem("powerhit"),
   profileLoaded: false,
   isProfileLoading: false, // ADDED: Prevents duplicate requests
 };
@@ -179,7 +179,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.profileLoaded = false;
       state.isProfileLoading = false;
-      localStorage.removeItem("token");
+      localStorage.removeItem("powerhit");
     },
   },
 
@@ -202,7 +202,7 @@ const authSlice = createSlice({
         state.profileLoaded = false;
         state.isProfileLoading = false;
 
-        localStorage.setItem("token", action.payload.token);
+        localStorage.setItem("powerhit", action.payload.token);
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
@@ -227,7 +227,7 @@ const authSlice = createSlice({
         state.profileLoaded = false;
         state.isProfileLoading = false;
 
-        localStorage.setItem("token", action.payload.token);
+        localStorage.setItem("powerhit", action.payload.token);
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
@@ -259,13 +259,13 @@ const authSlice = createSlice({
         const errorMessage = action.payload?.toLowerCase() || "";
         if (
           errorMessage.includes("unauthorized") ||
-          errorMessage.includes("token") ||
+          errorMessage.includes("powerhit") ||
           errorMessage.includes("invalid")
         ) {
           state.isAuthenticated = false;
           state.token = null;
           state.user = null;
-          localStorage.removeItem("token");
+          localStorage.removeItem("powerhit");
         }
       })
 
@@ -323,7 +323,7 @@ const authSlice = createSlice({
         state.isProfileLoading = false;
         state.success = true;
 
-        localStorage.removeItem("token");
+        localStorage.removeItem("powerhit");
       })
       .addCase(logout.rejected, (state, action) => {
         state.loading = false;
@@ -334,7 +334,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.profileLoaded = false;
         state.isProfileLoading = false;
-        localStorage.removeItem("token");
+        localStorage.removeItem("powerhit");
       })
 
       // ========== FORGOT PASSWORD ==========
