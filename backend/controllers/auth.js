@@ -15,35 +15,12 @@ const uploadToImgBB = require("../utils/uploadToImgBB");
 // ======================================================
 
 const COUNTRY_CONFIG = {
-  india: {
-    name: "India",
-    mobileLength: 10,
-  },
-
-  pakistan: {
-    name: "Pakistan",
-    mobileLength: 10,
-  },
-
-  bangladesh: {
-    name: "Bangladesh",
-    mobileLength: 10,
-  },
-
-  nepal: {
-    name: "Nepal",
-    mobileLength: 10,
-  },
-
-  uae: {
-    name: "UAE",
-    mobileLength: 9,
-  },
-
-  australia: {
-    name: "Australia",
-    mobileLength: 9,
-  },
+  india: { name: "India", mobileLength: 10 },
+  pakistan: { name: "Pakistan", mobileLength: 10 },
+  bangladesh: { name: "Bangladesh", mobileLength: 10 },
+  nepal: { name: "Nepal", mobileLength: 10 },
+  uae: { name: "UAE", mobileLength: 9 },
+  australia: { name: "Australia", mobileLength: 9 },
 };
 
 // ======================================================
@@ -51,37 +28,29 @@ const COUNTRY_CONFIG = {
 // ======================================================
 
 const normalizeCountry = (country) => {
-  const value = String(country || "")
-    .trim()
-    .toLowerCase();
+  const value = String(country || "").trim().toLowerCase();
 
   const aliases = {
-    // INDIA
     india: "india",
     in: "india",
     ind: "india",
 
-    // PAKISTAN
     pakistan: "pakistan",
     pk: "pakistan",
     pak: "pakistan",
 
-    // BANGLADESH
     bangladesh: "bangladesh",
     bangla: "bangladesh",
     bd: "bangladesh",
     bng: "bangladesh",
 
-    // NEPAL
     nepal: "nepal",
     np: "nepal",
 
-    // UAE
     uae: "uae",
     ae: "uae",
     dubai: "uae",
 
-    // AUSTRALIA
     australia: "australia",
     au: "australia",
     aus: "australia",
@@ -133,23 +102,16 @@ const validateCountry = (country) => {
     };
   }
 
-  return {
-    valid: true,
-    country: normalized,
-  };
+  return { valid: true, country: normalized };
 };
 
 // ======================================================
 // VALIDATE MOBILE
-// Country code should NOT be included
 // ======================================================
 
 const validateMobile = (mobile, country) => {
-  const normalizedCountry =
-    normalizeCountry(country);
-
-  const config =
-    COUNTRY_CONFIG[normalizedCountry];
+  const normalizedCountry = normalizeCountry(country);
+  const config = COUNTRY_CONFIG[normalizedCountry];
 
   if (!config) {
     return {
@@ -159,90 +121,81 @@ const validateMobile = (mobile, country) => {
     };
   }
 
-  const cleanMobile = String(mobile || "")
-    .replace(/\D/g, "");
+  const cleanMobile = String(mobile || "").replace(/\D/g, "");
 
   if (!cleanMobile) {
+    return { valid: false, message: "Mobile number is required" };
+  }
+
+  if (cleanMobile.length !== config.mobileLength) {
     return {
       valid: false,
-      message: "Mobile number is required",
+      message: `Mobile number must be ${config.mobileLength} digits for ${config.name}`,
     };
   }
 
-  if (
-    cleanMobile.length !==
-    config.mobileLength
-  ) {
-    return {
-      valid: false,
-      message:
-        `Mobile number must be ${config.mobileLength} digits for ${config.name}`,
-    };
-  }
-
-  return {
-    valid: true,
-    mobile: cleanMobile,
-  };
+  return { valid: true, mobile: cleanMobile };
 };
 
 // ======================================================
 // GENERATE JWT TOKEN
 // ======================================================
-//
-// IMPORTANT:
-//
-// id     = MongoDB _id
-// userId = numeric application user ID
-//
-// Existing auth middleware can continue using:
-// User.findById(decoded.id)
-//
-// Trading controller can use:
-// req.user.userId
-//
-// ======================================================
 
 const generateToken = (user) => {
   if (!user || !user._id) {
-    throw new Error(
-      "Cannot generate token: user _id missing"
-    );
+    throw new Error("Cannot generate token: user _id missing");
   }
 
-  if (
-    user.userId === undefined ||
-    user.userId === null
-  ) {
-    throw new Error(
-      "Cannot generate token: userId missing"
-    );
+  if (user.userId === undefined || user.userId === null) {
+    throw new Error("Cannot generate token: userId missing");
   }
 
   if (!process.env.JWT_SECRET) {
-    throw new Error(
-      "JWT_SECRET is not configured"
-    );
+    throw new Error("JWT_SECRET is not configured");
   }
 
   return jwt.sign(
     {
-      // MongoDB ID
       id: user._id.toString(),
-
-      // Numeric user ID
       userId: Number(user.userId),
-
-      // Basic user information
       name: user.name,
       email: user.email,
       role: user.role,
     },
     process.env.JWT_SECRET,
-    {
-      expiresIn: "7d",
-    }
+    { expiresIn: "7d" }
   );
+};
+
+// ======================================================
+// COOKIE CONFIG (CENTRALIZED)
+// ======================================================
+//
+// WHY:
+// - Production: HTTPS + cross-site => secure=true, sameSite="none"
+// - Development: HTTP + localhost => secure=false, sameSite="lax"
+// - Domain ".marinclub.site" SIRF production mein lagao
+//   warna localhost pe browser cookie silently drop kar dega.
+//
+// ======================================================
+
+const isProduction = process.env.NODE_ENV === "production";
+
+const getCookieOptions = () => {
+  const options = {
+    httpOnly: true,
+    secure: isProduction,                    // HTTPS pe true
+    sameSite: isProduction ? "none" : "lax", // cross-site ke liye none
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,         // 7 days
+  };
+
+  // Domain sirf production mein — warna localhost pe cookie store nahi hogi
+  if (isProduction) {
+    options.domain = ".marinclub.site";
+  }
+
+  return options;
 };
 
 // ======================================================
@@ -250,77 +203,42 @@ const generateToken = (user) => {
 // ======================================================
 
 const setAuthCookie = (res, token, role) => {
-  const cookieName =
-    role === "admin"
-      ? "adminToken"
-      : "token";
+  const cookieName = role === "admin" ? "adminToken" : "powerhit";
 
-  const isProduction =
-    process.env.NODE_ENV === "production";
+  const options = getCookieOptions();
 
-  res.cookie(cookieName, token, {
-    httpOnly: true,
+  res.cookie(cookieName, token, options);
 
-    // HTTPS production
-    secure: isProduction,
+  // Purani legacy "token" cookie remove karo (same options ke saath)
+  const clearOptions = { ...options };
+  delete clearOptions.maxAge;
+  res.clearCookie("token", clearOptions);
 
-    // Main domain + subdomains
-    domain: isProduction
-      ? ".marinclub.site"
-      : undefined,
-
-    // Main domain aur subdomain ke beech cookie allow
-    sameSite: isProduction
-      ? "none"
-      : "lax",
-
-    maxAge:
-      7 *
-      24 *
-      60 *
-      60 *
-      1000,
-
-    path: "/",
-  });
+  console.log("================================");
+  console.log("AUTH COOKIE SET:", cookieName);
+  console.log("ENV:", process.env.NODE_ENV || "development");
+  console.log("COOKIE OPTIONS:", options);
+  console.log("================================");
 };
 
-
 // ======================================================
-// REMOVE AUTH COOKIES
+// CLEAR AUTH COOKIES
+// ======================================================
+//
+// IMPORTANT:
+// clearCookie ke options SAME hone chahiye jo set karte waqt the.
+// Warna browser cookie delete nahi karega.
+//
 // ======================================================
 
 const clearAuthCookies = (res) => {
-  const isProduction =
-    process.env.NODE_ENV === "production";
+  const options = getCookieOptions();
+  delete options.maxAge;
 
-  const options = {
-    httpOnly: true,
-
-    secure: isProduction,
-
-    domain: isProduction
-      ? ".marinclub.site"
-      : undefined,
-
-    sameSite: isProduction
-      ? "none"
-      : "lax",
-
-    path: "/",
-  };
-
-  res.clearCookie(
-    "token",
-    options
-  );
-
-  res.clearCookie(
-    "adminToken",
-    options
-  );
+  res.clearCookie("powerhit", options);
+  res.clearCookie("token", options);
+  res.clearCookie("adminToken", options);
 };
-
 
 // ======================================================
 // REGISTER
@@ -328,73 +246,29 @@ const clearAuthCookies = (res) => {
 
 const register = async (req, res) => {
   try {
-    console.log(
-      "================================="
-    );
+    console.log("=================================");
+    console.log("REGISTER REQUEST");
+    console.log("BODY:", req.body);
+    console.log("RAW COUNTRY:", req.body?.country);
+    console.log("=================================");
 
-    console.log(
-      "REGISTER REQUEST"
-    );
+    let { name, email, mobile, password, referralCode } = req.body;
 
-    console.log(
-      "BODY:",
-      req.body
-    );
-
-    console.log(
-      "RAW COUNTRY:",
-      req.body?.country
-    );
-
-    console.log(
-      "================================="
-    );
-
-    let {
-      name,
-      email,
-      mobile,
-      password,
-      referralCode,
-    } = req.body;
-
-    // ==================================================
     // COUNTRY
-    // ==================================================
+    const country = getRequestCountry(req);
+    console.log("NORMALIZED COUNTRY:", country);
 
-    const country =
-      getRequestCountry(req);
-
-    console.log(
-      "NORMALIZED COUNTRY:",
-      country
-    );
-
-    // ==================================================
     // COUNTRY VALIDATION
-    // ==================================================
-
-    const countryCheck =
-      validateCountry(country);
-
+    const countryCheck = validateCountry(country);
     if (!countryCheck.valid) {
       return res.status(400).json({
         success: false,
-        message:
-          countryCheck.message,
+        message: countryCheck.message,
       });
     }
 
-    // ==================================================
     // REQUIRED FIELDS
-    // ==================================================
-
-    if (
-      !name ||
-      !email ||
-      !mobile ||
-      !password
-    ) {
+    if (!name || !email || !mobile || !password) {
       return res.status(400).json({
         success: false,
         message:
@@ -402,345 +276,159 @@ const register = async (req, res) => {
       });
     }
 
-    // ==================================================
     // NORMALIZE
-    // ==================================================
-
-    name = String(name)
-      .trim()
-      .toLowerCase();
-
-    email = String(email)
-      .trim()
-      .toLowerCase();
-
+    name = String(name).trim().toLowerCase();
+    email = String(email).trim().toLowerCase();
     mobile = String(mobile).trim();
 
-    // ==================================================
     // NAME VALIDATION
-    // ==================================================
-
     if (/\s/.test(name)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Space is not allowed in name",
+        message: "Space is not allowed in name",
       });
     }
 
-    // ==================================================
     // PASSWORD VALIDATION
-    // ==================================================
-
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message:
-          "Password must be at least 6 characters",
+        message: "Password must be at least 6 characters",
       });
     }
 
-    // ==================================================
     // MOBILE VALIDATION
-    // ==================================================
-
-    const mobileCheck =
-      validateMobile(
-        mobile,
-        country
-      );
-
+    const mobileCheck = validateMobile(mobile, country);
     if (!mobileCheck.valid) {
       return res.status(400).json({
         success: false,
-        message:
-          mobileCheck.message,
+        message: mobileCheck.message,
       });
     }
+    mobile = mobileCheck.mobile;
 
-    mobile =
-      mobileCheck.mobile;
-
-    // ==================================================
     // CHECK EXISTING USER
-    // ==================================================
-
-    const userExist =
-      await User.findOne({
-        $or: [
-          { name },
-          { email },
-          { mobile },
-        ],
-      });
+    const userExist = await User.findOne({
+      $or: [{ name }, { email }, { mobile }],
+    });
 
     if (userExist) {
-      let message =
-        "User already exists";
+      let message = "User already exists";
+      if (userExist.name === name) message = "Username already taken";
+      else if (userExist.email === email) message = "Email already registered";
+      else if (userExist.mobile === mobile)
+        message = "Mobile number already registered";
 
-      if (userExist.name === name) {
-        message =
-          "Username already taken";
-      } else if (
-        userExist.email === email
-      ) {
-        message =
-          "Email already registered";
-      } else if (
-        userExist.mobile === mobile
-      ) {
-        message =
-          "Mobile number already registered";
-      }
-
-      return res.status(400).json({
-        success: false,
-        message,
-      });
+      return res.status(400).json({ success: false, message });
     }
 
-    // ==================================================
     // REFERRAL
-    // ==================================================
-
     let referrerUser = null;
-
     if (referralCode) {
-      referralCode = String(
-        referralCode
-      )
-        .trim()
-        .toUpperCase();
+      referralCode = String(referralCode).trim().toUpperCase();
 
-      referrerUser =
-        await User.findOne({
-          referralCode,
-        });
+      referrerUser = await User.findOne({ referralCode });
 
       if (!referrerUser) {
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid referral code",
+          message: "Invalid referral code",
         });
       }
 
-      if (
-        referrerUser.status ===
-        "blocked"
-      ) {
+      if (referrerUser.status === "blocked") {
         return res.status(403).json({
           success: false,
-          message:
-            "Referrer account is blocked",
+          message: "Referrer account is blocked",
         });
       }
     }
 
-    // ==================================================
     // HASH PASSWORD
-    // ==================================================
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const hashedPassword =
-      await bcrypt.hash(
-        password,
-        10
-      );
-
-    // ==================================================
     // GENERATE REFERRAL CODE
-    // ==================================================
-
-    let newReferralCode =
-      generateReferralCode(name);
-
-    let referralExists =
-      await User.findOne({
-        referralCode:
-          newReferralCode,
-      });
+    let newReferralCode = generateReferralCode(name);
+    let referralExists = await User.findOne({
+      referralCode: newReferralCode,
+    });
 
     while (referralExists) {
-      newReferralCode =
-        generateReferralCode(name);
-
-      referralExists =
-        await User.findOne({
-          referralCode:
-            newReferralCode,
-        });
-    }
-
-    // ==================================================
-    // GENERATE USER ID
-    // ==================================================
-
-    const last =
-      await User.findOne({
-        userId: {
-          $exists: true,
-          $ne: null,
-        },
-      })
-        .sort({
-          userId: -1,
-        })
-        .select("userId")
-        .lean();
-
-    const userId =
-      last?.userId
-        ? Number(last.userId) + 1
-        : 100001;
-
-    // ==================================================
-    // CREATE USER
-    // ==================================================
-
-    const user =
-      await User.create({
-        userId,
-
-        name,
-
-        email,
-
-        mobile,
-
-        password:
-          hashedPassword,
-
-        plainPassword: password,
-
-
-        role: "user",
-
-        country,
-
-        referralCode:
-          newReferralCode,
-
-        referredBy:
-          referralCode || null,
-
-        referredByUser:
-          referrerUser
-            ? referrerUser._id
-            : null,
+      newReferralCode = generateReferralCode(name);
+      referralExists = await User.findOne({
+        referralCode: newReferralCode,
       });
-
-    // ==================================================
-    // REFERRER STATS
-    // ==================================================
-
-    if (referrerUser) {
-      await User.findByIdAndUpdate(
-        referrerUser._id,
-        {
-          $inc: {
-            totalReferrals: 1,
-            referralEarning: 50,
-          },
-        }
-      );
     }
 
-    // ==================================================
+    // GENERATE USER ID
+    const last = await User.findOne({
+      userId: { $exists: true, $ne: null },
+    })
+      .sort({ userId: -1 })
+      .select("userId")
+      .lean();
+
+    const userId = last?.userId ? Number(last.userId) + 1 : 100001;
+
+    // CREATE USER
+    const user = await User.create({
+      userId,
+      name,
+      email,
+      mobile,
+      password: hashedPassword,
+      role: "user",
+      country,
+      referralCode: newReferralCode,
+      referredBy: referralCode || null,
+      referredByUser: referrerUser ? referrerUser._id : null,
+    });
+
+    // REFERRER STATS
+    if (referrerUser) {
+      await User.findByIdAndUpdate(referrerUser._id, {
+        $inc: { totalReferrals: 1, referralEarning: 50 },
+      });
+    }
+
     // JWT
-    // ==================================================
+    const token = generateToken(user);
 
-    const token =
-      generateToken(user);
-
-    // ==================================================
     // COOKIE
-    // ==================================================
+    setAuthCookie(res, token, user.role);
 
-    setAuthCookie(
-      res,
-      token,
-      user.role
-    );
-
-    // ==================================================
     // RESPONSE USER
-    // ==================================================
-
-    const userObj =
-      user.toObject();
-
+    const userObj = user.toObject();
     delete userObj.password;
     delete userObj.plainPassword;
 
-    // ==================================================
-    // RESPONSE
-    // ==================================================
-
     return res.status(201).json({
       success: true,
-
-      message:
-        "Registration successful",
-
+      message: "Registration successful",
       token,
-
       user: userObj,
     });
   } catch (error) {
-    console.error(
-      "REGISTER ERROR:",
-      error
-    );
-
-    // ==================================================
-    // DUPLICATE ERROR
-    // ==================================================
+    console.error("REGISTER ERROR:", error);
 
     if (error.code === 11000) {
-      const field =
-        Object.keys(
-          error.keyPattern || {}
-        )[0];
+      const field = Object.keys(error.keyPattern || {})[0];
+      let message = "Duplicate field";
 
-      let message =
-        "Duplicate field";
+      if (field === "name") message = "Username already taken";
+      else if (field === "email") message = "Email already registered";
+      else if (field === "mobile") message = "Mobile number already registered";
+      else if (field === "userId")
+        message = "User ID already exists. Please try again.";
+      else if (field === "referralCode")
+        message = "Referral code already exists";
 
-      if (field === "name") {
-        message =
-          "Username already taken";
-      } else if (
-        field === "email"
-      ) {
-        message =
-          "Email already registered";
-      } else if (
-        field === "mobile"
-      ) {
-        message =
-          "Mobile number already registered";
-      } else if (
-        field === "userId"
-      ) {
-        message =
-          "User ID already exists. Please try again.";
-      } else if (
-        field === "referralCode"
-      ) {
-        message =
-          "Referral code already exists";
-      }
-
-      return res.status(400).json({
-        success: false,
-        message,
-      });
+      return res.status(400).json({ success: false, message });
     }
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Internal Server Error",
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -750,164 +438,87 @@ const register = async (req, res) => {
 // ======================================================
 
 const generateReferralCode = (name) => {
-  const cleanName = String(
-    name || ""
-  )
+  const cleanName = String(name || "")
     .replace(/\s+/g, "")
     .substring(0, 4)
     .toUpperCase();
 
-  const random = crypto
-    .randomBytes(3)
-    .toString("hex")
-    .toUpperCase();
+  const random = crypto.randomBytes(3).toString("hex").toUpperCase();
 
-  return (
-    cleanName +
-    random
-  );
+  return cleanName + random;
 };
 
 // ======================================================
 // LOGIN
 // ======================================================
 
-const login = async (
-  req,
-  res
-) => {
+const login = async (req, res) => {
   try {
-    let {
-      mobile,
-      password,
-    } = req.body;
+    let { mobile, password } = req.body;
 
-    // ==================================================
     // VALIDATION
-    // ==================================================
-
-    if (
-      !mobile ||
-      !password
-    ) {
+    if (!mobile || !password) {
       return res.status(400).json({
         success: false,
-        message:
-          "Mobile and password are required",
+        message: "Mobile and password are required",
       });
     }
 
-    // ==================================================
     // NORMALIZE MOBILE
-    // ==================================================
+    mobile = String(mobile).replace(/\D/g, "");
 
-    mobile = String(mobile)
-      .replace(/\D/g, "");
-
-    // ==================================================
     // FIND USER
-    // ==================================================
-
-    const user =
-      await User.findOne({
-        mobile,
-      }).select("+password");
+    const user = await User.findOne({ mobile }).select("+password");
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message:
-          "User not found",
+        message: "User not found",
       });
     }
 
-    // ==================================================
     // BLOCK CHECK
-    // ==================================================
-
-    if (
-      user.status ===
-      "blocked"
-    ) {
+    if (user.status === "blocked") {
       return res.status(403).json({
         success: false,
-        message:
-          "Your account has been blocked",
+        message: "Your account has been blocked",
       });
     }
 
-    // ==================================================
     // PASSWORD
-    // ==================================================
-
-    const isMatch =
-      await bcrypt.compare(
-        password,
-        user.password
-      );
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid mobile or password",
+        message: "Invalid mobile or password",
       });
     }
 
-    // ==================================================
     // JWT
-    // ==================================================
+    const token = generateToken(user);
 
-    const token =
-      generateToken(user);
-
-    // ==================================================
     // COOKIE
-    // ==================================================
+    setAuthCookie(res, token, user.role);
 
-    setAuthCookie(
-      res,
-      token,
-      user.role
-    );
-
-    // ==================================================
     // RESPONSE USER
-    // ==================================================
-
-    const userObj =
-      user.toObject();
-
+    const userObj = user.toObject();
     delete userObj.password;
     delete userObj.plainPassword;
 
-    // ==================================================
-    // RESPONSE
-    // ==================================================
-
     return res.status(200).json({
       success: true,
-
-      message:
-        `${user.role} login successful`,
-
+      message: `${user.role} login successful`,
       token,
-
       role: user.role,
-
       user: userObj,
     });
   } catch (error) {
-    console.error(
-      "LOGIN ERROR:",
-      error
-    );
+    console.error("LOGIN ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Internal Server Error",
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -916,66 +527,42 @@ const login = async (
 // GET PROFILE
 // ======================================================
 
-const getProfile = async (
-  req,
-  res
-) => {
+const getProfile = async (req, res) => {
   try {
-    // IMPORTANT:
-    // Authentication uses MongoDB _id.
-    const mongoId =
-      req.user?._id ||
-      req.user?.id;
+    const mongoId = req.user?._id || req.user?.id;
 
     if (!mongoId) {
       return res.status(401).json({
         success: false,
-        message:
-          "User not authenticated",
+        message: "User not authenticated",
       });
     }
 
-    const user =
-      await User.findById(
-        mongoId
-      )
-        .select(
-          "-password -plainPassword"
-        )
-        .lean();
+    const user = await User.findById(mongoId)
+      .select("-password -plainPassword")
+      .lean();
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message:
-          "User not found",
+        message: "User not found",
       });
     }
 
     return res.status(200).json({
       success: true,
-
       user: {
         ...user,
-
-        balance:
-          user.balance,
-
-        country:
-          user.country || null,
+        balance: user.balance,
+        country: user.country || null,
       },
     });
   } catch (error) {
-    console.error(
-      "GET PROFILE ERROR:",
-      error
-    );
+    console.error("GET PROFILE ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Internal Server Error",
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -984,215 +571,111 @@ const getProfile = async (
 // UPDATE PROFILE
 // ======================================================
 
-const updateProfile = async (
-  req,
-  res
-) => {
+const updateProfile = async (req, res) => {
   try {
-    // MongoDB _id
-    const mongoId =
-      req.user?._id ||
-      req.user?.id;
+    const mongoId = req.user?._id || req.user?.id;
 
     if (!mongoId) {
       return res.status(401).json({
         success: false,
-        message:
-          "User not authenticated",
+        message: "User not authenticated",
       });
     }
 
-    const {
-      fullName,
-      email,
-      mobile,
-      city,
-    } = req.body;
-
+    const { fullName, email, mobile, city } = req.body;
     const updateData = {};
 
-    // ==================================================
     // NAME
-    // ==================================================
-
-    if (
-      fullName !== undefined
-    ) {
-      const cleanName =
-        String(fullName)
-          .trim()
-          .toLowerCase();
+    if (fullName !== undefined) {
+      const cleanName = String(fullName).trim().toLowerCase();
 
       if (/\s/.test(cleanName)) {
         return res.status(400).json({
           success: false,
-          message:
-            "Space is not allowed in name",
+          message: "Space is not allowed in name",
         });
       }
 
-      updateData.name =
-        cleanName;
+      updateData.name = cleanName;
     }
 
-    // ==================================================
     // EMAIL
-    // ==================================================
-
-    if (
-      email !== undefined
-    ) {
-      updateData.email =
-        String(email)
-          .trim()
-          .toLowerCase();
+    if (email !== undefined) {
+      updateData.email = String(email).trim().toLowerCase();
     }
 
-    // ==================================================
     // MOBILE
-    // ==================================================
-
-    if (
-      mobile !== undefined
-    ) {
-      const currentUser =
-        await User.findById(
-          mongoId
-        ).select("country");
+    if (mobile !== undefined) {
+      const currentUser = await User.findById(mongoId).select("country");
 
       if (!currentUser) {
         return res.status(404).json({
           success: false,
-          message:
-            "User not found",
+          message: "User not found",
         });
       }
 
-      const currentCountry =
-        normalizeCountry(
-          currentUser.country
-        );
-
-      const mobileCheck =
-        validateMobile(
-          mobile,
-          currentCountry
-        );
+      const currentCountry = normalizeCountry(currentUser.country);
+      const mobileCheck = validateMobile(mobile, currentCountry);
 
       if (!mobileCheck.valid) {
         return res.status(400).json({
           success: false,
-          message:
-            mobileCheck.message,
+          message: mobileCheck.message,
         });
       }
 
-      updateData.mobile =
-        mobileCheck.mobile;
+      updateData.mobile = mobileCheck.mobile;
     }
 
-    // ==================================================
     // CITY
-    // ==================================================
-
-    if (
-      city !== undefined
-    ) {
-      updateData.city =
-        String(city).trim();
+    if (city !== undefined) {
+      updateData.city = String(city).trim();
     }
 
-    // ==================================================
     // PROFILE IMAGE
-    // ==================================================
-
     if (req.file) {
-      updateData.profilePic =
-        await uploadToImgBB(
-          req.file
-        );
+      updateData.profilePic = await uploadToImgBB(req.file);
     }
 
-    // ==================================================
     // UPDATE USER
-    // ==================================================
-
-    const updatedUser =
-      await User.findByIdAndUpdate(
-        mongoId,
-        {
-          $set: updateData,
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      ).select(
-        "-password"
-      );
+    const updatedUser = await User.findByIdAndUpdate(
+      mongoId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select("-password -plainPassword");
 
     if (!updatedUser) {
       return res.status(404).json({
         success: false,
-        message:
-          "User not found",
+        message: "User not found",
       });
     }
 
     return res.status(200).json({
       success: true,
-
       message: req.file
         ? "Profile and image updated successfully"
         : "Profile updated successfully",
-
       user: updatedUser,
     });
   } catch (error) {
-    console.error(
-      "UPDATE PROFILE ERROR:",
-      error
-    );
-
-    // ==================================================
-    // DUPLICATE ERROR
-    // ==================================================
+    console.error("UPDATE PROFILE ERROR:", error);
 
     if (error.code === 11000) {
-      const field =
-        Object.keys(
-          error.keyPattern || {}
-        )[0];
+      const field = Object.keys(error.keyPattern || {})[0];
+      let message = "Duplicate field";
 
-      let message =
-        "Duplicate field";
+      if (field === "name") message = "Username already taken";
+      else if (field === "email") message = "Email already registered";
+      else if (field === "mobile") message = "Mobile number already registered";
 
-      if (field === "name") {
-        message =
-          "Username already taken";
-      } else if (
-        field === "email"
-      ) {
-        message =
-          "Email already registered";
-      } else if (
-        field === "mobile"
-      ) {
-        message =
-          "Mobile number already registered";
-      }
-
-      return res.status(400).json({
-        success: false,
-        message,
-      });
+      return res.status(400).json({ success: false, message });
     }
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Internal Server Error",
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -1201,29 +684,20 @@ const updateProfile = async (
 // LOGOUT
 // ======================================================
 
-const logout = async (
-  req,
-  res
-) => {
+const logout = async (req, res) => {
   try {
     clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,
-      message:
-        "Logout successful",
+      message: "Logout successful",
     });
   } catch (error) {
-    console.error(
-      "LOGOUT ERROR:",
-      error
-    );
+    console.error("LOGOUT ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Internal Server Error",
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -1232,97 +706,61 @@ const logout = async (
 // FORGOT PASSWORD
 // ======================================================
 
-const forgotPassword = async (
-  req,
-  res
-) => {
+const forgotPassword = async (req, res) => {
   try {
-    let { email } =
-      req.body;
+    let { email } = req.body;
 
     if (!email) {
       return res.status(400).json({
         success: false,
-        message:
-          "Email is required",
+        message: "Email is required",
       });
     }
 
-    email = String(email)
-      .trim()
-      .toLowerCase();
+    email = String(email).trim().toLowerCase();
 
-    const user =
-      await User.findOne({
-        email,
-      });
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message:
-          "User not found",
+        message: "User not found",
       });
     }
 
-    if (
-      user.status ===
-      "blocked"
-    ) {
+    if (user.status === "blocked") {
       return res.status(403).json({
         success: false,
-        message:
-          "Your account has been blocked",
+        message: "Your account has been blocked",
       });
     }
 
-    const otp =
-      Math.floor(
-        100000 +
-        Math.random() * 900000
-      ).toString();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    user.reset_otp =
-      otp;
-
-    user.reset_otp_expiry =
-      new Date(
-        Date.now() +
-        5 * 60 * 1000
-      );
+    user.reset_otp = otp;
+    user.reset_otp_expiry = new Date(Date.now() + 5 * 60 * 1000);
 
     await user.save();
 
-    const isSent =
-      await sendResetPasswordOTP(
-        user.email,
-        otp
-      );
+    const isSent = await sendResetPasswordOTP(user.email, otp);
 
     if (!isSent) {
       return res.status(500).json({
         success: false,
-        message:
-          "Failed to send OTP",
+        message: "Failed to send OTP",
       });
     }
 
     return res.status(200).json({
       success: true,
-      message:
-        "OTP sent successfully to your email",
+      message: "OTP sent successfully to your email",
     });
   } catch (error) {
-    console.error(
-      "FORGOT PASSWORD ERROR:",
-      error
-    );
+    console.error("FORGOT PASSWORD ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Internal Server Error",
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -1331,137 +769,80 @@ const forgotPassword = async (
 // VERIFY OTP AND RESET PASSWORD
 // ======================================================
 
-const verifyOTPAndReset = async (
-  req,
-  res
-) => {
+const verifyOTPAndReset = async (req, res) => {
   try {
-    let {
-      email,
-      otp,
-      newPassword,
-    } = req.body;
+    let { email, otp, newPassword } = req.body;
 
-    if (
-      !email ||
-      !otp ||
-      !newPassword
-    ) {
+    if (!email || !otp || !newPassword) {
       return res.status(400).json({
         success: false,
-        message:
-          "Email, OTP and new password are required",
+        message: "Email, OTP and new password are required",
       });
     }
 
-    email = String(email)
-      .trim()
-      .toLowerCase();
+    email = String(email).trim().toLowerCase();
 
-    if (
-      newPassword.length < 6
-    ) {
+    if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message:
-          "Password must be at least 6 characters",
+        message: "Password must be at least 6 characters",
       });
     }
 
-    const user =
-      await User.findOne({
-        email,
-      }).select("+password");
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message:
-          "User not found",
+        message: "User not found",
       });
     }
 
-    if (
-      user.status ===
-      "blocked"
-    ) {
+    if (user.status === "blocked") {
       return res.status(403).json({
         success: false,
-        message:
-          "Your account has been blocked",
+        message: "Your account has been blocked",
       });
     }
 
-    if (
-      !user.reset_otp ||
-      user.reset_otp !==
-      otp.toString()
-    ) {
+    if (!user.reset_otp || user.reset_otp !== otp.toString()) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid OTP",
+        message: "Invalid OTP",
       });
     }
 
     if (
       !user.reset_otp_expiry ||
-      new Date() >
-      new Date(
-        user.reset_otp_expiry
-      )
+      new Date() > new Date(user.reset_otp_expiry)
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "OTP has expired",
+        message: "OTP has expired",
       });
     }
 
-    // ==================================================
     // NEW PASSWORD
-    // ==================================================
-
-    user.password =
-      await bcrypt.hash(
-        newPassword,
-        10
-      );
-
-    user.plainPassword =
-      newPassword;
-
-    user.reset_otp =
-      null;
-
-    user.reset_otp_expiry =
-      null;
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.plainPassword = newPassword;
+    user.reset_otp = null;
+    user.reset_otp_expiry = null;
 
     await user.save();
 
-    // ==================================================
-    // SECURITY:
-    // Clear old authentication cookies after password reset
-    // ==================================================
-
+    // Clear old session
     clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,
-      message:
-        "Password reset successfully",
+      message: "Password reset successfully",
     });
   } catch (error) {
-    console.error(
-      "RESET PASSWORD ERROR:",
-      error
-    );
+    console.error("RESET PASSWORD ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Internal Server Error",
+      message: error.message || "Internal Server Error",
     });
   }
 };
@@ -1470,121 +851,76 @@ const verifyOTPAndReset = async (
 // CHANGE PASSWORD
 // ======================================================
 
-const changePassword = async (
-  req,
-  res
-) => {
+const changePassword = async (req, res) => {
   try {
-    const {
-      oldPassword,
-      newPassword,
-    } = req.body;
+    const { oldPassword, newPassword } = req.body;
 
-    if (
-      !oldPassword ||
-      !newPassword
-    ) {
+    if (!oldPassword || !newPassword) {
       return res.status(400).json({
         success: false,
-        message:
-          "Both passwords required",
+        message: "Both passwords required",
       });
     }
 
-    if (
-      newPassword.length < 6
-    ) {
+    if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message:
-          "New password must be at least 6 characters",
+        message: "New password must be at least 6 characters",
       });
     }
 
-    // MongoDB _id
-    const mongoId =
-      req.user?._id ||
-      req.user?.id;
+    const mongoId = req.user?._id || req.user?.id;
 
     if (!mongoId) {
       return res.status(401).json({
         success: false,
-        message:
-          "User not authenticated",
+        message: "User not authenticated",
       });
     }
 
-    const user =
-      await User.findById(
-        mongoId
-      ).select("+password");
+    const user = await User.findById(mongoId).select("+password");
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message:
-          "User not found",
+        message: "User not found",
       });
     }
 
-    if (
-      user.status ===
-      "blocked"
-    ) {
+    if (user.status === "blocked") {
       return res.status(403).json({
         success: false,
-        message:
-          "Your account has been blocked",
+        message: "Your account has been blocked",
       });
     }
 
-    const isMatch =
-      await bcrypt.compare(
-        oldPassword,
-        user.password
-      );
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
 
     if (!isMatch) {
       return res.status(400).json({
         success: false,
-        message:
-          "Old password incorrect",
+        message: "Old password incorrect",
       });
     }
 
-    user.password =
-      await bcrypt.hash(
-        newPassword,
-        10
-      );
-
-    // Keep plainPassword behavior
-    // compatible with your existing system.
-    user.plainPassword =
-      newPassword;
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.plainPassword = newPassword;
 
     await user.save();
 
-    // Clear old session.
-    // User must login again with new password.
+    // Clear old session
     clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,
-      message:
-        "Password changed successfully",
+      message: "Password changed successfully",
     });
   } catch (error) {
-    console.error(
-      "CHANGE PASSWORD ERROR:",
-      error
-    );
+    console.error("CHANGE PASSWORD ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Server error",
+      message: error.message || "Server error",
     });
   }
 };
@@ -1593,19 +929,11 @@ const changePassword = async (
 // GET ALL USERS
 // ======================================================
 
-const getAllUsers = async (
-  req,
-  res
-) => {
+const getAllUsers = async (req, res) => {
   try {
-    const users =
-      await User.find({})
-        .select(
-          "-password "
-        )
-        .sort({
-          createdAt: -1,
-        });
+    const users = await User.find({})
+      .select("-password -plainPassword")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -1613,15 +941,11 @@ const getAllUsers = async (
       users,
     });
   } catch (error) {
-    console.error(
-      "GET ALL USERS ERROR:",
-      error
-    );
+    console.error("GET ALL USERS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to fetch users.",
+      message: "Failed to fetch users.",
       error: error.message,
     });
   }
@@ -1631,75 +955,45 @@ const getAllUsers = async (
 // UPDATE USER STATUS
 // ======================================================
 
-const updateUserStatus = async (
-  req,
-  res
-) => {
+const updateUserStatus = async (req, res) => {
   try {
-    const {
-      userId,
-    } = req.params;
+    const { userId } = req.params;
+    const { status } = req.body;
 
-    const {
-      status,
-    } = req.body;
-
-    if (
-      !["active", "blocked"].includes(
-        status
-      )
-    ) {
+    if (!["active", "blocked"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Status must be active or blocked",
+        message: "Status must be active or blocked",
       });
     }
 
-    // Keep this endpoint compatible
-    // with existing route that sends Mongo _id.
-    const user =
-      await User.findById(
-        userId
-      );
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message:
-          "User not found",
+        message: "User not found",
       });
     }
 
-    user.status =
-      status;
-
+    user.status = status;
     await user.save();
 
-    const userResponse =
-      user.toObject();
-
+    const userResponse = user.toObject();
     delete userResponse.password;
     delete userResponse.plainPassword;
 
     return res.status(200).json({
       success: true,
-      message:
-        `User ${status} successfully`,
-      user:
-        userResponse,
+      message: `User ${status} successfully`,
+      user: userResponse,
     });
   } catch (error) {
-    console.error(
-      "UPDATE USER STATUS ERROR:",
-      error
-    );
+    console.error("UPDATE USER STATUS ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        error.message ||
-        "Internal Server Error",
+      message: error.message || "Internal Server Error",
     });
   }
 };

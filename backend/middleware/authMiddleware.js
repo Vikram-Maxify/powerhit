@@ -12,8 +12,8 @@ const getToken = (req) => {
   }
 
   // User token
-  if (req.cookies?.token) {
-    return req.cookies.token;
+  if (req.cookies?.powerhit) {
+    return req.cookies.powerhit;
   }
 
   // Authorization header
@@ -28,7 +28,6 @@ const getToken = (req) => {
 
   return null;
 };
-
 // ============================================================
 // PROTECT USER / ADMIN
 // ============================================================

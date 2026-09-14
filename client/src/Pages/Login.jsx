@@ -95,7 +95,6 @@ const Login = () => {
     try {
       const result = await dispatch(login(userData)).unwrap();
 
-      console.log("Login successful:", result);
 
       navigate("/", { replace: true });
     } catch (err) {
