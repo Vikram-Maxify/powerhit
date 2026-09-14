@@ -37,6 +37,16 @@ import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ============================
+// Helper: Get Flag Image URL
+// ============================
+const getFlagUrl = (countryCode) => {
+  if (!countryCode || countryCode.length !== 2) {
+    return 'https://flagcdn.com/w80/un.png'; // fallback: UN flag
+  }
+  return `https://flagcdn.com/w80/${countryCode.toLowerCase()}.png`;
+};
+
+// ============================
 // Components
 // ============================
 
@@ -110,8 +120,18 @@ const CountryCard = ({ item, onEdit, onDelete, deleting }) => {
       <div className="p-5">
         {/* Header */}
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center text-2xl font-bold text-purple-600 group-hover:scale-110 transition-transform duration-300">
-            {item.country?.slice(0, 2).toUpperCase() || '🌍'}
+          {/* Country Flag Image */}
+          <div className="w-14 h-14 rounded-2xl overflow-hidden bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-sm">
+            <img
+              src={getFlagUrl(item.country)}
+              alt={item.countryName || 'Country Flag'}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'https://flagcdn.com/w80/un.png';
+              }}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-800 truncate">
