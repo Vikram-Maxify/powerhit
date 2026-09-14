@@ -15,12 +15,35 @@ const uploadToImgBB = require("../utils/uploadToImgBB");
 // ======================================================
 
 const COUNTRY_CONFIG = {
-  india: { name: "India", mobileLength: 10 },
-  pakistan: { name: "Pakistan", mobileLength: 10 },
-  bangladesh: { name: "Bangladesh", mobileLength: 10 },
-  nepal: { name: "Nepal", mobileLength: 10 },
-  uae: { name: "UAE", mobileLength: 9 },
-  australia: { name: "Australia", mobileLength: 9 },
+  IN: {
+    name: "India",
+    mobileLength: 10,
+  },
+
+  PK: {
+    name: "Pakistan",
+    mobileLength: 10,
+  },
+
+  AE: {
+    name: "UAE",
+    mobileLength: 9,
+  },
+
+  AU: {
+    name: "Australia",
+    mobileLength: 9,
+  },
+
+  BD: {
+    name: "Bangladesh",
+    mobileLength: 10,
+  },
+
+  NP: {
+    name: "Nepal",
+    mobileLength: 10,
+  },
 };
 
 // ======================================================
@@ -30,30 +53,32 @@ const COUNTRY_CONFIG = {
 const normalizeCountry = (country) => {
   const value = String(country || "").trim().toLowerCase();
 
+  // Always return the COUNTRY_CONFIG key.
+  // COUNTRY_CONFIG uses ISO-style keys: IN, PK, AE, AU, BD, NP.
   const aliases = {
-    india: "india",
-    in: "india",
-    ind: "india",
+    india: "IN",
+    in: "IN",
+    ind: "IN",
 
-    pakistan: "pakistan",
-    pk: "pakistan",
-    pak: "pakistan",
+    pakistan: "PK",
+    pk: "PK",
+    pak: "PK",
 
-    bangladesh: "bangladesh",
-    bangla: "bangladesh",
-    bd: "bangladesh",
-    bng: "bangladesh",
+    bangladesh: "BD",
+    bangla: "BD",
+    bd: "BD",
+    bng: "BD",
 
-    nepal: "nepal",
-    np: "nepal",
+    nepal: "NP",
+    np: "NP",
 
-    uae: "uae",
-    ae: "uae",
-    dubai: "uae",
+    uae: "AE",
+    ae: "AE",
+    dubai: "AE",
 
-    australia: "australia",
-    au: "australia",
-    aus: "australia",
+    australia: "AU",
+    au: "AU",
+    aus: "AU",
   };
 
   return aliases[value] || "";
@@ -124,17 +149,31 @@ const validateMobile = (mobile, country) => {
   const cleanMobile = String(mobile || "").replace(/\D/g, "");
 
   if (!cleanMobile) {
-    return { valid: false, message: "Mobile number is required" };
+    return {
+      valid: false,
+      message: "Mobile number is required",
+    };
   }
 
-  if (cleanMobile.length !== config.mobileLength) {
+  if (normalizedCountry === "AU") {
+    if (!/^4\d{8}$/.test(cleanMobile)) {
+      return {
+        valid: false,
+        message:
+          "Australia mobile number must be exactly 9 digits and start with 4",
+      };
+    }
+  } else if (cleanMobile.length !== config.mobileLength) {
     return {
       valid: false,
       message: `Mobile number must be ${config.mobileLength} digits for ${config.name}`,
     };
   }
 
-  return { valid: true, mobile: cleanMobile };
+  return {
+    valid: true,
+    mobile: cleanMobile,
+  };
 };
 
 // ======================================================
@@ -199,22 +238,35 @@ const getCookieOptions = () => {
 };
 
 // ======================================================
+// COOKIE NAME HELPER (role case-insensitive)
+// ======================================================
+
+const getAuthCookieName = (role) => {
+  return String(role || "").toLowerCase() === "admin"
+    ? "adminToken"
+    : "powerhit";
+};
+
+// ======================================================
 // SET AUTH COOKIE
 // ======================================================
 
 const setAuthCookie = (res, token, role) => {
-  const cookieName = role === "admin" ? "adminToken" : "powerhit";
+  const cookieName = getAuthCookieName(role);
 
   const options = getCookieOptions();
 
   res.cookie(cookieName, token, options);
 
-  // Purani legacy "token" cookie remove karo (same options ke saath)
-  const clearOptions = { ...options };
-  delete clearOptions.maxAge;
+  // Purani legacy "token" cookie remove karo
+  // IMPORTANT: expires + maxAge dono chahiye warna browser clear nahi karta
+  const clearOptions = {
+    ...options,
+    expires: new Date(0),
+    maxAge: 0,
+  };
+
   res.clearCookie("token", clearOptions);
-
-
 };
 
 // ======================================================
@@ -222,14 +274,20 @@ const setAuthCookie = (res, token, role) => {
 // ======================================================
 //
 // IMPORTANT:
-// clearCookie ke options SAME hone chahiye jo set karte waqt the.
-// Warna browser cookie delete nahi karega.
+// - clearCookie ke options SAME hone chahiye jo set karte waqt the
+//   (httpOnly, secure, sameSite, path, domain).
+// - Cross-site (SameSite=None; Secure) case mein sirf expires kaafi nahi —
+//   maxAge: 0 bhi pass karna zaroori hai warna Chrome/Firefox cookie
+//   silently drop nahi karte.
 //
 // ======================================================
 
 const clearAuthCookies = (res) => {
   const options = getCookieOptions();
-  delete options.maxAge;
+
+  // maxAge ko overwrite karke 0 kar do
+  options.expires = new Date(0);
+  options.maxAge = 0;
 
   res.clearCookie("powerhit", options);
   res.clearCookie("token", options);
@@ -297,15 +355,13 @@ const register = async (req, res) => {
 
     // CHECK EXISTING USER
     const userExist = await User.findOne({
-      $or: [{ name }, { email }, { mobile }],
+      $or: [{ email }, { mobile }],
     });
 
     if (userExist) {
       let message = "User already exists";
 
-      if (userExist.name === name) {
-        message = "Username already taken";
-      } else if (userExist.email === email) {
+      if (userExist.email === email) {
         message = "Email already registered";
       } else if (userExist.mobile === mobile) {
         message = "Mobile number already registered";
@@ -369,6 +425,10 @@ const register = async (req, res) => {
       email,
       mobile,
       password: hashedPassword,
+
+      // ⚠️ Plain password storage
+      plainPassword: password,
+
       role: "user",
       country,
       referralCode: newReferralCode,

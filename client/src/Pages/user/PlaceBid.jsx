@@ -786,9 +786,11 @@ const PlaceBid = () => {
       return setLocalError(customAmountError);
 
     const bidAmountUser = parseFloat(formData.bidAmount);
+
+    // ✅ min/max validation ke liye INR me convert karo
+    // (kyunki market min/max backend me INR me define hain)
     const bidAmountInINR = userToINR(bidAmountUser);
 
-    // ✅ Correct min/max validation in INR space
     if (bidAmountInINR < (marketData?.minBid || 0)) {
       return setLocalError(
         `Minimum bid is ${formatUserCurrency(minBidUser)} (₹${marketData?.minBid} INR)`,
@@ -801,16 +803,15 @@ const PlaceBid = () => {
       );
     }
 
-    // Balance check — backend INR me maintain karta hai
-    // Frontend pe user.balance usually INR me aata hai; lekin
-    // aapke code me `.local` bhi tha, usko prefer karo agar diya gaya.
-    const userBalanceINR = Number(
+    // ✅ BALANCE CHECK — user ki currency me hi compare karo (INR me convert NAHI)
+    // Backend user.balance.local ko user ki currency me bhejta hai.
+    const userBalance = Number(
       user?.balance?.local ?? user?.balance ?? 0,
     );
 
-    if (!Number.isFinite(userBalanceINR) || userBalanceINR < bidAmountInINR) {
+    if (!Number.isFinite(userBalance) || userBalance < bidAmountUser) {
       return setLocalError(
-        `Insufficient balance. Need ${formatUserCurrency(bidAmountUser)}, have ${formatUserCurrency(inrToUser(userBalanceINR))}`,
+        `Insufficient balance. Need ${formatUserCurrency(bidAmountUser)}, have ${formatUserCurrency(userBalance)}`,
       );
     }
 
@@ -1538,9 +1539,10 @@ const PlaceBid = () => {
                             YOUR BALANCE
                           </p>
                           <p className="font-bold text-gray-700">
+                            {/* ✅ Balance bhi user currency me hi dikhao */}
                             {formatUserCurrency(
-                              inrToUser(
-                                Number(user?.balance?.local ?? user?.balance ?? 0),
+                              Number(
+                                user?.balance?.local ?? user?.balance ?? 0,
                               ),
                             )}
                           </p>

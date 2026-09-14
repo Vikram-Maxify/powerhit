@@ -8,7 +8,6 @@ import { api } from "./api";
 export const register = createAsyncThunk(
   "auth/register",
   async (userData, { rejectWithValue }) => {
-    console.log(userData, "ye h user data");
 
     try {
       const { data } = await api.post(`/auth/register`, userData);

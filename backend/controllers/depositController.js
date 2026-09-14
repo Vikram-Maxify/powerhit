@@ -5,15 +5,22 @@ const mongoose = require("mongoose");
 const ReferralCommission = require("../models/ReferralCommission");
 const ReferralLevel = require("../models/ReferralLevel");
 const uploadToImgBB = require("../utils/uploadToImgBB");
-const CurrencyRate = require("../models/CurrencyRate");
+// CurrencyRate ab use nahi ho raha (conversion hata diya)
+// const CurrencyRate = require("../models/CurrencyRate");
 
 // ==========================================
 // Create Deposit Request
 // ==========================================
 exports.createDeposit = async (req, res) => {
     try {
+        // ==========================================
+        // 1. USER ID
+        // ==========================================
         const userId = req.user.id;
 
+        // ==========================================
+        // 2. REQUEST BODY
+        // ==========================================
         const {
             amount,
             transactionId,
@@ -21,8 +28,12 @@ exports.createDeposit = async (req, res) => {
             methodTitle,
         } = req.body;
 
+        // ==========================================
+        // 3. REQUIRED FIELDS
+        // ==========================================
         if (
-            !amount ||
+            amount === undefined ||
+            amount === null ||
             !transactionId ||
             !methodType ||
             !methodTitle
@@ -33,14 +44,36 @@ exports.createDeposit = async (req, res) => {
             });
         }
 
-        if (Number(amount) <= 0) {
+        // ==========================================
+        // 4. AMOUNT VALIDATION
+        // ==========================================
+        const depositAmount = Number(amount);
+
+        if (!Number.isFinite(depositAmount) || depositAmount <= 0) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid amount",
             });
         }
 
+        // ==========================================
+        // 5. TRANSACTION ID CLEAN
+        // ==========================================
+        const cleanTransactionId = String(transactionId).trim();
+
+        if (!cleanTransactionId) {
+            return res.status(400).json({
+                success: false,
+                message: "Transaction ID is required",
+            });
+        }
+
+        // ==========================================
+        // 6. GET USER
+        // ==========================================
         const user = await User.findById(userId);
+
+        console.log("USER:", user);
 
         if (!user) {
             return res.status(404).json({
@@ -49,6 +82,9 @@ exports.createDeposit = async (req, res) => {
             });
         }
 
+        // ==========================================
+        // 7. CHECK USER COUNTRY
+        // ==========================================
         if (!user.country) {
             return res.status(400).json({
                 success: false,
@@ -56,25 +92,91 @@ exports.createDeposit = async (req, res) => {
             });
         }
 
-        const settings =
-            await DepositSettings.findOne({
-                country: user.country.toUpperCase(),
-            });
+        // ==========================================
+        // 8. COUNTRY NAME -> ISO CODE
+        // ==========================================
+        const countryMap = {
+            // India
+            india: "IN",
+
+            // Australia
+            australia: "AU",
+            austraila: "AU",
+
+            // Nepal
+            nepal: "NP",
+
+            // Pakistan
+            pakistan: "PK",
+
+            // Bangladesh
+            bangladesh: "BD",
+
+            // UAE
+            dubai: "AE",
+            uae: "AE",
+            "united arab emirates": "AE",
+        };
+
+        const userCountry = String(user.country)
+            .trim()
+            .toLowerCase();
+
+        // Country name hai to code mein convert karo.
+        // Agar already IN / BD / AU etc. hai to direct use hoga.
+        const countryCode =
+            countryMap[userCountry] ||
+            userCountry.toUpperCase();
+
+        console.log("USER COUNTRY:", user.country);
+        console.log("NORMALIZED COUNTRY:", userCountry);
+        console.log("COUNTRY CODE:", countryCode);
+
+        // ==========================================
+        // 9. GET DEPOSIT SETTINGS
+        // ==========================================
+        const settings = await DepositSettings.findOne({
+            country: countryCode,
+        });
+
+        console.log("DEPOSIT SETTINGS:", settings);
 
         if (!settings) {
             return res.status(404).json({
                 success: false,
                 message: "Deposit settings not found",
+                country: user.country,
+                countryCode: countryCode,
             });
         }
 
-        const method =
-            settings.methods.find(
-                (m) =>
-                    m.type === methodType &&
-                    m.title === methodTitle &&
-                    m.status === true
-            );
+        // ==========================================
+        // 10. CHECK METHODS ARRAY
+        // ==========================================
+        if (!Array.isArray(settings.methods)) {
+            return res.status(404).json({
+                success: false,
+                message: "No payment methods configured",
+            });
+        }
+
+        // ==========================================
+        // 11. FIND PAYMENT METHOD
+        // ==========================================
+        const cleanMethodType = String(methodType).trim();
+        const cleanMethodTitle = String(methodTitle).trim();
+
+        const method = settings.methods.find(
+            (m) =>
+                m &&
+                String(m.type).trim().toUpperCase() ===
+                    cleanMethodType.toUpperCase() &&
+                String(m.title).trim().toLowerCase() ===
+                    cleanMethodTitle.toLowerCase() &&
+                m.status === true
+        );
+
+        console.log("SELECTED METHOD:", method);
 
         if (!method) {
             return res.status(404).json({
@@ -83,25 +185,46 @@ exports.createDeposit = async (req, res) => {
             });
         }
 
-        if (amount < method.minimumDeposit) {
+        // ==========================================
+        // 12. MINIMUM DEPOSIT
+        // ==========================================
+        const minimumDeposit = Number(
+            method.minimumDeposit || 0
+        );
+
+        if (
+            minimumDeposit > 0 &&
+            depositAmount < minimumDeposit
+        ) {
             return res.status(400).json({
                 success: false,
-                message: `Minimum deposit is ${method.minimumDeposit}`,
+                message: `Minimum deposit is ${minimumDeposit}`,
             });
         }
 
-        if (amount > method.maximumDeposit) {
+        // ==========================================
+        // 13. MAXIMUM DEPOSIT
+        // ==========================================
+        const maximumDeposit = Number(
+            method.maximumDeposit || 0
+        );
+
+        if (
+            maximumDeposit > 0 &&
+            depositAmount > maximumDeposit
+        ) {
             return res.status(400).json({
                 success: false,
-                message: `Maximum deposit is ${method.maximumDeposit}`,
+                message: `Maximum deposit is ${maximumDeposit}`,
             });
         }
 
-        const already =
-            await Deposit.findOne({
-                transactionId:
-                    transactionId.trim(),
-            });
+        // ==========================================
+        // 14. CHECK DUPLICATE TRANSACTION ID
+        // ==========================================
+        const already = await Deposit.findOne({
+            transactionId: cleanTransactionId,
+        });
 
         if (already) {
             return res.status(400).json({
@@ -110,36 +233,53 @@ exports.createDeposit = async (req, res) => {
             });
         }
 
+        // ==========================================
+        // 15. UPLOAD SCREENSHOT
+        // ==========================================
         let screenshot = "";
 
         if (req.file) {
-            screenshot =
-                await uploadToImgBB(req.file);
+            screenshot = await uploadToImgBB(req.file);
         }
 
-        const deposit =
-            await Deposit.create({
-                user: user._id,
-                country: settings.country,
-                currency: settings.currency,
-                methodType,
-                methodTitle,
-                amount,
-                transactionId:
-                    transactionId.trim(),
-                screenshot,
-                status: "pending",
-            });
+        // ==========================================
+        // 16. CREATE DEPOSIT
+        // ==========================================
+        const deposit = await Deposit.create({
+            user: user._id,
 
+            // Always save normalized ISO country code
+            country: settings.country,
+
+            currency: settings.currency,
+
+            methodType: method.type,
+            methodTitle: method.title,
+
+            amount: depositAmount,
+
+            transactionId: cleanTransactionId,
+
+            screenshot,
+
+            status: "pending",
+        });
+
+        // ==========================================
+        // 17. SUCCESS RESPONSE
+        // ==========================================
         return res.status(201).json({
             success: true,
-            message:
-                "Deposit request submitted successfully",
+            message: "Deposit request submitted successfully",
+
             deposit,
         });
 
     } catch (error) {
-        console.log(error);
+        console.error(
+            "CREATE DEPOSIT ERROR:",
+            error
+        );
 
         return res.status(500).json({
             success: false,
@@ -466,55 +606,23 @@ exports.approveDeposit = async (
         }
 
         // ==========================================
-        // CURRENCY CONVERSION
+        // AMOUNT (NO CONVERSION - SAME CURRENCY)
         // ==========================================
+        // Deposit jis currency me hua hai, usi me credit hoga.
+        // Koi INR conversion nahi.
 
-        let amountInINR =
-            Number(deposit.amount);
-
-        let conversionRate = 1;
-
-        let currencyCode = "INR";
-
-        const countryCode =
-            deposit.country || "IN";
+        const amountInINR = Number(deposit.amount);
+        const conversionRate = 1;
+        const currencyCode = deposit.currency || "INR";
+        const countryCode = deposit.country || "IN";
 
         console.log(
-            "Country Code:",
+            "Crediting amount (same currency):",
+            amountInINR,
+            currencyCode,
+            "for country:",
             countryCode
         );
-
-        if (countryCode) {
-            const currencyRate =
-                await CurrencyRate.findOne({
-                    countryCode:
-                        countryCode,
-                    status: true,
-                }).session(session);
-
-            if (currencyRate) {
-                conversionRate =
-                    Number(
-                        currencyRate.rate
-                    );
-
-                currencyCode =
-                    currencyRate.currencyCode;
-
-                amountInINR =
-                    Number(
-                        deposit.amount
-                    ) * conversionRate;
-
-                console.log(
-                    `Rate found: ${conversionRate} for ${countryCode}`
-                );
-            } else {
-                console.log(
-                    `No active rate found for ${countryCode}, using default (1:1)`
-                );
-            }
-        }
 
         // ==========================================
         // COUNT PREVIOUS APPROVED DEPOSITS
@@ -527,7 +635,7 @@ exports.approveDeposit = async (
             }).session(session);
 
         // ==========================================
-        // CREDIT USER BALANCE
+        // CREDIT USER BALANCE (SAME CURRENCY)
         // ==========================================
 
         user.balance =
@@ -637,7 +745,7 @@ exports.approveDeposit = async (
             }
 
             // ======================================
-            // CALCULATE COMMISSION
+            // CALCULATE COMMISSION (SAME CURRENCY)
             // ======================================
 
             const commission =
