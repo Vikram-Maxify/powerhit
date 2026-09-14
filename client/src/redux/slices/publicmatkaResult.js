@@ -10,7 +10,7 @@ export const getAllResults = createAsyncThunk(
   "results/getAllResults",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await api.get("/results");
+      const response = await api.get("/results/results");
 
       return response.data;
     } catch (error) {
