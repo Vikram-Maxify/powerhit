@@ -122,11 +122,9 @@ export default function AllResultsPage() {
   // sangam "111-456" jaise non-3-digit results yahan exclude ho jayenge),
   // aur har market ka sirf sabse latest wala ek hi result nikaalo.
   const bidRows = useMemo(() => {
-    const isThreeDigit = (val) => /^\d{3}$/.test(String(val ?? ""));
-
     const latestPerMarket = new Map();
+
     rawRows.forEach((row) => {
-      if (!isThreeDigit(row.resultNumber)) return;
       const marketKey = row.marketId?._id;
       if (!marketKey) return;
 

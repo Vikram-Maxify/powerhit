@@ -4,12 +4,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 const ProtectedRoute = ({ children }) => {
-  const {
-    isAuthenticated,
-    isReady,
-    isLoading,
-    user,
-  } = useAuth();
+  const { isAuthenticated, isReady, isLoading, user } = useAuth();
 
   // ========================================
   // AUTH CHECK LOADING
@@ -28,9 +23,7 @@ const ProtectedRoute = ({ children }) => {
   if (!isReady) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="text-gray-600">
-          Loading profile...
-        </div>
+        <div className="text-gray-600">Loading profile...</div>
       </div>
     );
   }
@@ -39,27 +32,14 @@ const ProtectedRoute = ({ children }) => {
   // NOT AUTHENTICATED
   // ========================================
   if (!isAuthenticated) {
-    return (
-      <Navigate
-        to="/admin/login"
-        replace
-      />
-    );
+    return <Navigate to="/login" replace />;
   }
 
   // ========================================
   // ADMIN IS NOT ALLOWED ON USER SIDE
   // ========================================
-  if (
-    user?.role &&
-    String(user.role).trim().toLowerCase() === "admin"
-  ) {
-    return (
-      <Navigate
-        to="/admin/login"
-        replace
-      />
-    );
+  if (user?.role && String(user.role).trim().toLowerCase() === "admin") {
+    return <Navigate to="/login" replace />;
   }
 
   // ========================================

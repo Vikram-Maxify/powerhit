@@ -1,3 +1,4 @@
+import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import matkaIMG from "../assets/Home/matka.png";
 import minesIMG from "../assets/Home/mines.png";
@@ -5,6 +6,7 @@ import tradingIMG from "../assets/Home/trading.png";
 import wingoIMG from "../assets/Home/wingoo.png";
 
 const PopularGamesCards = () => {
+  const user = useSelector((state) => state.auth.user);
   const popularCards = [
     {
       id: 1,
@@ -55,21 +57,26 @@ const PopularGamesCards = () => {
 
       {/* Games */}
       <div className="grid grid-cols-4 gap-1 sm:gap-5">
-        {popularCards.map((game) => (
-          <Link key={game.id} to={game.to} className="group block w-full">
-            {/* Image */}
-            <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-[#e5c56b] bg-white shadow-[0_3px_8px_rgba(0,0,0,.12)] transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_7px_16px_rgba(180,125,15,.22)] active:scale-[.98]">
-              <img
-                src={game.img}
-                alt={game.name}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            </div>
+        {popularCards.map((game) => {
+          const isTrading = game.id === 2;
 
-            {/* Game name */}
-          </Link>
-        ))}
+          // Agar Trading hai aur user logged in nahi hai
+          // to login page pe redirect karo (overlay ke bina)
+          const linkTo = isTrading && !user ? "/login" : game.to;
+
+          return (
+            <Link key={game.id} to={linkTo} className="group block w-full">
+              <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-[#e5c56b] bg-white shadow-[0_3px_8px_rgba(0,0,0,.12)] transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_7px_16px_rgba(180,125,15,.22)] active:scale-[.98]">
+                <img
+                  src={game.img}
+                  alt={game.name}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
