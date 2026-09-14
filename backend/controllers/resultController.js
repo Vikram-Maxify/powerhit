@@ -1932,7 +1932,7 @@ exports.getResultStats = async (req, res) => {
 
 exports.getAllPublicResults = async (req, res) => {
   try {
-    const results = await Results.find({
+    const results = await Result.find({
       status: "declared",
     })
       .select(
