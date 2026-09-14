@@ -34,7 +34,6 @@ const Level = require("./models/Level");
 const Recharge = require("./models/Recharge");
 require("./cron");
 
-
 // =====================================================
 // BET CONTROLLER
 // =====================================================
@@ -125,7 +124,7 @@ const allowedOrigins = [
   "http://127.0.0.1:5175",
   "http://127.0.0.1:5176",
   "http://127.0.0.1:5177",
-  "https://lotterry.marinclub.site",
+  "https://powerdemo.marinclub.site",
 ];
 
 const io = new Server(server, {
@@ -329,7 +328,7 @@ app.use(
 
 app.use("/api/admin/referral-levels", require("./routes/referralLevelRoutes"));
 
-app.use('/api/admin/bet-admin/', require('./routes/TradeadminRoute'));
+app.use("/api/admin/bet-admin/", require("./routes/TradeadminRoute"));
 
 // =====================================================
 // HEALTH CHECK
@@ -433,7 +432,9 @@ app.get("/admin", (req, res) => {
 app.get("/admin/{*path}", (req, res, next) => {
   if (
     req.path.startsWith("/admin/assets/") ||
-    req.path.match(/^\/admin\/.*\.(js|css|map|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot)$/i)
+    req.path.match(
+      /^\/admin\/.*\.(js|css|map|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot)$/i,
+    )
   ) {
     return next();
   }
@@ -464,7 +465,9 @@ app.get("/{*path}", (req, res, next) => {
   // Never return index.html for a missing static asset.
   if (
     req.path.startsWith("/assets/") ||
-    req.path.match(/\.(js|css|map|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot)$/i)
+    req.path.match(
+      /\.(js|css|map|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot)$/i,
+    )
   ) {
     return next();
   }
@@ -977,12 +980,24 @@ const startServer = async () => {
 const fs = require("fs");
 
 console.log("[FRONTEND] Client dist exists:", fs.existsSync(userDistPath));
-console.log("[FRONTEND] Client index exists:", fs.existsSync(path.join(userDistPath, "index.html")));
-console.log("[FRONTEND] Client assets exists:", fs.existsSync(path.join(userDistPath, "assets")));
+console.log(
+  "[FRONTEND] Client index exists:",
+  fs.existsSync(path.join(userDistPath, "index.html")),
+);
+console.log(
+  "[FRONTEND] Client assets exists:",
+  fs.existsSync(path.join(userDistPath, "assets")),
+);
 
 console.log("[FRONTEND] Admin dist exists:", fs.existsSync(adminDistPath));
-console.log("[FRONTEND] Admin index exists:", fs.existsSync(path.join(adminDistPath, "index.html")));
-console.log("[FRONTEND] Admin assets exists:", fs.existsSync(path.join(adminDistPath, "assets")));
+console.log(
+  "[FRONTEND] Admin index exists:",
+  fs.existsSync(path.join(adminDistPath, "index.html")),
+);
+console.log(
+  "[FRONTEND] Admin assets exists:",
+  fs.existsSync(path.join(adminDistPath, "assets")),
+);
 
 startServer();
 
