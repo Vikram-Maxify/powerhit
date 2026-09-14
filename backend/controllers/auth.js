@@ -214,11 +214,7 @@ const setAuthCookie = (res, token, role) => {
   delete clearOptions.maxAge;
   res.clearCookie("token", clearOptions);
 
-  console.log("================================");
-  console.log("AUTH COOKIE SET:", cookieName);
-  console.log("ENV:", process.env.NODE_ENV || "development");
-  console.log("COOKIE OPTIONS:", options);
-  console.log("================================");
+
 };
 
 // ======================================================
