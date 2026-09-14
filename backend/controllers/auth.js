@@ -246,8 +246,6 @@ const clearAuthCookies = (res) => {
 
 const register = async (req, res) => {
   try {
-
-
     let { name, email, mobile, password, referralCode } = req.body;
 
     // COUNTRY
@@ -266,8 +264,7 @@ const register = async (req, res) => {
     if (!name || !email || !mobile || !password) {
       return res.status(400).json({
         success: false,
-        message:
-          "Name, email, mobile, password and country are required",
+        message: "Name, email, mobile and password are required",
       });
     }
 
@@ -275,9 +272,6 @@ const register = async (req, res) => {
     name = String(name).trim().toLowerCase();
     email = String(email).trim().toLowerCase();
     mobile = String(mobile).trim();
-
-    // NAME VALIDATION
-
 
     // PASSWORD VALIDATION
     if (password.length < 6) {
@@ -287,7 +281,15 @@ const register = async (req, res) => {
       });
     }
 
-    // MOBILE VALIDATION
+    // MOBILE MUST BE NUMBERS ONLY
+    if (!/^\d+$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number must contain numbers only",
+      });
+    }
+
+    // COUNTRY WISE MOBILE VALIDATION
     const mobileCheck = validateMobile(mobile, country);
     if (!mobileCheck.valid) {
       return res.status(400).json({
@@ -304,16 +306,24 @@ const register = async (req, res) => {
 
     if (userExist) {
       let message = "User already exists";
-      if (userExist.name === name) message = "Username already taken";
-      else if (userExist.email === email) message = "Email already registered";
-      else if (userExist.mobile === mobile)
-        message = "Mobile number already registered";
 
-      return res.status(400).json({ success: false, message });
+      if (userExist.name === name) {
+        message = "Username already taken";
+      } else if (userExist.email === email) {
+        message = "Email already registered";
+      } else if (userExist.mobile === mobile) {
+        message = "Mobile number already registered";
+      }
+
+      return res.status(400).json({
+        success: false,
+        message,
+      });
     }
 
     // REFERRAL
     let referrerUser = null;
+
     if (referralCode) {
       referralCode = String(referralCode).trim().toUpperCase();
 
@@ -337,28 +347,24 @@ const register = async (req, res) => {
     // HASH PASSWORD
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // GENERATE REFERRAL CODE
+    // GENERATE UNIQUE REFERRAL CODE
     let newReferralCode = generateReferralCode(name);
-    let referralExists = await User.findOne({
-      referralCode: newReferralCode,
-    });
 
-    while (referralExists) {
+    while (await User.findOne({ referralCode: newReferralCode })) {
       newReferralCode = generateReferralCode(name);
-      referralExists = await User.findOne({
-        referralCode: newReferralCode,
-      });
     }
 
     // GENERATE USER ID
-    const last = await User.findOne({
+    const lastUser = await User.findOne({
       userId: { $exists: true, $ne: null },
     })
       .sort({ userId: -1 })
       .select("userId")
       .lean();
 
-    const userId = last?.userId ? Number(last.userId) + 1 : 100001;
+    const userId = lastUser?.userId
+      ? Number(lastUser.userId) + 1
+      : 100001;
 
     // CREATE USER
     const user = await User.create({
@@ -374,20 +380,23 @@ const register = async (req, res) => {
       referredByUser: referrerUser ? referrerUser._id : null,
     });
 
-    // REFERRER STATS
+    // UPDATE REFERRER STATS
     if (referrerUser) {
       await User.findByIdAndUpdate(referrerUser._id, {
-        $inc: { totalReferrals: 1, referralEarning: 50 },
+        $inc: {
+          totalReferrals: 1,
+          referralEarning: 50,
+        },
       });
     }
 
-    // JWT
+    // JWT TOKEN
     const token = generateToken(user);
 
-    // COOKIE
+    // SET COOKIE
     setAuthCookie(res, token, user.role);
 
-    // RESPONSE USER
+    // REMOVE SENSITIVE DATA
     const userObj = user.toObject();
     delete userObj.password;
     delete userObj.plainPassword;
@@ -401,19 +410,28 @@ const register = async (req, res) => {
   } catch (error) {
     console.error("REGISTER ERROR:", error);
 
+    // DUPLICATE KEY ERROR
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern || {})[0];
+
       let message = "Duplicate field";
 
-      if (field === "name") message = "Username already taken";
-      else if (field === "email") message = "Email already registered";
-      else if (field === "mobile") message = "Mobile number already registered";
-      else if (field === "userId")
+      if (field === "name") {
+        message = "Username already taken";
+      } else if (field === "email") {
+        message = "Email already registered";
+      } else if (field === "mobile") {
+        message = "Mobile number already registered";
+      } else if (field === "userId") {
         message = "User ID already exists. Please try again.";
-      else if (field === "referralCode")
+      } else if (field === "referralCode") {
         message = "Referral code already exists";
+      }
 
-      return res.status(400).json({ success: false, message });
+      return res.status(400).json({
+        success: false,
+        message,
+      });
     }
 
     return res.status(500).json({
