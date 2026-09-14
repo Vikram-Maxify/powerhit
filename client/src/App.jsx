@@ -455,27 +455,13 @@ function App() {
                 PUBLIC RESULT
             ======================================== */}
 
-            <Route
-              path="/publicresult"
-              element={
-                <ProtectedRoute>
-                  <AllResultsPage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/publicresult" element={<AllResultsPage />} />
 
             {/* ========================================
                 CHART ANALYSIS
             ======================================== */}
 
-            <Route
-              path="/chartanalysis"
-              element={
-                <ProtectedRoute>
-                  <MatkaChartAnalysis />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/chartanalysis" element={<MatkaChartAnalysis />} />
 
             <Route
               path="/market-results/:marketId"
@@ -665,10 +651,23 @@ function App() {
               }
             />
 
-            <Route path="/mine-games" element={<MinesGame />} />
+            <Route
+              path="/mine-games"
+              element={
+                <ProtectedRoute>
+                  <MinesGame />
+                </ProtectedRoute>
+              }
+            />
 
-            <Route path="/wingo" element={<Wingo />} />
-
+            <Route
+              path="/wingo"
+              element={
+                <ProtectedRoute>
+                  <Wingo />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ========================================
                 404 / MAINTENANCE
