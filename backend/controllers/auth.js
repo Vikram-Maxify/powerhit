@@ -246,17 +246,12 @@ const clearAuthCookies = (res) => {
 
 const register = async (req, res) => {
   try {
-    console.log("=================================");
-    console.log("REGISTER REQUEST");
-    console.log("BODY:", req.body);
-    console.log("RAW COUNTRY:", req.body?.country);
-    console.log("=================================");
+
 
     let { name, email, mobile, password, referralCode } = req.body;
 
     // COUNTRY
     const country = getRequestCountry(req);
-    console.log("NORMALIZED COUNTRY:", country);
 
     // COUNTRY VALIDATION
     const countryCheck = validateCountry(country);
@@ -282,12 +277,7 @@ const register = async (req, res) => {
     mobile = String(mobile).trim();
 
     // NAME VALIDATION
-    if (/\s/.test(name)) {
-      return res.status(400).json({
-        success: false,
-        message: "Space is not allowed in name",
-      });
-    }
+
 
     // PASSWORD VALIDATION
     if (password.length < 6) {
