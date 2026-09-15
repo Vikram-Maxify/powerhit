@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const MinesGame = require("../models/MinesGame");
 const User = require("../models/authmodel");
+const CurrencyRate = require("../models/CurrencyRate");
 
 const GRID_SIZE = 6;
 const TOTAL_CELLS = 36;
@@ -90,6 +91,117 @@ function getMultiplier(safeCells) {
 }
 
 /* =========================================================
+   CURRENCY / COUNTRY HELPERS
+   ---------------------------------------------------------
+   CurrencyRate is used to identify the user's currency/rate.
+IMPORTANT: User.balance is maintained directly in the user's
+LOCAL currency. No INR conversion is performed for game accounting.
+The client sends the amount in the user's local currency.
+========================================================= */
+
+const COUNTRY_ALIASES = {
+  in: "IN",
+  india: "IN",
+
+  au: "AU",
+  australia: "AU",
+
+  pk: "PK",
+  pakistan: "PK",
+
+  bd: "BD",
+  bangladesh: "BD",
+
+  np: "NP",
+  nepal: "NP",
+
+  ae: "AE",
+  uae: "AE",
+  dubai: "AE",
+  "united arab emirates": "AE",
+};
+
+function normalizeCountryCode(country) {
+  if (!country) return "IN";
+
+  const key = String(country).trim().toLowerCase();
+
+  return COUNTRY_ALIASES[key] || key.toUpperCase();
+}
+
+/**
+ * Get the active CurrencyRate for the logged-in user.
+ *
+ * India does not need a DB rate because INR is the base currency.
+ * For every other country, an active CurrencyRate is mandatory.
+ */
+async function getUserCurrencyInfo(user) {
+  const countryCode = normalizeCountryCode(user?.country);
+
+  if (countryCode === "IN") {
+    return {
+      countryCode: "IN",
+      currencyCode: "INR",
+      rate: 1,
+    };
+  }
+
+  const currencyRate = await CurrencyRate.findOne({
+    countryCode,
+    status: true,
+  }).lean();
+
+  if (!currencyRate) {
+    const error = new Error(
+      `Currency rate not configured for country ${countryCode}`,
+    );
+    error.code = "CURRENCY_RATE_NOT_FOUND";
+    error.countryCode = countryCode;
+    throw error;
+  }
+
+  const rate = Number(currencyRate.rate);
+
+  if (!Number.isFinite(rate) || rate <= 0) {
+    const error = new Error(
+      `Invalid currency rate for country ${countryCode}`,
+    );
+    error.code = "INVALID_CURRENCY_RATE";
+    error.countryCode = countryCode;
+    throw error;
+  }
+
+  return {
+    countryCode,
+    currencyCode: String(currencyRate.currencyCode || "").toUpperCase(),
+    rate,
+  };
+}
+
+/**
+ * Convert local currency amount -> local currency amount.
+ *
+ * India:
+ *   100 INR -> 100 INR
+ *
+ * Australia with rate 55:
+ *   100 AUD -> 5500 INR
+ */
+function localToBaseAmount(localAmount, _rate) {
+  const amount = Number(localAmount);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  // LOCAL -> LOCAL: no conversion for balance accounting.
+  return amount;
+}
+
+function baseToLocalAmount(baseAmount, _rate) {
+  const amount = Number(baseAmount);
+  if (!Number.isFinite(amount)) return 0;
+  // LOCAL -> LOCAL: no conversion for responses/display.
+  return amount;
+}
+
+/* =========================================================
    START GAME
 ========================================================= */
 
@@ -100,77 +212,12 @@ exports.startGame = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // CHANGE: Default mines count 10 se 15 kiya
-    const minesCount = Math.min(
-      Math.max(Number(req.body.minesCount) || 15, 1),
-      35,
+    // ---------------------------------------------------------
+    // VALIDATE USER FIRST
+    // ---------------------------------------------------------
+    const user = await User.findById(userId).select(
+      "balance status country",
     );
-    console.log(req.body.minesCount, "ye dekh mine count ye rha");
-
-    const virtualStake = Number(req.body.virtualStake);
-
-    if (!Number.isFinite(virtualStake) || virtualStake <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid game entry amount",
-      });
-    }
-
-    /*
-     * -------------------------------------------------------
-     * CHECK ACTIVE GAME FIRST
-     * -------------------------------------------------------
-     *
-     * Existing game hone par balance dobara deduct nahi hoga.
-     */
-
-    const existing = await MinesGame.findOne({
-      user: userId,
-      status: "playing",
-    }).select("+minePositions");
-
-    if (existing) {
-      const user = await User.findById(userId).select(
-        "balance name email mobile",
-      );
-
-      return res.json({
-        success: true,
-        existingGame: true,
-
-        balance: Number(user?.balance || 0),
-
-        game: {
-          id: existing._id,
-          gridSize: existing.gridSize || GRID_SIZE,
-          totalCells: existing.totalCells || TOTAL_CELLS,
-
-          minesCount: existing.minesCount,
-
-          openedCells: existing.openedCells || [],
-          safeCells: existing.safeCells || 0,
-
-          multiplier: Number(existing.multiplier || 1),
-
-          virtualStake: Number(existing.virtualStake || 0),
-          entryAmount: Number(existing.virtualStake || 0),
-
-          virtualWin: Number(existing.virtualWin || 0),
-
-          status: existing.status,
-
-          createdAt: existing.createdAt,
-        },
-      });
-    }
-
-    /*
-     * -------------------------------------------------------
-     * VALIDATE USER
-     * -------------------------------------------------------
-     */
-
-    const user = await User.findById(userId).select("balance status");
 
     if (!user) {
       return res.status(404).json({
@@ -186,17 +233,117 @@ exports.startGame = async (req, res) => {
       });
     }
 
-    /*
-     * -------------------------------------------------------
-     * DEDUCT ENTRY FROM REAL BALANCE
-     * -------------------------------------------------------
-     *
-     * Atomic condition:
-     * balance >= virtualStake
-     *
-     * Isse negative balance nahi jayega.
-     */
+    // ---------------------------------------------------------
+    // FIND USER COUNTRY + CURRENCY RATE
+    // ---------------------------------------------------------
+    let currencyInfo;
 
+    try {
+      currencyInfo = await getUserCurrencyInfo(user);
+    } catch (currencyError) {
+      if (
+        currencyError.code === "CURRENCY_RATE_NOT_FOUND" ||
+        currencyError.code === "INVALID_CURRENCY_RATE"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: currencyError.message,
+          country: currencyError.countryCode,
+        });
+      }
+
+      throw currencyError;
+    }
+
+    // ---------------------------------------------------------
+    // MINES
+    // ---------------------------------------------------------
+    const minesCount = Math.min(
+      Math.max(Number(req.body.minesCount) || 15, 1),
+      35,
+    );
+
+    // IMPORTANT:
+    // virtualStake coming from frontend is LOCAL currency.
+    // It is deducted directly from User.balance in the same currency.
+    const localStake = Number(req.body.virtualStake);
+
+    if (!Number.isFinite(localStake) || localStake <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid game entry amount",
+      });
+    }
+
+    const virtualStake = localToBaseAmount(localStake, currencyInfo.rate);
+
+    if (!Number.isFinite(virtualStake) || virtualStake <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid game entry amount",
+      });
+    }
+
+    // ---------------------------------------------------------
+    // CHECK ACTIVE GAME FIRST
+    // ---------------------------------------------------------
+    const existing = await MinesGame.findOne({
+      user: userId,
+      status: "playing",
+    }).select("+minePositions");
+
+    if (existing) {
+      const existingStake = Number(existing.virtualStake || 0);
+
+      return res.json({
+        success: true,
+        existingGame: true,
+
+        country: currencyInfo.countryCode,
+        currency: currencyInfo.currencyCode,
+        currencyRate: currencyInfo.rate,
+
+        balance: Number(user.balance || 0),
+        balanceLocal: baseToLocalAmount(
+          Number(user.balance || 0),
+          currencyInfo.rate,
+        ),
+
+        game: {
+          id: existing._id,
+          gridSize: existing.gridSize || GRID_SIZE,
+          totalCells: existing.totalCells || TOTAL_CELLS,
+
+          minesCount: existing.minesCount,
+
+          openedCells: existing.openedCells || [],
+          safeCells: existing.safeCells || 0,
+
+          multiplier: Number(existing.multiplier || 1),
+
+          // DB keeps local currency amount.
+          virtualStake: existingStake,
+
+          // Local amount for UI.
+          entryAmount: existingStake,
+
+          virtualWin: Number(existing.virtualWin || 0),
+
+          // Local win amount for UI.
+          winAmount: baseToLocalAmount(
+            Number(existing.virtualWin || 0),
+            currencyInfo.rate,
+          ),
+
+          status: existing.status,
+          createdAt: existing.createdAt,
+        },
+      });
+    }
+
+    // ---------------------------------------------------------
+    // DEDUCT ENTRY FROM REAL LOCAL BALANCE
+    // ---------------------------------------------------------
     const updatedUser = await User.findOneAndUpdate(
       {
         _id: userId,
@@ -213,7 +360,7 @@ exports.startGame = async (req, res) => {
       {
         new: true,
       },
-    ).select("balance");
+    ).select("balance country");
 
     if (!updatedUser) {
       return res.status(400).json({
@@ -225,20 +372,14 @@ exports.startGame = async (req, res) => {
     deducted = true;
     deductedAmount = virtualStake;
 
-    /*
-     * -------------------------------------------------------
-     * GENERATE MINES
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // GENERATE MINES
+    // ---------------------------------------------------------
     const minePositions = generateMines(minesCount);
 
-    /*
-     * -------------------------------------------------------
-     * CREATE GAME
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // CREATE GAME
+    // ---------------------------------------------------------
     let game;
 
     try {
@@ -256,17 +397,15 @@ exports.startGame = async (req, res) => {
 
         multiplier: 1,
 
-        virtualStake: virtualStake,
+        // IMPORTANT:
+        // Store only local currency in DB.
+        virtualStake,
+
         virtualWin: 0,
 
         status: "playing",
       });
     } catch (createError) {
-      /*
-       * Game create fail ho gaya to deducted amount
-       * user ko wapas de do.
-       */
-
       await User.findByIdAndUpdate(userId, {
         $inc: {
           balance: virtualStake,
@@ -274,16 +413,17 @@ exports.startGame = async (req, res) => {
       });
 
       deducted = false;
-
       throw createError;
     }
 
-    /*
-     * -------------------------------------------------------
-     * SOCKET ADMIN
-     * -------------------------------------------------------
-     */
+    const entryLocalAmount = baseToLocalAmount(
+      virtualStake,
+      currencyInfo.rate,
+    );
 
+    // ---------------------------------------------------------
+    // SOCKET ADMIN
+    // ---------------------------------------------------------
     const io = req.app.get("io");
 
     if (io) {
@@ -291,29 +431,43 @@ exports.startGame = async (req, res) => {
         gameId: game._id,
         userId,
 
+        country: currencyInfo.countryCode,
+        currency: currencyInfo.currencyCode,
+        currencyRate: currencyInfo.rate,
+
         minesCount,
 
+        // Local currency values for accounting.
         virtualStake,
         entryAmount: virtualStake,
+
+        // Local display value.
+        localStake: entryLocalAmount,
 
         balanceAfter: Number(updatedUser.balance),
 
         status: game.status,
-
         createdAt: game.createdAt,
       });
     }
 
-    /*
-     * -------------------------------------------------------
-     * RESPONSE
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // RESPONSE
+    // ---------------------------------------------------------
     return res.status(201).json({
       success: true,
 
+      country: currencyInfo.countryCode,
+      currency: currencyInfo.currencyCode,
+      currencyRate: currencyInfo.rate,
+
       balance: Number(updatedUser.balance),
+
+      // Local balance for display.
+      balanceLocal: baseToLocalAmount(
+        Number(updatedUser.balance),
+        currencyInfo.rate,
+      ),
 
       game: {
         id: game._id,
@@ -328,25 +482,21 @@ exports.startGame = async (req, res) => {
 
         multiplier: 1,
 
-        virtualStake: virtualStake,
+        // DB/local currency amount.
+        virtualStake,
+
+        // Local amount for UI.
         entryAmount: virtualStake,
 
         virtualWin: 0,
+        winAmount: 0,
 
         status: "playing",
-
         createdAt: game.createdAt,
       },
     });
   } catch (error) {
     console.error("Mines startGame error:", error);
-
-    /*
-     * Safety refund if something unexpected happened
-     * after deduction.
-     *
-     * Normally create-game catch already handles refund.
-     */
 
     if (deducted && deductedAmount > 0) {
       try {
@@ -385,6 +535,46 @@ exports.revealCell = async (req, res) => {
       });
     }
 
+    // ---------------------------------------------------------
+    // GET USER + COUNTRY RATE
+    // ---------------------------------------------------------
+    const user = await User.findById(userId).select(
+      "balance status country",
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.status !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is blocked",
+      });
+    }
+
+    let currencyInfo;
+
+    try {
+      currencyInfo = await getUserCurrencyInfo(user);
+    } catch (currencyError) {
+      if (
+        currencyError.code === "CURRENCY_RATE_NOT_FOUND" ||
+        currencyError.code === "INVALID_CURRENCY_RATE"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: currencyError.message,
+          country: currencyError.countryCode,
+        });
+      }
+
+      throw currencyError;
+    }
+
     const game = await MinesGame.findOne({
       _id: gameId,
       user: userId,
@@ -398,10 +588,6 @@ exports.revealCell = async (req, res) => {
       });
     }
 
-    /*
-     * Prevent duplicate cell
-     */
-
     if (game.openedCells.includes(cell)) {
       return res.status(400).json({
         success: false,
@@ -409,15 +595,9 @@ exports.revealCell = async (req, res) => {
       });
     }
 
-    /*
-     * -------------------------------------------------------
-     * GUARANTEED SAFE FIRST 2-3 CLICKS
-     * -------------------------------------------------------
-     *
-     * This is based on the user's actual reveal order, not
-     * the board position. So the user may click ANY tile and
-     * the first 2 or 3 clicks will be safe.
-     */
+    // ---------------------------------------------------------
+    // GUARANTEED SAFE FIRST 2-3 CLICKS
+    // ---------------------------------------------------------
     const currentClickNumber = (game.openedCells?.length || 0) + 1;
     const guaranteedSafeClicks = getGuaranteedSafeClicks();
 
@@ -432,22 +612,14 @@ exports.revealCell = async (req, res) => {
       }
     }
 
-    /*
-     * -------------------------------------------------------
-     * CHECK MINE
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // CHECK MINE
+    // ---------------------------------------------------------
     const isMine = game.minePositions.includes(cell);
 
     if (isMine) {
       game.status = "lost";
       game.finishedAt = new Date();
-
-      /*
-       * Lost game has no win.
-       */
-
       game.virtualWin = 0;
 
       await game.save();
@@ -456,29 +628,32 @@ exports.revealCell = async (req, res) => {
 
       const payload = {
         gameId,
-
         cell,
         isMine: true,
-
         status: "lost",
-
         minesCount: game.minesCount,
 
         openedCells: game.openedCells || [],
-
         safeCells: game.safeCells || 0,
 
         multiplier: Number(game.multiplier || 1),
 
+        // DB/local currency values.
         virtualStake: Number(game.virtualStake || 0),
         entryAmount: Number(game.virtualStake || 0),
-
         virtualWin: 0,
 
-        /*
-         * Mine positions only game finish hone par
-         * client ko send karna.
-         */
+        // Local display values.
+        localStake: baseToLocalAmount(
+          Number(game.virtualStake || 0),
+          currencyInfo.rate,
+        ),
+        localWin: 0,
+
+        country: currencyInfo.countryCode,
+        currency: currencyInfo.currencyCode,
+        currencyRate: currencyInfo.rate,
+
         minePositions: game.minePositions,
       };
 
@@ -489,14 +664,16 @@ exports.revealCell = async (req, res) => {
           gameId,
           userId,
 
+          country: currencyInfo.countryCode,
+          currency: currencyInfo.currencyCode,
+          currencyRate: currencyInfo.rate,
+
           status: "lost",
 
           virtualStake: Number(game.virtualStake || 0),
-
           virtualWin: 0,
 
           cell,
-
           finishedAt: game.finishedAt,
         });
       }
@@ -507,76 +684,93 @@ exports.revealCell = async (req, res) => {
       });
     }
 
-    /*
-     * -------------------------------------------------------
-     * SAFE CELL
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // SAFE CELL
+    // ---------------------------------------------------------
     game.openedCells.push(cell);
-
     game.safeCells = game.openedCells.length;
-
     game.multiplier = getMultiplier(game.safeCells);
 
     const safeTotal = TOTAL_CELLS - game.minesCount;
 
-    /*
-     * -------------------------------------------------------
-     * AUTO WIN
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // AUTO WIN
+    // ---------------------------------------------------------
     if (game.safeCells >= safeTotal) {
       game.status = "won";
 
-      game.virtualWin =
-        Number(game.virtualStake || 0) * Number(game.multiplier || 1);
+      // virtualStake is already the user's local-currency amount.
+      const virtualWin =
+        Number(game.virtualStake || 0) *
+        Number(game.multiplier || 1);
 
+      game.virtualWin = virtualWin;
       game.finishedAt = new Date();
 
       await game.save();
 
-      /*
-       * Add winning amount to real balance.
-       *
-       * IMPORTANT:
-       * Entry was already deducted when game started.
-       */
-
+      // Add the WIN in local currency to the real balance.
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
           $inc: {
-            balance: Number(game.virtualWin || 0),
+            balance: virtualWin,
           },
         },
         {
           new: true,
         },
-      ).select("balance");
+      ).select("balance country");
+
+      if (!updatedUser) {
+        return res.status(500).json({
+          success: false,
+          message: "Win recorded but balance update failed. Contact admin.",
+        });
+      }
+
+      const localStake = baseToLocalAmount(
+        Number(game.virtualStake || 0),
+        currencyInfo.rate,
+      );
+
+      const localWin = baseToLocalAmount(
+        Number(virtualWin || 0),
+        currencyInfo.rate,
+      );
 
       const payload = {
         gameId,
-
         cell,
         isMine: false,
-
         status: "won",
 
         openedCells: game.openedCells,
-
         safeCells: game.safeCells,
 
         multiplier: Number(game.multiplier || 1),
 
+        // Local currency values.
         virtualStake: Number(game.virtualStake || 0),
-
         entryAmount: Number(game.virtualStake || 0),
+        virtualWin: Number(virtualWin || 0),
 
-        virtualWin: Number(game.virtualWin || 0),
+        // Local values.
+        localStake,
+        localWin,
 
-        balance: Number(updatedUser?.balance || 0),
+        country: currencyInfo.countryCode,
+        currency: currencyInfo.currencyCode,
+        currencyRate: currencyInfo.rate,
+
+        // Balance stays local currency.
+        balance: Number(updatedUser.balance || 0),
+
+        // Local balance for display.
+        balanceLocal: baseToLocalAmount(
+          Number(updatedUser.balance || 0),
+          currencyInfo.rate,
+        ),
 
         minePositions: game.minePositions,
       };
@@ -590,11 +784,14 @@ exports.revealCell = async (req, res) => {
           gameId,
           userId,
 
+          country: currencyInfo.countryCode,
+          currency: currencyInfo.currencyCode,
+          currencyRate: currencyInfo.rate,
+
           status: "won",
 
           virtualStake: Number(game.virtualStake || 0),
-
-          virtualWin: Number(game.virtualWin || 0),
+          virtualWin: Number(virtualWin || 0),
 
           balanceAfter: Number(updatedUser?.balance || 0),
 
@@ -604,38 +801,49 @@ exports.revealCell = async (req, res) => {
 
       return res.json({
         success: true,
-
         result: payload,
       });
     }
 
-    /*
-     * -------------------------------------------------------
-     * NORMAL PLAYING GAME
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // NORMAL PLAYING GAME
+    // ---------------------------------------------------------
     await game.save();
+
+    const localStake = baseToLocalAmount(
+      Number(game.virtualStake || 0),
+      currencyInfo.rate,
+    );
+
+    const currentLocalWin = baseToLocalAmount(
+      Number(game.virtualStake || 0) *
+        Number(game.multiplier || 1),
+      currencyInfo.rate,
+    );
 
     const payload = {
       gameId,
-
       cell,
       isMine: false,
-
       status: game.status,
 
       openedCells: game.openedCells,
-
       safeCells: game.safeCells,
 
       multiplier: Number(game.multiplier || 1),
 
+      // Local currency values.
       virtualStake: Number(game.virtualStake || 0),
-
       entryAmount: Number(game.virtualStake || 0),
+      virtualWin: 0,
 
-      virtualWin: Number(game.virtualWin || 0),
+      // Local values.
+      localStake,
+      localWin: currentLocalWin,
+
+      country: currencyInfo.countryCode,
+      currency: currencyInfo.currencyCode,
+      currencyRate: currencyInfo.rate,
     };
 
     const io = req.app.get("io");
@@ -667,10 +875,49 @@ exports.cashout = async (req, res) => {
     const userId = req.user.id;
     const { gameId } = req.params;
 
-    /*
-     * Find active game
-     */
+    // ---------------------------------------------------------
+    // GET USER + COUNTRY RATE
+    // ---------------------------------------------------------
+    const user = await User.findById(userId).select(
+      "balance status country",
+    );
 
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.status !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is blocked",
+      });
+    }
+
+    let currencyInfo;
+
+    try {
+      currencyInfo = await getUserCurrencyInfo(user);
+    } catch (currencyError) {
+      if (
+        currencyError.code === "CURRENCY_RATE_NOT_FOUND" ||
+        currencyError.code === "INVALID_CURRENCY_RATE"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: currencyError.message,
+          country: currencyError.countryCode,
+        });
+      }
+
+      throw currencyError;
+    }
+
+    // ---------------------------------------------------------
+    // FIND ACTIVE GAME
+    // ---------------------------------------------------------
     const game = await MinesGame.findOne({
       _id: gameId,
       user: userId,
@@ -684,10 +931,6 @@ exports.cashout = async (req, res) => {
       });
     }
 
-    /*
-     * Must open at least one safe cell
-     */
-
     if (Number(game.safeCells || 0) <= 0) {
       return res.status(400).json({
         success: false,
@@ -695,22 +938,25 @@ exports.cashout = async (req, res) => {
       });
     }
 
-    /*
-     * Calculate winning
-     */
-
+    // ---------------------------------------------------------
+    // CALCULATE WIN
+    // ---------------------------------------------------------
+    // virtualStake is already stored in the user's local currency.
     const virtualWin =
-      Number(game.virtualStake || 0) * Number(game.multiplier || 1);
+      Number(game.virtualStake || 0) *
+      Number(game.multiplier || 1);
 
-    /*
-     * -------------------------------------------------------
-     * UPDATE GAME FIRST
-     * -------------------------------------------------------
-     *
-     * Use conditional update so same game cannot be
-     * cashed out twice by concurrent requests.
-     */
+    if (!Number.isFinite(virtualWin) || virtualWin <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid winning amount",
+      });
+    }
 
+    // ---------------------------------------------------------
+    // UPDATE GAME FIRST
+    // Prevent double cashout.
+    // ---------------------------------------------------------
     const updatedGame = await MinesGame.findOneAndUpdate(
       {
         _id: gameId,
@@ -723,9 +969,7 @@ exports.cashout = async (req, res) => {
       {
         $set: {
           status: "cashout",
-
           virtualWin,
-
           finishedAt: new Date(),
         },
       },
@@ -741,12 +985,9 @@ exports.cashout = async (req, res) => {
       });
     }
 
-    /*
-     * -------------------------------------------------------
-     * ADD WINNING TO USER BALANCE
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // ADD WINNING AMOUNT TO REAL LOCAL BALANCE
+    // ---------------------------------------------------------
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       {
@@ -757,54 +998,72 @@ exports.cashout = async (req, res) => {
       {
         new: true,
       },
-    ).select("balance");
+    ).select("balance country");
 
     if (!updatedUser) {
-      /*
-       * Very unlikely.
-       *
-       * Game already marked cashout, so log it loudly.
-       */
-      console.error("CRITICAL: User not found while crediting Mines cashout", {
-        userId,
-        gameId,
-        virtualWin,
-      });
+      console.error(
+        "CRITICAL: User not found while crediting Mines cashout",
+        {
+          userId,
+          gameId,
+          virtualWin,
+        },
+      );
 
       return res.status(500).json({
         success: false,
-        message: "Cashout recorded but balance update failed. Contact admin.",
+        message:
+          "Cashout recorded but balance update failed. Contact admin.",
       });
     }
 
+    const localStake = baseToLocalAmount(
+      Number(updatedGame.virtualStake || 0),
+      currencyInfo.rate,
+    );
+
+    const localWin = baseToLocalAmount(
+      Number(virtualWin || 0),
+      currencyInfo.rate,
+    );
+
     const result = {
       gameId,
-
       status: "cashout",
 
       openedCells: updatedGame.openedCells || [],
-
       safeCells: updatedGame.safeCells || 0,
 
       multiplier: Number(updatedGame.multiplier || 1),
 
+      // Local currency/accounting values.
       virtualStake: Number(updatedGame.virtualStake || 0),
-
       entryAmount: Number(updatedGame.virtualStake || 0),
-
       virtualWin: Number(virtualWin),
 
+      // User's local currency values.
+      localStake,
+      localWin,
+
+      country: currencyInfo.countryCode,
+      currency: currencyInfo.currencyCode,
+      currencyRate: currencyInfo.rate,
+
+      // Balance remains local currency.
       balance: Number(updatedUser.balance || 0),
+
+      // Local balance for display.
+      balanceLocal: baseToLocalAmount(
+        Number(updatedUser.balance || 0),
+        currencyInfo.rate,
+      ),
 
       finishedAt: updatedGame.finishedAt,
     };
 
-    /*
-     * -------------------------------------------------------
-     * SOCKET
-     * -------------------------------------------------------
-     */
-
+    // ---------------------------------------------------------
+    // SOCKET
+    // ---------------------------------------------------------
     const io = req.app.get("io");
 
     if (io) {
@@ -814,11 +1073,17 @@ exports.cashout = async (req, res) => {
         gameId,
         userId,
 
+        country: currencyInfo.countryCode,
+        currency: currencyInfo.currencyCode,
+        currencyRate: currencyInfo.rate,
+
         status: "cashout",
 
         virtualStake: Number(updatedGame.virtualStake || 0),
-
         virtualWin: Number(virtualWin),
+
+        localStake,
+        localWin,
 
         balanceAfter: Number(updatedUser.balance || 0),
 
@@ -828,16 +1093,32 @@ exports.cashout = async (req, res) => {
 
     return res.json({
       success: true,
-
       message: "Cashout successful",
 
+      country: currencyInfo.countryCode,
+      currency: currencyInfo.currencyCode,
+      currencyRate: currencyInfo.rate,
+
+      // Local currency amount.
       virtualWin: Number(virtualWin),
+
+      // Local currency amount.
+      winAmount: localWin,
 
       multiplier: Number(updatedGame.multiplier || 1),
 
       balance: Number(updatedUser.balance || 0),
 
+      balanceLocal: baseToLocalAmount(
+        Number(updatedUser.balance || 0),
+        currencyInfo.rate,
+      ),
+
+      // Local currency.
       entryAmount: Number(updatedGame.virtualStake || 0),
+
+      // Local.
+      entryAmountLocal: localStake,
 
       status: "cashout",
     });
@@ -858,7 +1139,7 @@ exports.cashout = async (req, res) => {
 exports.getHistory = async (req, res) => {
   try {
     const games = await MinesGame.find()
-      .populate("user", "username name email mobile")
+      .populate("user", "username name email mobile country")
       .sort({
         createdAt: -1,
       })
