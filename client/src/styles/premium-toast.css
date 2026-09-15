@@ -1,0 +1,50 @@
+/* Premium toast overrides — matched to WINZOX gold/amber theme */
+
+.Toastify__toast-container {
+  width: auto;
+  max-width: 420px;
+  padding: 0;
+}
+
+.premium-toast {
+  border-radius: 18px !important;
+  padding: 14px 16px !important;
+  background: #ffffff !important;
+  border: 1.5px solid #fde3a7 !important; /* amber-200 */
+  box-shadow:
+    0 10px 28px rgba(217, 146, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  min-height: unset !important;
+}
+
+.premium-toast--error {
+  border: 1.5px solid #fecaca !important; /* red-200 */
+}
+
+.premium-toast--warning {
+  border: 1.5px solid #fed7aa !important; /* orange-200 */
+}
+
+.Toastify__close-button {
+  color: #d1a75c !important;
+  opacity: 1 !important;
+  align-self: center;
+}
+
+.Toastify__close-button:hover {
+  color: #b8860b !important;
+}
+
+.premium-toast-progress {
+  height: 3px !important;
+  border-radius: 0 0 18px 18px;
+  background: linear-gradient(90deg, #fff19a, #ffc928, #d99200) !important;
+}
+
+.premium-toast-progress--error {
+  background: linear-gradient(90deg, #f87171, #dc2626) !important;
+}
+
+.premium-toast-progress--warning {
+  background: linear-gradient(90deg, #fb923c, #ea580c) !important;
+}

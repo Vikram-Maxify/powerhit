@@ -21,6 +21,7 @@ import {
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
+import { showErrorToast, showSuccessToast } from "../hooks/toast";
 import { logout } from "../redux/slices/authSlice";
 
 // ======================================================
@@ -104,7 +105,6 @@ const Account = () => {
     {
       icon: HistoryIcon,
       label: "Powerhit History",
-      // 👇 Dynamic country-wise path
       path: `/${countryPath}/powerhit/history`,
       iconColor: "text-purple-500",
       description: "Check your powerhit history",
@@ -165,7 +165,7 @@ const Account = () => {
   const moreOptions = accountMenuItems.filter((i) => i.group === "more");
 
   const getUserDisplayName = () => user?.name || user?.username || "Player123";
-  const getUserUID = () => user?.uid || "WINZOX123456";
+  const getUserUID = () => user?.userId || "WINZOX123456";
   const getUserPhone = () => user?.mobile || "+91 98765 43210";
 
   const copyUID = async () => {
@@ -188,10 +188,18 @@ const Account = () => {
   const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await dispatch(logout()).unwrap();
+      const result = await dispatch(logout()).unwrap();
+      showSuccessToast(
+        "Logged Out",
+        result?.message || "You've been logged out successfully.",
+      );
+      setShowLogoutConfirm(false);
       navigate("/login");
     } catch (error) {
-      console.error("Logout failed:", error);
+      showErrorToast(
+        "Logout Failed",
+        error || "Something went wrong. Try again.",
+      );
       setIsLoggingOut(false);
       setShowLogoutConfirm(false);
     }
@@ -233,7 +241,7 @@ const Account = () => {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xl font-bold text-gray-900 truncate">
+              <h2 className="text-xl font-bold text-gray-900 truncate uppercase">
                 {getUserDisplayName()}
               </h2>
               <span className="w-6 h-6 rounded-md bg-amber-50 border border-amber-300 flex items-center justify-center flex-shrink-0">
@@ -248,7 +256,7 @@ const Account = () => {
               }}
               className="flex items-center gap-1.5 text-sm text-gray-600 mb-1.5"
             >
-              UID: {getUserUID()}
+              UID: WINZOX{getUserUID()}
               <Copy
                 size={13}
                 className={copied ? "text-green-500" : "text-gray-400"}
@@ -266,7 +274,6 @@ const Account = () => {
                 <ShieldCheck size={12} />
               </span>
 
-              {/* 👇 Country Badge */}
               <span className="flex items-center gap-1 text-xs font-bold text-blue-600 border border-blue-300 rounded-full px-2.5 py-0.5">
                 {user?.country || "IN"}
               </span>
@@ -312,8 +319,6 @@ const Account = () => {
         <div className="rounded-2xl bg-white border border-amber-200 mb-5 overflow-hidden">
           {historyItems.map((item, i) => {
             const Icon = item.icon;
-
-            // 👇 Check if it's Powerhit History to show country badge
             const isPowerhitHistory = item.label === "Powerhit History";
 
             return (

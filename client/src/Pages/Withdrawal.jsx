@@ -22,11 +22,11 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
 // Import from withdrawal slice
+import { showErrorToast } from "../hooks/toast";
 import {
   clearWithdrawalError,
   clearWithdrawalSuccess,
@@ -126,15 +126,15 @@ const Withdrawal = () => {
   // Handle errors
   useEffect(() => {
     if (error) {
-      toast.error(error);
+      showErrorToast("Withdrawal Failed", error);
       dispatch(clearWithdrawalError());
     }
     if (requestError) {
-      toast.error(requestError);
+      showErrorToast("Withdrawal Failed", requestError);
       dispatch(clearWithdrawalError());
     }
     if (settingsError) {
-      toast.error(settingsError);
+      showErrorToast("Settings Error", settingsError);
       dispatch(clearWithdrawalError());
     }
   }, [error, requestError, settingsError, dispatch]);

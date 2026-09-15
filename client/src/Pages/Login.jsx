@@ -2,6 +2,7 @@ import { Eye, EyeOff, Lock, Phone, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
+import { showErrorToast, showSuccessToast } from "../hooks/toast";
 import { clearError, login } from "../redux/slices/authSlice";
 
 const HERO_IMAGE = "https://i.ibb.co/DffFKgD0/imagepng1.png";
@@ -10,9 +11,7 @@ const Login = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { loading, error, success, message, isAuthenticated } = useSelector(
-    (state) => state.auth,
-  );
+  const { loading, isAuthenticated } = useSelector((state) => state.auth);
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -36,7 +35,6 @@ const Login = () => {
     let inputValue = value;
 
     if (name === "mobile") {
-      // Only digits
       inputValue = value.replace(/\D/g, "").slice(0, 10);
     }
 
@@ -52,7 +50,7 @@ const Login = () => {
       }));
     }
 
-    if (error) {
+    if (dispatch) {
       dispatch(clearError());
     }
   };
@@ -84,7 +82,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // if (!validateForm()) return;
+    if (!validateForm()) return;
 
     const userData = {
       mobile: formData.mobile.trim(),
@@ -94,11 +92,10 @@ const Login = () => {
 
     try {
       const result = await dispatch(login(userData)).unwrap();
-
-
+      showSuccessToast("Login Successful", result?.message || "Welcome back!");
       navigate("/", { replace: true });
     } catch (err) {
-      console.error("Login failed:", err);
+      showErrorToast("Login Failed", err || "Invalid mobile or password");
     }
   };
 
@@ -142,28 +139,6 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Error */}
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center justify-between">
-                <span>{error}</span>
-
-                <button
-                  type="button"
-                  onClick={() => dispatch(clearError())}
-                  className="text-red-400 hover:text-red-600"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            {/* Success */}
-            {success && message && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-green-600 text-sm">
-                {message}
-              </div>
-            )}
-
             {/* Mobile Number */}
             <div>
               <label className="text-sm font-bold block mb-1.5 text-gray-800">

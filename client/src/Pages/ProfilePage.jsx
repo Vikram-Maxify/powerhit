@@ -1,18 +1,10 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  BadgeCheck,
-  Lock,
-  LogOut,
-  Menu,
-  User,
-  X,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, Lock, LogOut, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
 import ChangePassword from "../components/ChangePassword";
+import { showErrorToast } from "../hooks/toast";
 import { getProfile } from "../redux/slices/authSlice";
 import ProfileContent from "./ProfileContent";
 
@@ -43,7 +35,9 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const { user, loading, profileLoaded } = useSelector((state) => state.auth);
+  const { user, loading, profileLoaded, error } = useSelector(
+    (state) => state.auth,
+  );
 
   // Get currency symbol based on user's country
   const currencySymbol = getCurrencySymbol(user?.country);
@@ -62,6 +56,13 @@ export default function ProfilePage() {
     }
   }, [dispatch, profileLoaded, loading]);
 
+  // Show profile errors using the same toast system as Withdrawal page
+  useEffect(() => {
+    if (error) {
+      showErrorToast("Profile Error", error);
+    }
+  }, [error]);
+
   const menu = [
     { id: "profile", title: "Profile", icon: User },
     { id: "password", title: "Change Password", icon: Lock },
@@ -74,7 +75,7 @@ export default function ProfilePage() {
   };
 
   const getUserDisplayName = () => user?.name || user?.mobile || "User";
-  const getUserId = () => (user?._id ? `@${user._id.slice(-8)}` : "@user");
+  const getUserId = () => user?.userId || "WINZOX0000";
   const getAvatar = () => {
     const name = user?.name || "User";
 
@@ -87,21 +88,6 @@ export default function ProfilePage() {
   };
   return (
     <div className="min-h-screen bg-slate-100 ">
-      {/* Mobile Header */}
-      <div className="lg:hidden p-4">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800">Winzox Profile</h2>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="w-11 h-11 rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
-border border-[#FFD75A]
-shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black flex items-center justify-center"
-          >
-            <Menu size={22} />
-          </button>
-        </div>
-      </div>
-
       <div className="h-full flex gap-0">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block w-80 flex-shrink-0 h-full">
@@ -190,10 +176,6 @@ function DesktopSidebar({
               {getUserDisplayName()}
             </h2>
             <p className="text-gray-500">{getUserId()}</p>
-            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
-              <BadgeCheck size={14} />
-              {user?.membership || "Silver Member"}
-            </div>
           </div>
         </div>
 

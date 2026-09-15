@@ -56,6 +56,7 @@ import minesReducer from "./slices/minesSlice";
 import powerballResultReducer from "./slices/powerballResultSlice";
 import publicBidReducer from "./slices/publicBidSlice";
 import publicmatkaResultReducer from "./slices/publicmatkaResult";
+import referralLevelReducer from "./slices/referralLevelSlice";
 import resultReducer from "./slices/resultSlice";
 import tradingReducer from "./slices/tradingReducer";
 
@@ -76,7 +77,7 @@ export const store = configureStore({
     bet: betReducer,
     trading: tradingReducer,
     publicmatkaResult: publicmatkaResultReducer,
-
+    referralLevel: referralLevelReducer,
     // ========================================
     // AUSTRALIA
     // ========================================

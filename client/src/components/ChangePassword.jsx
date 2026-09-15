@@ -4,26 +4,32 @@ import {
   EyeOff,
   Loader2,
   Lock,
+  LogOut,
   ShieldCheck,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { showErrorToast, showSuccessToast } from "../hooks/toast";
 import {
   changePassword,
   clearError,
   clearMessage,
+  logout,
 } from "../redux/slices/authSlice";
 
 export default function ChangePassword() {
   const dispatch = useDispatch();
-  const { loading, error, success, message } = useSelector(
-    (state) => state.auth,
-  );
+  const navigate = useNavigate();
+  const { loading } = useSelector((state) => state.auth);
 
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [statusMessage, setStatusMessage] = useState(null);
+  const [showReloginNotice, setShowReloginNotice] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const reloginTimerRef = useRef(null);
 
   const [form, setForm] = useState({
     currentPassword: "",
@@ -43,6 +49,9 @@ export default function ChangePassword() {
     return () => {
       dispatch(clearMessage());
       dispatch(clearError());
+      if (reloginTimerRef.current) {
+        clearTimeout(reloginTimerRef.current);
+      }
     };
   }, [dispatch]);
 
@@ -50,7 +59,6 @@ export default function ChangePassword() {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
     if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: "" }));
-    if (error) dispatch(clearError());
     if (name === "newPassword") checkPasswordStrength(value);
   };
 
@@ -91,18 +99,19 @@ export default function ChangePassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-    setStatusMessage(null);
     try {
-      await dispatch(
+      const result = await dispatch(
         changePassword({
           oldPassword: form.currentPassword,
           newPassword: form.newPassword,
         }),
       ).unwrap();
-      setStatusMessage({
-        type: "success",
-        message: "Password changed successfully!",
-      });
+
+      showSuccessToast(
+        "Password Changed",
+        result?.message || "Password changed successfully!",
+      );
+
       setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       setPasswordStrength({
         minLength: false,
@@ -110,15 +119,13 @@ export default function ChangePassword() {
         hasNumber: false,
         hasSpecialChar: false,
       });
-      setTimeout(() => {
-        dispatch(clearMessage());
-        setStatusMessage(null);
+
+      // 5 second baad relogin notice dikhao
+      reloginTimerRef.current = setTimeout(() => {
+        setShowReloginNotice(true);
       }, 5000);
     } catch (err) {
-      setStatusMessage({
-        type: "error",
-        message: err || "Failed to change password",
-      });
+      showErrorToast("Change Failed", err || "Failed to change password");
     }
   };
 
@@ -131,9 +138,21 @@ export default function ChangePassword() {
       hasNumber: false,
       hasSpecialChar: false,
     });
-    setStatusMessage(null);
     dispatch(clearError());
     dispatch(clearMessage());
+  };
+
+  const handleReloginConfirm = async () => {
+    setIsLoggingOut(true);
+    try {
+      await dispatch(logout()).unwrap();
+    } catch (err) {
+      // logout API fail bhi ho to local session clear karke login pe bhej dete hain
+    } finally {
+      setIsLoggingOut(false);
+      setShowReloginNotice(false);
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
@@ -144,7 +163,7 @@ export default function ChangePassword() {
           <div
             className="w-10 h-10 rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
 border border-[#FFD75A]
-shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center text-white shadow-md flex-shrink-0"
+shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] flex items-center justify-center text-white flex-shrink-0"
           >
             <Lock size={18} />
           </div>
@@ -173,29 +192,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] f
               </p>
             </div>
           </div>
-
-          {/* Status Messages */}
-          {statusMessage && (
-            <div
-              className={`mb-4 p-3 rounded-xl text-sm ${
-                statusMessage.type === "success"
-                  ? "bg-green-50 border border-green-200 text-green-600"
-                  : "bg-red-50 border border-red-200 text-red-600"
-              }`}
-            >
-              {statusMessage.message}
-            </div>
-          )}
-          {error && !statusMessage && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-          {success && message && !statusMessage && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-green-600 text-sm">
-              {message}
-            </div>
-          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
@@ -377,6 +373,42 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] t
           </form>
         </div>
       </div>
+
+      {/* Relogin Notice Modal */}
+      {showReloginNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="relative bg-white rounded-2xl border border-amber-200 w-full max-w-xs p-6 text-center shadow-xl">
+            <div className="w-14 h-14 rounded-full border border-amber-300 bg-amber-50 flex items-center justify-center mx-auto mb-3">
+              <LogOut size={22} className="text-amber-500" />
+            </div>
+
+            <h3 className="text-base font-bold text-gray-900 mb-1">
+              Please Login Again
+            </h3>
+            <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+              Your password has been updated. For the changes to take effect,
+              you need to log in again.
+            </p>
+
+            <button
+              onClick={handleReloginConfirm}
+              disabled={isLoggingOut}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-b from-[#FFF19A] via-[#FFC928] to-[#D99200]
+border border-[#FFD75A]
+shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] text-black font-bold text-sm transition disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isLoggingOut ? (
+                <>
+                  <Loader2 className="animate-spin" size={16} />
+                  Logging out...
+                </>
+              ) : (
+                "OK"
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

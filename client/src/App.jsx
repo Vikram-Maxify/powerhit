@@ -57,11 +57,15 @@ import MatkaMarkets from "./Pages/user/Markets.jsx";
 import PlaceBid from "./Pages/user/PlaceBid.jsx";
 import MatkaResults from "./Pages/user/Results.jsx";
 
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import MarketDetailedResults from "./Pages/MarketDetailedResults.jsx";
 import MinesGame from "./Pages/MinesGame.jsx";
 import PowerballpublickResults from "./Pages/PowerballpublickResults.jsx";
 import Wingo from "./Pages/wingo/Wingo.jsx";
 import { getProfile, logout } from "./redux/slices/authSlice.js";
+import "./styles/premium-toast.css";
+import ChangePassword from "./components/ChangePassword.jsx";
 
 // ========================================
 // Scroll To Top
@@ -222,6 +226,10 @@ function App() {
 
   return (
     <>
+      <>
+        {/* baaki existing App content / routes */}
+        <ToastContainer position="top-center" newestOnTop limit={3} />
+      </>
       <ScrollToTop />
 
       <AppInitializer>
@@ -529,6 +537,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Withdrawal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/change-password"
+              element={
+                <ProtectedRoute>
+                  <ChangePassword />
                 </ProtectedRoute>
               }
             />

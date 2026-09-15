@@ -637,44 +637,16 @@ const getProfile = async (req, res) => {
     const totalMembersJoined =
       level1Users.length + level2Users.length + level3Users.length;
 
-    const allReferredIds = [
-      ...level1Ids,
-      ...level2Ids,
-      ...level3Users.map((u) => u._id),
-    ];
-
     // ================= FIRST DEPOSIT COUNT =================
-    // TODO (Vikram): Ye query tumhare actual Transaction/Deposit
-    // model ke hisaab se badalni padegi. Filhal assume kar raha hu
-    // ki koi Transaction model hoga jisme type:"deposit", status:"success"
-    // aur user field hoga. Model ka naam/fields bata do, main isko
-    // real query se replace kar dunga.
+    // TODO (Vikram): Deposit/Transaction model ka naam bata do to
+    // real count laga dunga. Filhal 0.
     let totalMembersFirstDeposit = 0;
-    /*
-    const depositUserIds = await Transaction.distinct("user", {
-      user: { $in: allReferredIds },
-      type: "deposit",
-      status: "success",
-    });
-    totalMembersFirstDeposit = depositUserIds.length;
-    */
 
     // ================= COMMISSION TOTALS =================
-    // TODO (Vikram): Same yahan bhi. Agar commission Commission/
-    // CommissionLog model me alag "bet" aur "recharge" type se store
-    // hoti hai to real aggregation daal dena, ya mujhe model bata do.
-    let totalBettingCommission = 0;
-    let totalRechargeCommission = 0;
-    /*
-    const commissionAgg = await Commission.aggregate([
-      { $match: { user: user._id } },
-      { $group: { _id: "$type", total: { $sum: "$amount" } } },
-    ]);
-    commissionAgg.forEach((c) => {
-      if (c._id === "betting") totalBettingCommission = c.total;
-      if (c._id === "recharge") totalRechargeCommission = c.total;
-    });
-    */
+    // Recharge commission -> referralEarning
+    // Betting commission  -> rebate
+    const totalRechargeCommission = user.referralEarning || 0;
+    const totalBettingCommission = user.rebate || 0;
 
     // ================= RECENT JOINED MEMBERS =================
     const tagLevel = (arr, level) => arr.map((u) => ({ ...u, level }));
@@ -687,7 +659,7 @@ const getProfile = async (req, res) => {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 10)
       .map((u) => ({
-        userId: u.userId, // mobile ki jagah userId (100001, 100002...)
+        userId: u.userId,
         level: u.level,
         joinedAt: u.createdAt,
       }));
@@ -741,13 +713,6 @@ const updateProfile = async (req, res) => {
     // NAME
     if (fullName !== undefined) {
       const cleanName = String(fullName).trim().toLowerCase();
-
-      if (/\s/.test(cleanName)) {
-        return res.status(400).json({
-          success: false,
-          message: "Space is not allowed in name",
-        });
-      }
 
       updateData.name = cleanName;
     }

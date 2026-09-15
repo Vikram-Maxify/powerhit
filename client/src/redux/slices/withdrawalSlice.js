@@ -1,5 +1,5 @@
 // redux/slices/withdrawalSlice.js
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { api } from "./api";
 
 // ================= ASYNC THUNKS =================
@@ -13,10 +13,10 @@ export const fetchWithdrawalSettings = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to load withdrawal settings"
+        error.response?.data?.message || "Failed to load withdrawal settings",
       );
     }
-  }
+  },
 );
 
 // @desc    Fetch withdrawal history
@@ -33,10 +33,10 @@ export const fetchWithdrawalHistory = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to load withdrawal history"
+        error.response?.data?.message || "Failed to load withdrawal history",
       );
     }
-  }
+  },
 );
 
 // @desc    Request a withdrawal
@@ -47,11 +47,15 @@ export const requestWithdrawal = createAsyncThunk(
       const response = await api.post("/withdrawals", withdrawalData);
       return response.data;
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || "Failed to process withdrawal"
-      );
+      const data = error.response?.data;
+      const detailedMessage =
+        data?.errors?.length > 0
+          ? data.errors.join(", ")
+          : data?.message || "Failed to process withdrawal";
+
+      return rejectWithValue(detailedMessage);
     }
-  }
+  },
 );
 
 // @desc    Cancel a pending withdrawal
@@ -63,10 +67,10 @@ export const cancelWithdrawal = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to cancel withdrawal"
+        error.response?.data?.message || "Failed to cancel withdrawal",
       );
     }
-  }
+  },
 );
 
 // @desc    Get withdrawal details
@@ -78,10 +82,10 @@ export const getWithdrawalDetails = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to get withdrawal details"
+        error.response?.data?.message || "Failed to get withdrawal details",
       );
     }
-  }
+  },
 );
 
 // ================= ADMIN THUNKS =================
@@ -89,7 +93,10 @@ export const getWithdrawalDetails = createAsyncThunk(
 // @desc    Get all withdrawals (admin)
 export const adminGetAllWithdrawals = createAsyncThunk(
   "withdrawal/adminGetAll",
-  async ({ page = 1, limit = 20, status = "", country = "", search = "" } = {}, { rejectWithValue }) => {
+  async (
+    { page = 1, limit = 20, status = "", country = "", search = "" } = {},
+    { rejectWithValue },
+  ) => {
     try {
       const queryParams = new URLSearchParams({
         page,
@@ -102,10 +109,10 @@ export const adminGetAllWithdrawals = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to load withdrawals"
+        error.response?.data?.message || "Failed to load withdrawals",
       );
     }
-  }
+  },
 );
 
 // @desc    Update withdrawal status (admin)
@@ -113,14 +120,17 @@ export const adminUpdateWithdrawalStatus = createAsyncThunk(
   "withdrawal/adminUpdateStatus",
   async ({ withdrawalId, statusData }, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/admin/withdrawals/${withdrawalId}`, statusData);
+      const response = await api.put(
+        `/admin/withdrawals/${withdrawalId}`,
+        statusData,
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to update withdrawal status"
+        error.response?.data?.message || "Failed to update withdrawal status",
       );
     }
-  }
+  },
 );
 
 // @desc    Get withdrawal stats (admin)
@@ -136,10 +146,10 @@ export const adminGetWithdrawalStats = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || "Failed to load withdrawal stats"
+        error.response?.data?.message || "Failed to load withdrawal stats",
       );
     }
-  }
+  },
 );
 
 // ================= INITIAL STATE =================
@@ -283,8 +293,8 @@ const withdrawalSlice = createSlice({
       .addCase(requestWithdrawal.rejected, (state, action) => {
         state.requestLoading = false;
         state.requestError = action.payload;
-        state.error = action.payload;
         state.requestSuccess = false;
+        // state.error hata diya
       })
 
       // ============ CANCEL WITHDRAWAL ============
@@ -299,7 +309,9 @@ const withdrawalSlice = createSlice({
         state.message = action.payload.message;
         // Update the withdrawal in history
         const updatedWithdrawal = action.payload.data.withdrawal;
-        const index = state.history.findIndex((w) => w._id === updatedWithdrawal._id);
+        const index = state.history.findIndex(
+          (w) => w._id === updatedWithdrawal._id,
+        );
         if (index !== -1) {
           state.history[index] = updatedWithdrawal;
         }
@@ -355,12 +367,16 @@ const withdrawalSlice = createSlice({
         state.message = action.payload.message;
         // Update the withdrawal in admin list
         const updatedWithdrawal = action.payload.data;
-        const index = state.adminWithdrawals.findIndex((w) => w._id === updatedWithdrawal._id);
+        const index = state.adminWithdrawals.findIndex(
+          (w) => w._id === updatedWithdrawal._id,
+        );
         if (index !== -1) {
           state.adminWithdrawals[index] = updatedWithdrawal;
         }
         // Also update in history if present
-        const historyIndex = state.history.findIndex((w) => w._id === updatedWithdrawal._id);
+        const historyIndex = state.history.findIndex(
+          (w) => w._id === updatedWithdrawal._id,
+        );
         if (historyIndex !== -1) {
           state.history[historyIndex] = updatedWithdrawal;
         }
@@ -403,7 +419,8 @@ export const {
 
 // Settings selectors
 export const selectWithdrawalSettings = (state) => state.withdrawal.settings;
-export const selectSettingsLoading = (state) => state.withdrawal.settingsLoading;
+export const selectSettingsLoading = (state) =>
+  state.withdrawal.settingsLoading;
 export const selectSettingsError = (state) => state.withdrawal.settingsError;
 
 // History selectors
@@ -414,13 +431,15 @@ export const selectPagination = (state) => state.withdrawal.pagination;
 export const selectSummary = (state) => state.withdrawal.summary;
 
 // Request selectors
-export const selectCurrentWithdrawal = (state) => state.withdrawal.currentWithdrawal;
+export const selectCurrentWithdrawal = (state) =>
+  state.withdrawal.currentWithdrawal;
 export const selectRequestLoading = (state) => state.withdrawal.requestLoading;
 export const selectRequestError = (state) => state.withdrawal.requestError;
 export const selectRequestSuccess = (state) => state.withdrawal.requestSuccess;
 
 // Details selectors
-export const selectWithdrawalDetails = (state) => state.withdrawal.withdrawalDetails;
+export const selectWithdrawalDetails = (state) =>
+  state.withdrawal.withdrawalDetails;
 export const selectDetailsLoading = (state) => state.withdrawal.detailsLoading;
 
 // Cancel selectors
@@ -428,11 +447,14 @@ export const selectCancelLoading = (state) => state.withdrawal.cancelLoading;
 export const selectCancelSuccess = (state) => state.withdrawal.cancelSuccess;
 
 // Admin selectors
-export const selectAdminWithdrawals = (state) => state.withdrawal.adminWithdrawals;
+export const selectAdminWithdrawals = (state) =>
+  state.withdrawal.adminWithdrawals;
 export const selectAdminLoading = (state) => state.withdrawal.adminLoading;
-export const selectAdminPagination = (state) => state.withdrawal.adminPagination;
+export const selectAdminPagination = (state) =>
+  state.withdrawal.adminPagination;
 export const selectAdminStats = (state) => state.withdrawal.adminStats;
-export const selectAdminStatsLoading = (state) => state.withdrawal.adminStatsLoading;
+export const selectAdminStatsLoading = (state) =>
+  state.withdrawal.adminStatsLoading;
 
 // Update selectors
 export const selectUpdateLoading = (state) => state.withdrawal.updateLoading;

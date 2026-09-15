@@ -233,11 +233,11 @@ const Activity = () => {
           Claim daily and win exciting rewards
         </p>
       </div>
-
       {/* ============================================= */}
       {/* Daily Claim Card - Pixel-matched, White/Gold Theme */}
       {/* ============================================= */}
-      <div className="relative bg-white rounded-2xl shadow-xl border border-amber-200 overflow-hidden mb-4 px-3 pt-4 pb-4">
+
+      <div className="relative bg-white rounded-2xl shadow-xl border border-amber-200 overflow-hidden mb-4 px-3 sm:px-4 pt-4 pb-4 w-full">
         {/* Refresh button */}
         <button
           onClick={handleRefresh}
@@ -250,93 +250,93 @@ const Activity = () => {
           />
         </button>
 
-        {/* Title row: ✦ Sparkle  7 Days Daily Claim  Sparkle ✦ */}
+        {/* Days Row - Horizontal scroll on small screens */}
+        <div className="overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1">
+          <div className="flex items-end gap-2 min-w-[560px] sm:min-w-0">
+            {rewardList.map((item) => {
+              const isCompleted = item.day < currentDay;
+              const isCurrent = item.day === currentDay && canClaim;
+              const isLocked =
+                item.day > currentDay || (item.day === currentDay && !canClaim);
+              const Icon = getDayIcon(item.day);
 
-        {/* Days Row - 7 cards, current day taller & filled gold, like reference */}
-        <div className="flex items-end gap-1.5">
-          {rewardList.map((item) => {
-            const isCompleted = item.day < currentDay;
-            const isCurrent = item.day === currentDay && canClaim;
-            const isLocked =
-              item.day > currentDay || (item.day === currentDay && !canClaim);
-            const Icon = getDayIcon(item.day);
-
-            return (
-              <div
-                key={item.day}
-                className={`flex-1 flex flex-col items-center rounded-xl border transition-all duration-300 ${
-                  isCurrent
-                    ? "bg-gradient-to-b from-amber-400 to-yellow-500 border-amber-500 shadow-lg py-4"
-                    : isCompleted
-                      ? "bg-white border-amber-400 py-2.5"
-                      : "bg-white border-dashed border-amber-300 py-2.5"
-                }`}
-              >
-                {/* Day label */}
-                <span
-                  className={`text-[9px] font-bold mb-1 ${
+              return (
+                <div
+                  key={item.day}
+                  className={`flex-1 min-w-[72px] flex flex-col items-center rounded-xl border transition-all duration-300 ${
                     isCurrent
-                      ? "text-gray-900"
+                      ? "bg-gradient-to-b from-amber-400 to-yellow-500 border-amber-500 shadow-lg py-4"
                       : isCompleted
-                        ? "text-amber-700"
-                        : "text-gray-400"
+                        ? "bg-white border-amber-400 py-2.5"
+                        : "bg-white border-dashed border-amber-300 py-2.5"
                   }`}
                 >
-                  Day {item.day}
-                </span>
+                  {/* Day label */}
+                  <span
+                    className={`text-[9px] font-bold mb-1 ${
+                      isCurrent
+                        ? "text-gray-900"
+                        : isCompleted
+                          ? "text-amber-700"
+                          : "text-gray-400"
+                    }`}
+                  >
+                    Day {item.day}
+                  </span>
 
-                {/* Icon */}
-                <div className="mb-1">
-                  {isCompleted ? (
-                    <CheckCircle size={16} className="text-amber-600" />
+                  {/* Icon */}
+                  <div className="mb-1">
+                    {isCompleted ? (
+                      <CheckCircle size={16} className="text-amber-600" />
+                    ) : (
+                      <Icon
+                        size={16}
+                        className={
+                          isCurrent
+                            ? "text-gray-900"
+                            : isLocked
+                              ? "text-amber-300"
+                              : "text-amber-500"
+                        }
+                      />
+                    )}
+                  </div>
+
+                  {/* Amount */}
+                  <span
+                    className={`text-[10px] font-black mb-1.5 ${
+                      isCurrent
+                        ? "text-gray-900"
+                        : isLocked
+                          ? "text-gray-400"
+                          : "text-gray-700"
+                    }`}
+                  >
+                    ₹{item.amount}
+                  </span>
+
+                  {/* Action */}
+                  {isCurrent ? (
+                    <button
+                      onClick={handleClaim}
+                      disabled={claimLoading}
+                      className="w-[85%] bg-amber-700 hover:bg-amber-800 text-white text-[8px] font-bold py-1 rounded-full transition-colors disabled:opacity-70"
+                    >
+                      {claimLoading ? "..." : "Claim"}
+                    </button>
+                  ) : isCompleted ? (
+                    <span className="w-[85%] text-center bg-amber-100 text-amber-700 text-[8px] font-bold py-1 rounded-full">
+                      Claimed
+                    </span>
                   ) : (
-                    <Icon
-                      size={16}
-                      className={
-                        isCurrent
-                          ? "text-gray-900"
-                          : isLocked
-                            ? "text-amber-300"
-                            : "text-amber-500"
-                      }
-                    />
+                    <span className="w-[85%] text-center border border-amber-300 text-gray-400 text-[8px] font-bold py-1 rounded-full">
+                      Locked
+                    </span>
                   )}
                 </div>
-
-                {/* Amount */}
-                <span
-                  className={`text-[10px] font-black mb-1.5 ${
-                    isCurrent
-                      ? "text-gray-900"
-                      : isLocked
-                        ? "text-gray-400"
-                        : "text-gray-700"
-                  }`}
-                >
-                  ₹{item.amount}
-                </span>
-
-                {/* Action */}
-                {isCurrent ? (
-                  <button
-                    onClick={handleClaim}
-                    disabled={claimLoading}
-                    className="w-[85%] bg-amber-700 hover:bg-amber-800 text-white text-[8px] font-bold py-1 rounded-full transition-colors disabled:opacity-70"
-                  >
-                    {claimLoading ? "..." : "Claim"}
-                  </button>
-                ) : isCompleted ? (
-                  <span className="w-[85%] text-center bg-amber-100 text-amber-700 text-[8px] font-bold py-1 rounded-full">
-                    Claimed
-                  </span>
-                ) : (
-                  <span className="w-[85%] text-center border border-amber-300 text-gray-400 text-[8px] font-bold py-1 rounded-full">
-                    Locked
-                  </span>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {/* Reset timer */}
@@ -368,6 +368,7 @@ const Activity = () => {
                 <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
                 <p className="text-red-700 font-medium text-xs">{error}</p>
               </div>
+
               <button
                 onClick={() => {
                   setShowError(false);
@@ -408,7 +409,6 @@ const Activity = () => {
           navigateTo="/matka"
         />
       </div>
-
       {/* Custom CSS for animations */}
       <style jsx>{`
         @keyframes shimmer {

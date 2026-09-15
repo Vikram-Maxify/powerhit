@@ -15,16 +15,13 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react";
+import { showErrorToast, showSuccessToast } from "../hooks/toast";
 
-import {
-  clearDepositState,
-  createDeposit,
-} from "../redux/slices/depositSlice";
+import { clearDepositState, createDeposit } from "../redux/slices/depositSlice";
 
 const DepositPayment = () => {
   const dispatch = useDispatch();
@@ -60,7 +57,10 @@ const DepositPayment = () => {
   // ---------------------------------------------------------
   useEffect(() => {
     if (!selectedMethod || !amount) {
-      toast.error("Please select a payment method and amount first");
+      showErrorToast(
+        "Missing Details",
+        "Please select a payment method and amount first",
+      );
       navigate("/deposit", { replace: true });
     }
   }, [selectedMethod, amount, navigate]);
@@ -70,8 +70,9 @@ const DepositPayment = () => {
   // ---------------------------------------------------------
   useEffect(() => {
     if (success) {
-      toast.success(
-        message || "Deposit request submitted successfully!"
+      showSuccessToast(
+        "Deposit Submitted",
+        message || "Deposit request submitted successfully!",
       );
 
       dispatch(clearDepositState());
@@ -82,16 +83,10 @@ const DepositPayment = () => {
     }
 
     if (apiError) {
-      toast.error(apiError || "Something went wrong");
+      showErrorToast("Deposit Failed", apiError || "Something went wrong");
       dispatch(clearDepositState());
     }
-  }, [
-    success,
-    apiError,
-    message,
-    dispatch,
-    navigate,
-  ]);
+  }, [success, apiError, message, dispatch, navigate]);
 
   // ---------------------------------------------------------
   // Validation
@@ -113,12 +108,7 @@ const DepositPayment = () => {
       return "Please upload a screenshot";
     }
 
-    const validTypes = [
-      "image/png",
-      "image/jpeg",
-      "image/jpg",
-      "image/webp",
-    ];
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
     if (!validTypes.includes(file.type)) {
       return "Please upload a valid image (PNG, JPG, JPEG, WEBP)";
@@ -247,14 +237,9 @@ const DepositPayment = () => {
   // ---------------------------------------------------------
   // UPI details
   // ---------------------------------------------------------
-  const upiId =
-    selectedMethod?.details?.upiId ||
-    selectedMethod?.upiId ||
-    "";
+  const upiId = selectedMethod?.details?.upiId || selectedMethod?.upiId || "";
 
-  const isUPI =
-    selectedMethod?.type?.toLowerCase() === "upi" ||
-    Boolean(upiId);
+  const isUPI = selectedMethod?.type?.toLowerCase() === "upi" || Boolean(upiId);
 
   // ---------------------------------------------------------
   // Generate UPI payment URL
@@ -268,9 +253,7 @@ const DepositPayment = () => {
 
     params.set(
       "pn",
-      selectedMethod?.details?.payeeName ||
-        selectedMethod?.title ||
-        "Payment"
+      selectedMethod?.details?.payeeName || selectedMethod?.title || "Payment",
     );
 
     if (amount) {
@@ -280,10 +263,7 @@ const DepositPayment = () => {
     params.set("cu", "INR");
 
     if (selectedMethod?.details?.transactionNote) {
-      params.set(
-        "tn",
-        selectedMethod.details.transactionNote
-      );
+      params.set("tn", selectedMethod.details.transactionNote);
     } else {
       params.set("tn", "Deposit Payment");
     }
@@ -301,9 +281,9 @@ const DepositPayment = () => {
 
     try {
       await navigator.clipboard.writeText(upiId);
-      toast.success("UPI ID copied!");
+      showSuccessToast("Copied", "UPI ID copied!");
     } catch (error) {
-      toast.error("Unable to copy UPI ID");
+      showErrorToast("Copy Failed", "Unable to copy UPI ID");
     }
   };
 
@@ -311,19 +291,15 @@ const DepositPayment = () => {
   // Copy normal detail
   // ---------------------------------------------------------
   const copyValue = async (value) => {
-    if (
-      value === null ||
-      value === undefined ||
-      typeof value === "object"
-    ) {
+    if (value === null || value === undefined || typeof value === "object") {
       return;
     }
 
     try {
       await navigator.clipboard.writeText(String(value));
-      toast.success("Copied!");
+      showSuccessToast("Copied", "Copied to clipboard!");
     } catch (error) {
-      toast.error("Unable to copy");
+      showErrorToast("Copy Failed", "Unable to copy");
     }
   };
 
@@ -333,11 +309,9 @@ const DepositPayment = () => {
   const submitHandler = (e) => {
     e.preventDefault();
 
-    const transactionError =
-      validateTransactionId(transactionId);
+    const transactionError = validateTransactionId(transactionId);
 
-    const screenshotError =
-      validateScreenshot(screenshot);
+    const screenshotError = validateScreenshot(screenshot);
 
     setTouched({
       transactionId: true,
@@ -350,27 +324,21 @@ const DepositPayment = () => {
     });
 
     if (transactionError || screenshotError) {
-      toast.error("Please fix all errors before submitting");
+      showErrorToast(
+        "Incomplete Form",
+        "Please fix all errors before submitting",
+      );
       return;
     }
 
     const form = new FormData();
 
     form.append("amount", amount);
-    form.append(
-      "transactionId",
-      transactionId.trim()
-    );
+    form.append("transactionId", transactionId.trim());
 
-    form.append(
-      "methodType",
-      selectedMethod?.type || ""
-    );
+    form.append("methodType", selectedMethod?.type || "");
 
-    form.append(
-      "methodTitle",
-      selectedMethod?.title || ""
-    );
+    form.append("methodTitle", selectedMethod?.title || "");
 
     form.append("screenshot", screenshot);
 
@@ -390,17 +358,17 @@ const DepositPayment = () => {
   // Hide "qr" because we generate QR ourselves.
   // Hide "upiId" here because it gets a dedicated section.
   // ---------------------------------------------------------
-  const paymentDetails = Object.entries(
-    selectedMethod.details || {}
-  ).filter(([key]) => {
-    const normalizedKey = key.toLowerCase();
+  const paymentDetails = Object.entries(selectedMethod.details || {}).filter(
+    ([key]) => {
+      const normalizedKey = key.toLowerCase();
 
-    return (
-      normalizedKey !== "qr" &&
-      normalizedKey !== "upiid" &&
-      normalizedKey !== "upivpa"
-    );
-  });
+      return (
+        normalizedKey !== "qr" &&
+        normalizedKey !== "upiid" &&
+        normalizedKey !== "upivpa"
+      );
+    },
+  );
 
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-amber-50/50 via-white to-white overflow-hidden">
@@ -413,7 +381,6 @@ const DepositPayment = () => {
 
       <div className="relative px-4 sm:px-6 py-6">
         <div className="max-w-md w-full mx-auto">
-
           {/* Back */}
           <button
             type="button"
@@ -449,8 +416,7 @@ const DepositPayment = () => {
               </span>
 
               <span className="text-xl font-bold text-gray-900">
-                ₹
-                {Number(amount).toLocaleString("en-IN")}
+                ₹{Number(amount).toLocaleString("en-IN")}
               </span>
             </div>
 
@@ -468,7 +434,6 @@ const DepositPayment = () => {
           ================================================= */}
           {isUPI && upiId && (
             <div className="mb-5 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100 p-5">
-
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -488,14 +453,12 @@ const DepositPayment = () => {
               {/* QR */}
               <div className="flex justify-center">
                 <div className="p-4 bg-white rounded-2xl border border-gray-200 shadow-sm">
-
                   <QRCodeSVG
                     value={upiPaymentUrl}
                     size={220}
                     level="H"
                     includeMargin={true}
                   />
-
                 </div>
               </div>
 
@@ -506,16 +469,13 @@ const DepositPayment = () => {
                 </p>
 
                 <p className="text-2xl font-bold text-gray-900 mt-0.5">
-                  ₹
-                  {Number(amount).toLocaleString("en-IN")}
+                  ₹{Number(amount).toLocaleString("en-IN")}
                 </p>
               </div>
 
               {/* UPI ID */}
               <div className="mt-4 bg-gray-50/70 rounded-xl border border-gray-100 p-3">
-
                 <div className="flex items-center justify-between gap-2">
-
                   <div className="min-w-0">
                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
                       UPI ID
@@ -534,14 +494,12 @@ const DepositPayment = () => {
                   >
                     <Copy className="w-3.5 h-3.5 text-gray-500" />
                   </button>
-
                 </div>
-
               </div>
 
               <p className="text-[10px] text-gray-400 text-center mt-3">
-                Open Google Pay, PhonePe, Paytm or another UPI app
-                and scan the QR code.
+                Open Google Pay, PhonePe, Paytm or another UPI app and scan the
+                QR code.
               </p>
             </div>
           )}
@@ -549,22 +507,16 @@ const DepositPayment = () => {
           {/* =================================================
               PAYMENT DETAILS
           ================================================= */}
-          {(paymentDetails.length > 0 || (!isUPI && selectedMethod.details)) && (
+          {(paymentDetails.length > 0 ||
+            (!isUPI && selectedMethod.details)) && (
             <div className="mb-5 bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100 p-5">
-
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3.5">
                 Payment Details
               </h3>
 
               <div className="space-y-2.5">
-
                 {paymentDetails.map(([key, value]) => {
-
-                  if (
-                    value === null ||
-                    value === undefined ||
-                    value === ""
-                  ) {
+                  if (value === null || value === undefined || value === "") {
                     return null;
                   }
 
@@ -578,13 +530,10 @@ const DepositPayment = () => {
                       key={key}
                       className="bg-gray-50/70 px-3.5 py-2.5 rounded-xl border border-gray-100 flex items-center gap-2 overflow-hidden"
                     >
-
                       <span className="text-[11px] font-medium text-gray-400 capitalize whitespace-nowrap min-w-[64px]">
                         {key
                           .replace(/([A-Z])/g, " $1")
-                          .replace(/^./, (str) =>
-                            str.toUpperCase()
-                          )}
+                          .replace(/^./, (str) => str.toUpperCase())}
                       </span>
 
                       <span className="flex-1 text-xs text-gray-800 font-medium truncate">
@@ -594,17 +543,13 @@ const DepositPayment = () => {
                       <button
                         type="button"
                         className="p-1.5 rounded-md bg-white border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition"
-                        onClick={() =>
-                          copyValue(value)
-                        }
+                        onClick={() => copyValue(value)}
                       >
                         <Copy className="w-3 h-3 text-gray-500" />
                       </button>
-
                     </div>
                   );
                 })}
-
               </div>
             </div>
           )}
@@ -616,26 +561,22 @@ const DepositPayment = () => {
             onSubmit={submitHandler}
             className="bg-white rounded-2xl border border-gray-100 shadow-sm shadow-gray-100 p-5"
           >
-
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">
               Confirm Payment
             </h3>
 
             {/* Transaction ID */}
             <div>
-
               <label className="flex items-center gap-1 text-xs font-medium text-gray-600 mb-1.5">
                 <FileText className="w-3 h-3 text-amber-500" />
                 Transaction ID
               </label>
 
               <div className="relative">
-
                 <input
                   type="text"
                   className={`w-full rounded-xl border p-3 text-sm text-gray-800 bg-gray-50/60 transition focus:outline-none focus:ring-2 ${
-                    touched.transactionId &&
-                    errors.transactionId
+                    touched.transactionId && errors.transactionId
                       ? "border-red-300 focus:ring-red-100 bg-red-50/40"
                       : touched.transactionId &&
                           !errors.transactionId &&
@@ -645,9 +586,7 @@ const DepositPayment = () => {
                   }`}
                   value={transactionId}
                   onChange={handleTransactionIdChange}
-                  onBlur={() =>
-                    handleBlur("transactionId")
-                  }
+                  onBlur={() => handleBlur("transactionId")}
                   placeholder="e.g. TRX-12345"
                 />
 
@@ -657,48 +596,38 @@ const DepositPayment = () => {
                     <CheckCircle2 className="w-4 h-4 text-green-500 absolute right-3 top-1/2 -translate-y-1/2" />
                   )}
 
-                {touched.transactionId &&
-                  errors.transactionId && (
-                    <XCircle className="w-4 h-4 text-red-500 absolute right-3 top-1/2 -translate-y-1/2" />
-                  )}
-
+                {touched.transactionId && errors.transactionId && (
+                  <XCircle className="w-4 h-4 text-red-500 absolute right-3 top-1/2 -translate-y-1/2" />
+                )}
               </div>
 
-              {touched.transactionId &&
-                errors.transactionId && (
-                  <p className="mt-1.5 text-[11px] text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.transactionId}
-                  </p>
-                )}
-
+              {touched.transactionId && errors.transactionId && (
+                <p className="mt-1.5 text-[11px] text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.transactionId}
+                </p>
+              )}
             </div>
 
             {/* Screenshot */}
             <div className="mt-5">
-
               <label className="flex items-center gap-1 text-xs font-medium text-gray-600 mb-1.5">
                 <ImageIcon className="w-3 h-3 text-amber-500" />
                 Upload Screenshot
               </label>
 
               <div className="relative">
-
                 <div
                   className={`rounded-xl px-4 py-5 text-center border border-dashed transition ${
-                    touched.screenshot &&
-                    errors.screenshot
+                    touched.screenshot && errors.screenshot
                       ? "border-red-300 bg-red-50/30"
-                      : touched.screenshot &&
-                          preview
+                      : touched.screenshot && preview
                         ? "border-green-300 bg-green-50/30"
                         : "border-gray-200 hover:border-amber-300 bg-gray-50/40"
                   }`}
                 >
-
                   {preview ? (
                     <div className="flex items-center gap-3">
-
                       <img
                         src={preview}
                         alt="Payment screenshot preview"
@@ -706,7 +635,6 @@ const DepositPayment = () => {
                       />
 
                       <div className="flex-1 text-left">
-
                         <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Uploaded
@@ -719,9 +647,7 @@ const DepositPayment = () => {
                         >
                           Remove & re-upload
                         </button>
-
                       </div>
-
                     </div>
                   ) : (
                     <>
@@ -743,19 +669,15 @@ const DepositPayment = () => {
                     onChange={handleImage}
                     accept="image/png,image/jpeg,image/jpg,image/webp"
                   />
-
                 </div>
-
               </div>
 
-              {touched.screenshot &&
-                errors.screenshot && (
-                  <p className="mt-1.5 text-[11px] text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.screenshot}
-                  </p>
-                )}
-
+              {touched.screenshot && errors.screenshot && (
+                <p className="mt-1.5 text-[11px] text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.screenshot}
+                </p>
+              )}
             </div>
 
             {/* Submit */}
@@ -768,7 +690,6 @@ const DepositPayment = () => {
                   : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-md shadow-amber-200 active:scale-[0.98]"
               }`}
             >
-
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -780,15 +701,12 @@ const DepositPayment = () => {
                   Confirm Payment
                 </>
               )}
-
             </button>
 
             <p className="text-[10px] text-gray-400 mt-3 text-center">
               By submitting you agree to our deposit terms and conditions
             </p>
-
           </form>
-
         </div>
       </div>
     </div>

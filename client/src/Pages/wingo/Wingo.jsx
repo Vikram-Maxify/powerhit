@@ -346,11 +346,11 @@ const Wingo = () => {
 
   const getBetClass = (bet) => {
     const map = {
-      x: "bgs-green",
-      d: "bgs-red-200",
-      t: "bgs-violet",
-      l: "color-yellow-bg-200",
-      n: "bgs-blue-500",
+      x: "text-green",
+      d: "text-red-200",
+      t: "text-violet-200",
+      l: "text-yellow-200",
+      n: "text-blue-500",
     };
     if (map[bet]) return map[bet];
     const num = Number(bet);
@@ -1463,13 +1463,13 @@ const Wingo = () => {
             </div>
           </div>
           <div className="container2 mt-3 max-w-full overflow-x-auto rounded-xl border border-[#d9aa3d]/25 bg-[#fffaf0] p-2">
-            <ul id="trendList" className="relative min-w-[430px] space-y-1">
+            <ul id="trendList" className="relative space-y-1">
               {(wingoPeriodListData?.data?.gameslist || []).map((item, i) => (
                 <li
                   key={i}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-[#d9aa3d]/15 bg-white px-2 py-1.5"
+                  className="flex items-center gap-2 rounded-lg border border-[#d9aa3d]/15 bg-white px-2"
                 >
-                  <span className="w-16 shrink-0 text-[9px] font-bold text-[#8c7754]">
+                  <span className="w-20 shrink-0 text-[12px] ml-3 font-bold text-[#8c7754]">
                     {item.period}
                   </span>
                   <div className="sec flex gap-1">
@@ -1487,7 +1487,7 @@ const Wingo = () => {
                     ))}
                   </div>
                   <span
-                    className={`third shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${
+                    className={`third shrink-0 rounded-full px-2 py-1 text-[13px] ml-3 font-black ${
                       item.amount > 4
                         ? "bg-[#fff0bd] text-[#9a6a0d]"
                         : "bg-[#f0eadf] text-[#78644a]"

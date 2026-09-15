@@ -6,54 +6,10 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getProfile } from "../../redux/slices/authSlice"; // path apne project ke hisaab se adjust kar lena
 import MemberStatCard from "./MemberStatCard";
-
-const stats = [
-  {
-    icon: Users,
-    iconColor: "text-violet-500",
-    label: "Total Members\nJoined",
-    value: "1,246",
-  },
-  {
-    icon: UserPlus,
-    iconColor: "text-blue-500",
-    label: "Total Members\nFirst Deposit",
-    value: "856",
-  },
-  {
-    icon: Users,
-    iconColor: "text-green-500",
-    label: "1st Level Members",
-    value: "642",
-  },
-  {
-    icon: Users,
-    iconColor: "text-orange-500",
-    label: "2nd Level Members",
-    value: "398",
-  },
-  {
-    icon: Users,
-    iconColor: "text-pink-500",
-    label: "3rd Level Members",
-    value: "206",
-  },
-  {
-    icon: Trophy,
-    iconColor: "text-amber-500",
-    label: "Total Betting\nCommission",
-    value: "₹45,780",
-  },
-];
-
-const recentMembers = [
-  { phone: "+91 98765 43210", level: 1, time: "10 min ago" },
-  { phone: "+91 87654 32109", level: 2, time: "25 min ago" },
-  { phone: "+91 76543 21098", level: 1, time: "45 min ago" },
-  { phone: "+91 65432 10987", level: 3, time: "1 hour ago" },
-  { phone: "+91 54321 09876", level: 2, time: "2 hour ago" },
-];
 
 const levelBadge = {
   1: "border-amber-400 text-amber-500",
@@ -61,7 +17,73 @@ const levelBadge = {
   3: "border-amber-400 text-amber-500",
 };
 
+// ================= DATE FORMAT HELPER =================
+const formatDateTime = (dateString) => {
+  const date = new Date(dateString);
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const formatAmount = (value) =>
+  `₹${Number(value || 0).toLocaleString("en-IN")}`;
+
 const JoinedMembers = () => {
+  const dispatch = useDispatch();
+  const { referralStats, recentJoinedMembers, profileLoaded } = useSelector(
+    (state) => state.auth,
+  );
+
+  useEffect(() => {
+    if (!profileLoaded) {
+      dispatch(getProfile());
+    }
+  }, [dispatch, profileLoaded]);
+
+  const stats = [
+    {
+      icon: Users,
+      iconColor: "text-violet-500",
+      label: "Total Members\nJoined",
+      value: referralStats?.totalMembersJoined ?? 0,
+    },
+    {
+      icon: UserPlus,
+      iconColor: "text-blue-500",
+      label: "Total Members\nFirst Deposit",
+      value: referralStats?.totalMembersFirstDeposit ?? 0,
+    },
+    {
+      icon: Users,
+      iconColor: "text-green-500",
+      label: "1st Level Members",
+      value: referralStats?.level1Count ?? 0,
+    },
+    {
+      icon: Users,
+      iconColor: "text-orange-500",
+      label: "2nd Level Members",
+      value: referralStats?.level2Count ?? 0,
+    },
+    {
+      icon: Users,
+      iconColor: "text-pink-500",
+      label: "3rd Level Members",
+      value: referralStats?.level3Count ?? 0,
+    },
+    {
+      icon: Trophy,
+      iconColor: "text-amber-500",
+      label: "Total Betting\nCommission",
+      value: formatAmount(referralStats?.totalBettingCommission),
+    },
+  ];
+
   return (
     <div className="space-y-5">
       <h2 className="text-lg font-black text-amber-500 tracking-wide">
@@ -77,7 +99,7 @@ const JoinedMembers = () => {
           icon={Wallet}
           iconColor="text-green-500"
           label="Total Recharge Commission"
-          value="₹78,320"
+          value={formatAmount(referralStats?.referralEarning)}
           fullWidth
         />
       </div>
@@ -92,23 +114,27 @@ const JoinedMembers = () => {
         </div>
 
         <div className="space-y-4">
-          {recentMembers.map((m, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-800">
-                {m.phone}
-              </span>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${levelBadge[m.level]}`}
-                >
-                  Level {m.level}
+          {recentJoinedMembers?.length ? (
+            recentJoinedMembers.map((m) => (
+              <div key={m.userId} className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-800">
+                  ID: {m.userId}
                 </span>
-                <span className="text-xs text-gray-400 w-16 text-right">
-                  {m.time}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${levelBadge[m.level]}`}
+                  >
+                    Level {m.level}
+                  </span>
+                  <span className="text-xs text-gray-400 w-16 text-right">
+                    {formatDateTime(m.joinedAt)}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-sm text-gray-400">No members joined yet.</p>
+          )}
         </div>
       </div>
 
@@ -123,14 +149,18 @@ const JoinedMembers = () => {
             <span className="text-sm text-gray-600">
               Total Betting Commission
             </span>
-            <span className="text-sm font-black text-gray-900">₹45,780</span>
+            <span className="text-sm font-black text-gray-900">
+              {formatAmount(referralStats?.totalBettingCommission)}
+            </span>
           </div>
           <div className="h-px bg-gray-100" />
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">
               Total Recharge Commission
             </span>
-            <span className="text-sm font-black text-gray-900">₹78,320</span>
+            <span className="text-sm font-black text-gray-900">
+              {formatAmount(referralStats?.totalRechargeCommission)}
+            </span>
           </div>
         </div>
       </div>

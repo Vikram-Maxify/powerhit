@@ -8,7 +8,6 @@ import { api } from "./api";
 export const register = createAsyncThunk(
   "auth/register",
   async (userData, { rejectWithValue }) => {
-
     try {
       const { data } = await api.post(`/auth/register`, userData);
       return data;
@@ -141,10 +140,12 @@ const initialState = {
   error: null,
   message: "",
   user: null,
+  referralStats: null, // ADDED
+  recentJoinedMembers: [], // ADDED
   token: localStorage.getItem("powerhit") || null,
   isAuthenticated: !!localStorage.getItem("powerhit"),
   profileLoaded: false,
-  isProfileLoading: false, // ADDED: Prevents duplicate requests
+  isProfileLoading: false,
 };
 
 // ================= SLICE =================
@@ -167,13 +168,14 @@ const authSlice = createSlice({
       state.profileLoaded = false;
     },
 
-    // ADDED: Reset auth state (useful for testing)
     resetAuthState: (state) => {
       state.loading = false;
       state.success = false;
       state.error = null;
       state.message = "";
       state.user = null;
+      state.referralStats = null; // ADDED
+      state.recentJoinedMembers = []; // ADDED
       state.token = null;
       state.isAuthenticated = false;
       state.profileLoaded = false;
@@ -245,6 +247,8 @@ const authSlice = createSlice({
         state.loading = false;
         state.isProfileLoading = false;
         state.user = action.payload.user;
+        state.referralStats = action.payload.referralStats; // ADDED
+        state.recentJoinedMembers = action.payload.recentJoinedMembers; // ADDED
         state.profileLoaded = true;
         state.error = null;
       })
@@ -252,9 +256,8 @@ const authSlice = createSlice({
         state.loading = false;
         state.isProfileLoading = false;
         state.error = action.payload;
-        state.profileLoaded = true; // Mark as loaded even on error
+        state.profileLoaded = true;
 
-        // If unauthorized, clear token and logout
         const errorMessage = action.payload?.toLowerCase() || "";
         if (
           errorMessage.includes("unauthorized") ||
@@ -315,6 +318,8 @@ const authSlice = createSlice({
       .addCase(logout.fulfilled, (state, action) => {
         state.loading = false;
         state.user = null;
+        state.referralStats = null; // ADDED
+        state.recentJoinedMembers = []; // ADDED
         state.token = null;
         state.isAuthenticated = false;
         state.message = action.payload.message;
@@ -327,8 +332,9 @@ const authSlice = createSlice({
       .addCase(logout.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        // Still clear local storage even if API fails
         state.user = null;
+        state.referralStats = null; // ADDED
+        state.recentJoinedMembers = []; // ADDED
         state.token = null;
         state.isAuthenticated = false;
         state.profileLoaded = false;

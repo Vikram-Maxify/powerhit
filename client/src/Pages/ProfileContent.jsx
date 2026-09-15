@@ -209,13 +209,13 @@ export default function ProfileContent({
   const stats = [
     {
       title: "Available Balance",
-      value: formatCurrency(user?.balance?.local || 0),
+      value: formatCurrency(user?.balance || 0),
       icon: WalletCards,
       color: "text-amber-500",
     },
     {
       title: "Wallet Balance",
-      value: formatCurrency(user?.balance?.local || 0),
+      value: formatCurrency(user?.balance || 0),
       icon: Wallet,
       color: "text-green-600",
     },
@@ -575,8 +575,8 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] r
                 {user?.name || "User"}
               </h2>
 
-              <p className="text-black/80 text-xs sm:text-sm truncate">
-                @{user?._id?.slice(-8) || "N/A"}
+              <p className="text-black/80 text-sm truncate">
+                UID: WINZOX{user?.userId || "N/A"}
               </p>
 
               <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -584,14 +584,6 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] r
 
                 <span className="text-black/90 text-xs sm:text-sm font-medium">
                   {user?.status === "blocked" ? "Blocked" : "Active"}
-                </span>
-
-                <span className="text-black/90 text-xs sm:text-sm font-medium">
-                  •
-                </span>
-
-                <span className="text-black/90 text-xs sm:text-sm font-medium">
-                  Silver Member
                 </span>
               </div>
             </div>

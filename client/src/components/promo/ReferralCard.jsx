@@ -1,6 +1,5 @@
 import { Copy } from "lucide-react";
 import { useSelector } from "react-redux";
-import SocialShare from "./SocialShare";
 
 const ReferralCard = () => {
   const { user } = useSelector((state) => state.auth);
@@ -59,13 +58,13 @@ shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),0_2px_7px_rgba(210,145,0,0.45)] p
         </button>
       </div>
 
-      <div className="my-5 flex items-center gap-3">
+      {/* <div className="my-5 flex items-center gap-3">
         <div className="h-px flex-1 bg-gray-200" />
         <span className="text-xs text-gray-400 font-medium">or share via</span>
         <div className="h-px flex-1 bg-gray-200" />
-      </div>
+      </div> */}
 
-      <SocialShare />
+      {/* <SocialShare /> */}
     </div>
   );
 };
