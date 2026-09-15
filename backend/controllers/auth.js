@@ -472,9 +472,7 @@ const register = async (req, res) => {
 
       let message = "Duplicate field";
 
-      if (field === "name") {
-        message = "Username already taken";
-      } else if (field === "email") {
+      if (field === "email") {
         message = "Email already registered";
       } else if (field === "mobile") {
         message = "Mobile number already registered";
