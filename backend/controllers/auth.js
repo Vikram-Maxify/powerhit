@@ -4,9 +4,7 @@ const crypto = require("crypto");
 
 const User = require("../models/authmodel");
 
-const {
-  sendResetPasswordOTP,
-} = require("../utils/mailer.js");
+const { sendResetPasswordOTP } = require("../utils/mailer.js");
 
 const uploadToImgBB = require("../utils/uploadToImgBB");
 
@@ -28,7 +26,9 @@ const COUNTRY_CONFIG = {
 // ======================================================
 
 const normalizeCountry = (country) => {
-  const value = String(country || "").trim().toLowerCase();
+  const value = String(country || "")
+    .trim()
+    .toLowerCase();
 
   const aliases = {
     india: "india",
@@ -163,7 +163,7 @@ const generateToken = (user) => {
       role: user.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "7d" },
   );
 };
 
@@ -184,10 +184,10 @@ const isProduction = process.env.NODE_ENV === "production";
 const getCookieOptions = () => {
   const options = {
     httpOnly: true,
-    secure: isProduction,                    // HTTPS pe true
+    secure: isProduction, // HTTPS pe true
     sameSite: isProduction ? "none" : "lax", // cross-site ke liye none
     path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000,         // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   };
 
   // Domain sirf production mein — warna localhost pe cookie store nahi hogi
@@ -213,8 +213,6 @@ const setAuthCookie = (res, token, role) => {
   const clearOptions = { ...options };
   delete clearOptions.maxAge;
   res.clearCookie("token", clearOptions);
-
-
 };
 
 // ======================================================
@@ -358,9 +356,7 @@ const register = async (req, res) => {
       .select("userId")
       .lean();
 
-    const userId = lastUser?.userId
-      ? Number(lastUser.userId) + 1
-      : 100001;
+    const userId = lastUser?.userId ? Number(lastUser.userId) + 1 : 100001;
 
     // CREATE USER
     const user = await User.create({
@@ -531,6 +527,10 @@ const login = async (req, res) => {
 // GET PROFILE
 // ======================================================
 
+// ======================================================
+// GET PROFILE (with referral stats)
+// ======================================================
+
 const getProfile = async (req, res) => {
   try {
     const mongoId = req.user?._id || req.user?.id;
@@ -553,6 +553,85 @@ const getProfile = async (req, res) => {
       });
     }
 
+    // ================= LEVEL WISE REFERRALS =================
+    const level1Users = await User.find({ referredByUser: user._id })
+      .select("_id userId mobile createdAt")
+      .lean();
+
+    const level1Ids = level1Users.map((u) => u._id);
+
+    const level2Users = level1Ids.length
+      ? await User.find({ referredByUser: { $in: level1Ids } })
+          .select("_id userId mobile createdAt")
+          .lean()
+      : [];
+
+    const level2Ids = level2Users.map((u) => u._id);
+
+    const level3Users = level2Ids.length
+      ? await User.find({ referredByUser: { $in: level2Ids } })
+          .select("_id userId mobile createdAt")
+          .lean()
+      : [];
+
+    const totalMembersJoined =
+      level1Users.length + level2Users.length + level3Users.length;
+
+    const allReferredIds = [
+      ...level1Ids,
+      ...level2Ids,
+      ...level3Users.map((u) => u._id),
+    ];
+
+    // ================= FIRST DEPOSIT COUNT =================
+    // TODO (Vikram): Ye query tumhare actual Transaction/Deposit
+    // model ke hisaab se badalni padegi. Filhal assume kar raha hu
+    // ki koi Transaction model hoga jisme type:"deposit", status:"success"
+    // aur user field hoga. Model ka naam/fields bata do, main isko
+    // real query se replace kar dunga.
+    let totalMembersFirstDeposit = 0;
+    /*
+    const depositUserIds = await Transaction.distinct("user", {
+      user: { $in: allReferredIds },
+      type: "deposit",
+      status: "success",
+    });
+    totalMembersFirstDeposit = depositUserIds.length;
+    */
+
+    // ================= COMMISSION TOTALS =================
+    // TODO (Vikram): Same yahan bhi. Agar commission Commission/
+    // CommissionLog model me alag "bet" aur "recharge" type se store
+    // hoti hai to real aggregation daal dena, ya mujhe model bata do.
+    let totalBettingCommission = 0;
+    let totalRechargeCommission = 0;
+    /*
+    const commissionAgg = await Commission.aggregate([
+      { $match: { user: user._id } },
+      { $group: { _id: "$type", total: { $sum: "$amount" } } },
+    ]);
+    commissionAgg.forEach((c) => {
+      if (c._id === "betting") totalBettingCommission = c.total;
+      if (c._id === "recharge") totalRechargeCommission = c.total;
+    });
+    */
+
+    // ================= RECENT JOINED MEMBERS =================
+    const tagLevel = (arr, level) => arr.map((u) => ({ ...u, level }));
+
+    const recentJoinedMembers = [
+      ...tagLevel(level1Users, 1),
+      ...tagLevel(level2Users, 2),
+      ...tagLevel(level3Users, 3),
+    ]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10)
+      .map((u) => ({
+        userId: u.userId, // mobile ki jagah userId (100001, 100002...)
+        level: u.level,
+        joinedAt: u.createdAt,
+      }));
+
     return res.status(200).json({
       success: true,
       user: {
@@ -560,6 +639,16 @@ const getProfile = async (req, res) => {
         balance: user.balance,
         country: user.country || null,
       },
+      referralStats: {
+        totalMembersJoined,
+        totalMembersFirstDeposit,
+        level1Count: level1Users.length,
+        level2Count: level2Users.length,
+        level3Count: level3Users.length,
+        totalBettingCommission,
+        totalRechargeCommission,
+      },
+      recentJoinedMembers,
     });
   } catch (error) {
     console.error("GET PROFILE ERROR:", error);
@@ -646,7 +735,7 @@ const updateProfile = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       mongoId,
       { $set: updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).select("-password -plainPassword");
 
     if (!updatedUser) {
